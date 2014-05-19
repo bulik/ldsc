@@ -21,12 +21,12 @@ Required
 	result in a ValueError being raised).
 (2) CM -- genetic position (centimorgans). Set to zero by default. 
 (3) BP -- physical position (base pairs).
-(4) CHISQ or P -- GWAS summary statistic. ldsc.py will automatically convert P-values to
+(4) N -- sample size (which may vary from SNP to SNP).
+(5) CHISQ or P -- GWAS summary statistic. ldsc.py will automatically convert P-values to
 	chi-square statistics. The advantage of using chi-square statistics is that many 
 	statistical software packages have limited ability to deal with very low p-values (e.g.,
 	will report all P-values less than 10e-303 as 0, which will result in ldsc.py raising
 	a ValueError).
-(5) N -- sample size (which may vary from SNP to SNP).
 
 Optional
 (6) INFO -- imputation quality (for use with the --info-min and --info-max flags)
@@ -48,16 +48,16 @@ Required
 (3) BP -- physical position (base pairs).
 (4) A1 -- reference allele.
 (5) A2 -- non-reference allele.
-(6) CHISQ1 or P1 -- GWAS summary statistic for study 1. ldsc.py will automatically convert 
+(6) N1 -- sample size in study 1 (which may vary from SNP to SNP).
+(7) CHISQ1 or P1 -- GWAS summary statistic for study 1. ldsc.py will automatically convert 
 	P-values to signed betahats. The advantage of using chi-square statistics is that many 
 	statistical software packages have limited ability to deal with very low p-values (e.g.,
 	will report all P-values less than 10e-303 as 0, which will result in ldsc.py raising
 	a ValueError).
-(7) DIR1 -- direction of effect of allele A1 for study 1, either 1 or -1.
-(8) N1 -- sample size in study 1 (which may vary from SNP to SNP).
-(9) CHISQ2 or P2 -- GWAS summary statistic for study 2.
-(10) DIR2 -- direction of effect of allele A1 for study 2, either 1 or -1.
-(11) N2 -- sample size in study 2 (which may vary from SNP to SNP).
+(8) DIR1 -- direction of effect of allele A1 for study 1, either 1 or -1.
+(9) N2 -- sample size in study 2 (which may vary from SNP to SNP).
+(10) CHISQ2 or P2 -- GWAS summary statistic for study 2.
+(11) DIR2 -- direction of effect of allele A1 for study 2, either 1 or -1.
 
 Optional
 (12) INFO1 -- imputation quality in study 1 (for use with the --info-min and --info-max flags)
