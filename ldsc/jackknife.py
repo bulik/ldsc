@@ -244,7 +244,7 @@ def gencor_weights(M, ldScores, N1, N2, No, h1, h2, rho_g, rho):
 	b = h2*ldScores / M + (1-h2) / N2
 	c = rho_g*ldScores/M + No*rho/(N1*N1)
 	weights = a*b + 2*c**2
-	return weights
+	return 1/weights
 	
 
 def ldscore_reg(y, ldScores, weights=None, block_size=1000):

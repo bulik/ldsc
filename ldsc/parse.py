@@ -185,7 +185,9 @@ def betaprod(fh):
 def ldscore(fh):
 	fname = fh + '.l2.ldscore'
 	x = pd.read_csv(fname, header=0, delim_whitespace=True)
+	x.drop(['CHR','BP','CM','MAF'],axis=1)
 	check_rsid(x['SNP']) 
+	x.ix[1:len(x.columns)] = x.ix[1:len(x.columns)].astype(float)
 	return x
 
 
@@ -193,9 +195,14 @@ def ldscore22(fh):
 	chr_ld = []
 	for i in xrange(23):
 		chr_fh = fh + '.' + str(i)
-		chr_ld.append(ldscore(chr_fh))
+		x = pd.read_csv(fname, header=0, delim_whitespace=True)
+		x.drop(['CHR','BP','CM','MAF'],axis=1)
+		chr_ld.append(x)
 		
-	return np.c_(chr_ld)
+	x = pd.concat(chr_ld)
+	x.ix[1:len(x.columns)] = x.ix[1:len(x.columns)].astype(float)
+	check_rsid(x['SNP']) # in case there are duplicated rs#'s on different chromosomes
+	return x
 	
 	
 def M(fh):

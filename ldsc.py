@@ -175,7 +175,7 @@ def ldscore(args):
 	if num_annots == 1:
 		print >> fout_M, geno_array.m
 	else:
-		M = np.sum(annot_matrix, axis=0)
+		M = np.squeeze(np.sum(annot_matrix, axis=0))
 		print >> fout_M, '\t'.join(map(str,M))
 
 	fout_M.close()
@@ -183,8 +183,8 @@ def ldscore(args):
 def sumstats(args):
 	
 	# open output files
-	out_fh = open(args.out + ".ldscore.reg", 'w')
-	log_fh = open(args.out + ".log", 'w')
+	out_fh = open(args.out + ".ldscore.reg", 'wb')
+	log_fh = open(args.out + ".log", 'wb')
 		
 	# read .chisq or betaprod
 	if args.sumstats_h2:
