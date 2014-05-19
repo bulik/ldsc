@@ -1,23 +1,27 @@
-LD Score
-=======
+LDSC (LD SCore) v 0.00001
+======================
 
-LD Score Estimation
-
-1. a 
-2. b
-3. c
-
-* 2
-* 3
-* 4
-___________________
-
-GWAS Simulation
-_______________
-
-Estimation of Heritability and Partitioned Heritability from Summary Statistics
-________________
+(Warning: under very active development)
 
 
-Estimation of Genetic Correlation from Summary Statistics
-_______________
+What is LD Score?
+--------------
+
+LD Score is a measure of the amount of linkage disequilibrium (LD) around a SNP. 
+LD Score allows one to properly take LD into account when attempting to make 
+inferences about the genetic architecture of complex disease using GWAS summary 
+statistics.
+
+What can I do with LDSC?
+---------------------
+
+1. Estimate LD Score (and other, more exotic moments of the genotype distribution).
+2. Estimate heritability from GWAS summary statistics.
+3. Estimate partitioned heritability from GWAS summary statistcs.
+4. Estimate genetic covariance / correlation from GWAS summary statistics.
+
+
+Installation
+-----------
+
+(work in progress)
