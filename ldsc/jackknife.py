@@ -18,7 +18,7 @@ def obs_to_liab(h2_obs, P, K):
 		
 	Returns
 	-------
-	(h2_liab, se_liab) : (float, float)
+	h2_liab : float
 		Heritability of liability in the population and standard error.
 		
 	'''
@@ -122,11 +122,15 @@ class LstsqJackknife(object):
 		self.block_vals = self.__compute_block_vals__(x, y, block_size)
 		self.est = self.__block_vals_to_est__(self.block_vals)
 		self.pseudovalues = self.__block_vals_to_pseudovals__(self.block_vals, self.est)
+		(self.jknife_est, self.jknife_val, self.jknife_se, self.jknife_cov) = 
+			self.__jknife__(self.psuedovalues)
 		
-		self.jknife_est = np.mean(self.pseudovalues, axis=0) 
-		self.jknife_var = np.var(self.pseudovalues, axis=0) / (self.num_blocks - 1) 
-		self.jknife_se = np.std(self.pseudovalues, axis=0) / np.sqrt(self.num_blocks - 1)
-		self.jknife_cov = np.cov(self.pseudovalues.T) / (self.num_blocks - 1)
+	def __jknife__(self.pseudovalues) 
+		jknife_est = np.mean(self.pseudovalues, axis=0) 
+		jknife_var = np.var(self.pseudovalues, axis=0) / (self.num_blocks - 1) 
+		jknife_se = np.std(self.pseudovalues, axis=0) / np.sqrt(self.num_blocks - 1)
+		jknife_cov = np.cov(self.pseudovalues.T) / (self.num_blocks - 1)
+		return (jknife_est, jknife_var, jknife_se, jknife_cov)
 
 	def __compute_block_vals__(self, x, y, block_size):
 		xty_block_vals = []; xtx_block_vals = []
@@ -175,6 +179,53 @@ class LstsqJackknife(object):
 
 	def autocor(self, lag):
 		return self.autocov(lag) / self.jknife_se
+		
+
+class GenCorJackknife(LstsqJackknife):
+	'''
+	Block jackknife class for genetic correlation estimation.
+	
+	Inherits from LstsqJackknife, but only for the autorcor, autocov and __jknife__ methods. 
+	'''
+
+	def __init__(self, betahat1, betahat2, N1, N2, N_overlap, block_size):
+		
+		# jackknife both h2's ### MAKE THIS A FUNCTION ### replace everything with N * LD Score
+		y = np.square(betahat)
+		x = N * ldScores
+		self.hsq1_jknife = ldscore_reg(y, x, weights=w_hsq1, block_size=b)
+		
+		
+		# jackknife genetic covariance
+		y = betahat1 * betahat2
+		self.gencov_jknife = LstsqJackknife(y, ldScores, weights=gencov_weights, block_size=b)
+		
+		# will this do elementwise multiplication on matrices???
+		self.numer_blocks = np.sqrt(self.hsq1_jknife.block_vals*self.hsq2_jknife.block_vals)
+
+		self.denom_blocks = self.gencov_jknife.block_vals
+		
+		# jackknife the ratio estimate of genetic correlation
+		self.block_vals = self.__compute_block_vals__(self.numer_blocks, self.denom_blocks)
+		self.est = self.gencov_jknife.est / np.sqrt(self.hsq1_jknife.est*self.hsq2_jknife.est)
+		
+		
+		HERE IS WHERE BRENDAN STOPPED CODING TO GO TO THE GYM
+		self.pseudovalues = self.__block_vals_to_pseudovals__(self.block_vals, self.est)
+		(self.jknife_est, self.jknife_val, self.jknife_se, self.jknife_cov) = 
+			self.__jknife__(self.psuedovalues)
+
+	def __compute_block_vals__(self):
+		pass
+		
+	def __block_vals_to_est__(self):
+		pass
+		
+	def __block_vals_to_pseudovals__(self):
+		pass
+		
+	
+		
 
 		
 def infinitesimal_weights(M, ldScores, hsq_times_N):
