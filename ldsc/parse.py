@@ -207,8 +207,10 @@ def ldscore22(fh):
 	
 def M(fh):
 	fname = fh + '.l2.M'
-	pass
-
+	x = open(fh, 'r').readline().split()
+	x = [float(y) for y in x]
+	return x
+	
 	
 def M22(fh):
 	chr_M = []
@@ -216,7 +218,4 @@ def M22(fh):
 		chr_fh = fh + '.' + str(i)
 		chr_M.append(M(chr_fh))
 		
-	return np.sum(chr_M)
-		
-			
-	
+	return np.sum(chr_M, axis=0)
