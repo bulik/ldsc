@@ -1,8 +1,10 @@
 from __future__ import division
 import ldsc.ldscore as ld
+import ldsc.parse as ps
 import argparse
 import numpy as np
 import pandas as pd
+
 
 def __filter__(fname, noun, verb, merge_obj):
 	merged_list = None
@@ -178,16 +180,107 @@ def ldscore(args):
 
 	fout_M.close()
 	
-def simulate():
-	pass
+def sumstats(args):
+	
+	# open output files
+	out_fh = open(args.out + ".ldscore.reg", 'w')
+	log_fh = open(args.out + ".log", 'w')
+		
+	# read .chisq or betaprod
+	if args.sumstats_h2:
+		sumstats = ps.chisq(args.sumstats_h2)
+	elif args.sumstats_gencor:
+		sumstats = ps.betaprod(args.sumstats_gencor)
+	
+	log_msg = 'Read summary statistics for {N} SNPs.'
+	print >>log_fh, log_msg.format(N=len(sumstats))
+	
+	# read reference panel LD Scores and .M 
+	if args.ref_ld:
+		ref_ldscores = ps.ldscore(args.ref_ld)
+		M = ps.M(args.ref_ld)
+	elif args.ref_ld_chr:
+		ref_ldscores = ps.ldscore22(args.ref_ld_chr)
+		M = ps.M22(args_ref_ld_chr)
+		
+	log_msg = 'Read reference panel LD Scores for {N} SNPs.'
+	print >>log_fh, log_msg.format(N=len(ref_ldscores))
 
-def estimate():
-	pass
+	# read regression SNP LD Scores
+	if args.regression_snp_ld:
+		w_ldscores = ps.ldscore(args.regression_snp_ld)
+	elif args.regression_snp_ld_chr:
+		w_ldscores = ps.ldscore22(args.regression_snp_ld)
+		
+	log_msg = 'Read LD Scores for {N} SNPs to be retained for regression.'
+	print >>log_fh, log_msg.format(N=len(w_ldscores))		
+	
+	# merge with reference panel LD Scores 
+	sumstats = pd.merge(sumstats, ref_ldscores, how="inner", on="SNP")
+	log_msg = 'After merging with reference panel LD, {N} SNPs remain.'
+	print >>log_fh, log_msg.format(N=len(sumstats))
+
+	# merge with regression SNP LD Scores
+	sumstats = pd.merge(sumstats, w_ldscores, how="inner", on="SNP")
+	log_msg = 'After merging with regression SNP LD, {N} SNPs remain.'
+	print >>log_fh, log_msg.format(N=len(sumstats))
+	
+	# filter based on filter flags
+	if args.maf is not None:
+		if 'MAF' in sumstats.colnames:
+	
+		else: 
+			raise ValueError('Cannot find a column named MAF')
+			
+	if args.info_min is not None:
+		if 'INFO' in sumstats.colnames:
+			
+		else:
+			raise ValueError('Cannot find a column named INFO')
+
+	if args.info_max is not None:
+		if 'INFO' in sumstats.colnames:
+			
+		else:
+			raise ValueError('Cannot find a column named INFO')
+
+
+	# LD Score regression to estimate h2
+	if args.sumstats_h2:
+		
+		
+		
+		if args.chisq_max is not None:
+			log_msg = 'Removing all SNPs with chi-square > {X}.\n'
+			log_msg += 'Warning, this will produce biased h2 estimates. Use only for estimation of the LD Score regression intercept."
+			print >>log_fh, log_msg.format(X=args.chisq_max)
+
+		heteroskedasticity_weights = jk.infinitesimal_weights()
+		overcounting_weights = 1 / np.fmax(w_ldscores, 1)
+		weights = heteroskedasticity_weights * overcounting_weights
+		reg = jk.ldscore_reg()
+	
+	
+	# LD Score regression to estimate genetic correlation
+	elif args.sumstats_gencor:
+		heteroskedasticity_weights = jk.gencor_weights()
+		overcounting_weights = 1 / np.fmax(w_ldscores, 1)
+		weights = heteroskedasticity_weights * overcounting_weights
+		reg_gencov = jk.gencov_reg()
+	
+	# process and format output
+	
+	# print
+	
+	
+
+	
+
 		
 if __name__ == '__main__':
 	parser = argparse.ArgumentParser()
 		
-	# LD Score Estimation Arguments
+	# LD Score Estimation Flags
 	
 	# Input
 	parser.add_argument('--bin', default=None, type=str, 
@@ -197,11 +290,9 @@ if __name__ == '__main__':
 	parser.add_argument('--annot', default=None, type=str, 
 		help='Filename prefix for annotation file for partitioned LD Score estimation')
 
-	# Data management
+	# Filtering / Data Management for LD Score
 	parser.add_argument('--extract', default=None, type=str, 
 		help='File with individuals to include in LD Score analysis')
-	parser.add_argument('--maf', default=0, type=float,
-		help='Minor allele frequency lower bound. Default is 0')
 	parser.add_argument('--ld-wind-snps', default=None, type=int,
 		help='LD Window in units of SNPs. Can only specify one --ld-wind-* option')
 	parser.add_argument('--ld-wind-kb', default=None, type=float,
@@ -211,7 +302,7 @@ if __name__ == '__main__':
 	parser.add_argument('--chunk-size', default=50, type=int,
 		help='Chunk size for LD Score calculation. Use the default')
 
-	# Output
+	# Output for LD Score
 	parser.add_argument('--l1', default=False, action='store_true',
 		help='Estimate l1 w.r.t. sample minor allele.')
 	parser.add_argument('--l1sq', default=False, action='store_true',
@@ -223,18 +314,79 @@ if __name__ == '__main__':
 	
 	parser.add_argument('--se', action='store_true', 
 		help='Block jackknife SE? (Warning: somewhat slower)')
-	parser.add_argument('--block-size', default=None, type=int, 
-		help='Block size for block jackknife')
 	parser.add_argument('--yes-really', default=False, action='store_true',
 		help='Yes, I really want to compute whole-chromosome LD Score')
+	
+	
+	# Summary Statistic Estimation Flags
+	
+	# Input for sumstats
+	parser.add_argument('--sumstats-h2', default=None, type=str,
+		help='Path to file with summary statistics for h2 estimation.')
+	parser.add_argument('--sumstats-gencor', default=None, type=str,
+		help='Path to file with summary statistics for genetic correlation estimation.')
+	parser.add_argument('--ref-ld', default=None, type=str,
+		help='Filename prefix for file with reference panel LD Scores.')
+	parser.add_argument('--ref-ld-chr', default=None, type=str,
+		help='Filename prefix for files with reference panel LD Scores split across 22 chromosomes.')
+	parser.add_argument('--regression-snp-ld', default=None, type=str,
+		help='Filename prefix for file with LD Scores with sum r^2 taken over SNPs included in the regression.')
+	parser.add_argument('--regression-snp-ld-chr', default=None, type=str,
+		help='Filename prefix for file with LD Scores with sum r^2 taken over SNPs included in the regression, split across 22 chromosomes.')
+	
+	# Filtering for sumstats
+	parser.add_argument('--info-min', default=None, type=float,
+		help='Minimum INFO score for SNPs included in the regression.')
+	parser.add_argument('--info-max', default=None, type=float,
+		help='Maximum INFO score for SNPs included in the regression.')
+	parser.add_argument('--chisq-max', default=None, type=float,
+		help='Maximum chi^2 for SNPs included in the regression.\n(WARNING: will strongly bias h2 estimates. Use only for estimating LD Score regression intercept).')
+		
+	# Optional flags for genetic correlation
+	parser.add_argument('--overlap', default=0, type=Int,
+		help='Number of overlapping samples. Used only for weights in genetic covariance regression.')
+	parser.add_argument('--rho', default=0, type=float,
+		help='Population correlation between phenotypes. Used only for weights in genetic covariance regression.')
+
+	# Flags for both LD Score estimation and h2/gencor estimation
 	parser.add_argument('--out', default='ldsc', type=str,
 		help='Output filename prefix')
-	
-	# Simulation Arguments
-	# Summary Statistic Estimation Arguments
-	
+	parser.add_argument('--block-size', default=None, type=int, 
+		help='Block size for block jackknife')
+	parser.add_argument('--maf', default=None, type=float,
+		help='Minor allele frequency lower bound. Default is 0')
 	args = parser.parse_args()
 	
-	if args.bin or args.bfile:
-		ldscore(args)
+	# LD Score estimation
+	if (args.bin or args.bfile) and (args.l1 or args.l1sq or args.l2 or args.l4):
+		t = [x is not None for x in [args.l1, args.l1sq, args.l2, args.l4]]
 		
+		if np.sum(t) != 1:
+			raise ValueError('Must specify exactly one of --l1, --l1sq, --l2, --l4 for LN estimation.')
+		if args.bfile and args.bin:
+			raise ValueError('Cannot specify both --bin and --bfile.')
+		
+		if args.block_size is None: # default jackknife block size for LD Score regression
+			args.block_size = 100
+		
+		ldscore(args)
+	
+	# Summary statistics
+	elif (args.sumstats_h2 or args.sumstats_gencor) and (args.ref_ld or args.ref_ld_chr)\
+		and (args.regression_snp_ld or args.regression_snp_ld_chr):
+	
+		if args.sumstats_h2 and args.sumstats_gencor:	
+			raise ValueError('Cannot specify both --sumstats-h2 and --sumstats-gencor.')
+		if args.ref_ld and args.ref_ld_chr:
+			raise ValueError('Cannot specify both --ref-ld and --ref-ld-chr.')
+		if args.regression_snp_ld or args.regression_snp_ld_chr:
+			raise ValueError('Cannot specify both --regression-snp-ld and --regression-snp-ld-chr.')
+		
+		if args.block_size is None: # default jackknife block size for h2/gencor
+			args.block_size = 2000
+			
+		sumstats(args)
+	
+	# bad flags
+	else:
+		raise ValueError('No analysis selected.')

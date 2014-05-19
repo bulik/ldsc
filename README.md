@@ -27,7 +27,8 @@ Installation
 ------------
 
 0. Download python 2.7
-1. Download dependencies: numpy, scipy, pandas, bitarrary, progressbar (e.g., via pip install)
+1. Download dependencies: numpy, scipy, pandas, bitarrary, progressbar, argparse
+	(e.g., via pip install)
 2. Download dependencies for unittests: unittest, nose, nose_parameterized
 3. git clone https://github.com/bulik/ldsc.git
 4. cd to repository root directory, run tests by typing nosetests

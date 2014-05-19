@@ -1,0 +1,64 @@
+This document describes all new file formats introduced for use with the --sumstats* flags
+in the ldsc.py software package.
+
+Contents
+(0) .ldscore, .M  -- see file_formats_ld.txt
+(1) chisq
+(2) betaprod
+
+chisq
+-----
+This file format is used for chi-square statistics or P-values for a single GWAS. Tab-
+delimited text, one row per SNP with a header row. The first four columns are the same as
+the first four columns of a Plink .bim file: 
+
+Required
+(0) CHR -- chromosome
+(1) SNP -- SNP identifier (e.g., rs number. Non-unique identifiers, NA's or .'s will 
+	result in a ValueError being raised).
+(2) CM -- genetic position (centimorgans). Set to zero by default. 
+(3) BP -- physical position (base pairs).
+(4) CHISQ or P -- GWAS summary statistic. ldsc.py will automatically convert P-values to
+	chi-square statistics. The advantage of using chi-square statistics is that many 
+	statistical software packages have limited ability to deal with very low p-values (e.g.,
+	will report all P-values less than 10e-303 as 0, which will result in ldsc.py raising
+	a ValueError).
+(5) N -- sample size (which may vary from SNP to SNP).
+
+Optional
+(6) INFO -- imputation quality (for use with the --info-min and --info-max flags)
+(7) MAF -- study minor allele frequency (for use with the --maf flag. ldsc.py will 
+	automatically convert frequencies in [0,1] to minor allele frequencies in [0,0.5])
+
+
+betaprod
+--------
+This file format is used for summary statistics for two GWAS for genetic covariance 
+estimation. Tab-delimited text, one row per SNP with a header row. The first four columns 
+are the same as in a plink .bim file: 
+
+Required
+(0) CHR -- chromosome
+(1) SNP -- SNP identifier (e.g., rs number. Non-unique identifiers, NA's or .'s will 
+	result in a ValueError being raised).
+(2) CM -- genetic position (centimorgans). Set to zero by default. 
+(3) BP -- physical position (base pairs).
+(4) A1 -- reference allele.
+(5) A2 -- non-reference allele.
+(6) CHISQ1 or P1 -- GWAS summary statistic for study 1. ldsc.py will automatically convert 
+	P-values to signed betahats. The advantage of using chi-square statistics is that many 
+	statistical software packages have limited ability to deal with very low p-values (e.g.,
+	will report all P-values less than 10e-303 as 0, which will result in ldsc.py raising
+	a ValueError).
+(7) DIR1 -- direction of effect of allele A1 for study 1, either 1 or -1.
+(8) N1 -- sample size in study 1 (which may vary from SNP to SNP).
+(9) CHISQ2 or P2 -- GWAS summary statistic for study 2.
+(10) DIR2 -- direction of effect of allele A1 for study 2, either 1 or -1.
+(11) N2 -- sample size in study 2 (which may vary from SNP to SNP).
+
+Optional
+(12) INFO1 -- imputation quality in study 1 (for use with the --info-min and --info-max flags)
+(13) INFO2 -- imputation quality in study 2.
+(14) MAF1 -- study 1 minor allele frequency (for use with the --maf flag. ldsc.py will 
+	automatically convert frequencies in [0,1] to minor allele frequencies in [0,0.5])
+(15) MAF2 -- study 2 minor allele frequency.
