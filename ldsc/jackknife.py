@@ -189,8 +189,8 @@ def infinitesimal_weights(M, ldScores, hsq_times_N):
 	M : int > 0
 		Number of SNPs used for estimating LD Score (need not equal number of SNPs included in
 		the regression).
-	N : int > 0
-		Number of individuals sampled.
+	N :  np.ndarray of ints > 0 with shape (M, )
+		Number of individuals sampled for each SNP.
 	ldScores : np.array 
 		LD Scores. 
 	hsq : float in [0,1]
@@ -220,20 +220,18 @@ def gencor_weights(M, ldScores, N1, N2, No, h1, h2, rho_g, rho):
 	M : int > 0
 		Number of SNPs used for estimating LD Score (need not equal number of SNPs included in
 		the regression).
-	N1 : int > 0
-		Number of individuals sampled.
 	ldScores : np.array 
 		LD Scores. 
 	rhog : float in [0,1]
 		Genetic covariance estimate.
 	rho : float in [0,1]
 		Phenotypic correlation estimate.
-	N1 : int
-		Size of study 1.
-	N2 : int
-		Size of study 2.
-	No : int
-		Size of overlap. 
+	N1 : np.ndarray of ints > 0(M, )
+		Number of individuals sampled for each SNP in study 1.
+	N2 : np.ndarray of ints > 0(M, )
+		Number of individuals sampled for each SNP in study 2.
+	No : np.ndarray of ints > 0(M, )
+		Number of overlapping individuals sampled for each SNP.
 	
 	Returns
 	-------
