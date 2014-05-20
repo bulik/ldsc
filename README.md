@@ -17,10 +17,11 @@ statistics.
 What can I do with LDSC?
 ---------------------
 
-1. Estimate LD Score (and other, more exotic moments of the genotype distribution).
-2. Estimate heritability from GWAS summary statistics.
-3. Estimate partitioned heritability from GWAS summary statistcs.
-4. Estimate genetic covariance / correlation from GWAS summary statistics.
+1. Estimate LD Score (and other, more exotic sums-of-moments of the genotype distribution).
+2. Quantify the inflation in GWAS test statistics from confounding bias.
+3. Estimate heritability from GWAS summary statistics.
+4. Estimate partitioned heritability from GWAS summary statistcs.
+5. Estimate genetic covariance and correlation from GWAS summary statistics.
 
 
 Installation

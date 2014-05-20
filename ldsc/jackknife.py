@@ -3,7 +3,7 @@ import numpy as np
 from scipy.stats import norm
 
 
-def h2_weights(M, N, ldScores, hsq):
+def h2_weights(ldScores, N, M, hsq):
 	'''
 	Computes appropriate regression weights to correct for heteroskedasticity in the LD 
 	Score regression under an infinitesimal model. These regression weights are 
@@ -34,7 +34,7 @@ def h2_weights(M, N, ldScores, hsq):
 	return weights
 	
 	
-def gencor_weights(M, ldScores, N1, N2, No, h1, h2, rho_g, rho):
+def gencov_weights(M, ldScores, N1, N2, No, h1, h2, rho_g, rho):
 	'''
 	Computes appropriate regression weights to correct for heteroskedasticity in the 
 	bivariate LDScore regression under and infinitesimal model. These regression weights are 
@@ -70,22 +70,112 @@ def gencor_weights(M, ldScores, N1, N2, No, h1, h2, rho_g, rho):
 	b = h2*ldScores / M + (1-h2) / N2
 	c = rho_g*ldScores/M + No*rho/(N1*N1)
 	weights = a*b + 2*c**2
-	return 1/weights
-	
+	return 1 / weights
 
-def h2g(chisq, ldScores, N, M):
-	pass
-	
 
-def gencov():
-	pass
+def h2g(chisq, ldScores, N, M, block_size=1000):
+	'''
+	Current best-practice function for estimating h2g / partitioned h2g via LD Score.
 	
-def gencor(betahat1, betahat2, ldScores, N1, N2, M, N_overlap=None, rho=None):
+	If the GWAS in question is an ascertained case-control sample, N = total sample size
+	and the returned value of h2g (and the corresponding standard errors!) will be on the 
+	observed scale. Use obs_to_liab along with an estimate of prevalence in order to 
+	transform to the liability scale. 
+	
+	Parameters
+	----------
+	chisq : np.ndarray of floats with shape (M, )
+		Chi-square statistics from GWAS.
+	ldScores : np.matrix of floats with shape (M, # of annotations)
+		LD Scores.
+	N : np.ndarray of ints > 0
+		Sample size. Use (# cases) + (# controls) for case/control GWAS. The case/control
+		ratio is taken into account when converting to the liability scale.
+	M : np.matrix of ints > 0
+		Number of SNPs per annotation in the reference panel.
+	
+	Returns
+	-------
+	x : LstsqJackknife
+		Jackknife object with h2g estimate on the observed scale.
+	
+	'''
+	# aggregate estimate of h2, used only in regression weights
+	agg_h2 = (np.mean(chisq) - 1) / np.mean(N*ldScores / M)
+	weights = h2_weights(ldscores, N, M, agg_h2)
+	x = ldscore_reg(chisq, ldScores, weights=weights, block_size=block_size)
+	return x
+
+
+def gencov(betahat1, betahat2, ldScores, N1, N2, M, N_overlap=None, rho=None, 
+	block_size=1000):
+	'''
+	Current best-practice function for estimating genetic covariance / partitioned genetic
+	covariance via LD Score.
+	
+	Genetic covariance is not on a particularly interpretable scale, especially when one or
+	both studies are ascertained case/control sample. However, genetic correlation is always
+	on an interpretable scale (e.g., gencov_obs / sqrt(h2_obs1 * h2_obs2) is on the 
+	un-ascertained liability scale, because the observed-to-liability factors in the 
+	numerator and denominator cancel. 
+	
+	Genetic covariance is more useful for significance testing, because the estimate of 
+	genetic correlation is a ratio estimator, and obtaining reliable confidence intervals 
+	for ratio estimators is tricky.
+	
+	Parameters
+	----------
+	betahat1 : np.ndarray of floats with shape (M, )
+		Effect-size estimates from study 1.
+	betahat2 : np.ndarray of floats with shape (M, )
+		Effect-size estimates from study 2.
+	ldScores : np.matrix of floats with shape (M, # of annotations)
+		LD Scores.
+	N1 : np.ndarray of ints > 0
+		Sample size of study 1. Use (# cases) + (# controls) for case/control GWAS. The case/
+		control ratio is taken into account when converting to the liability scale.
+	N2 : np.ndarray of ints > 0
+		Sample size of study 2.
+	M : np.matrix of ints > 0
+		Number of SNPs per annotation in the reference panel.
+	N_overlap : np.ndarray of ints > 0, default = 0.
+		Number of individuals included in both studies. If N_overlap is not zero, then the LD
+		Score regression estimates of genetic covariance will be unbiased
+	
+	Returns
+	-------
+	x : LstsqJackknife
+		Jackknife object with genetic covariance estimate on observed scale.
+
+	'''	
+	betaprod = betahat1*betahat2
+	agg_gencov = np.mean(betaprod)/ np.mean(ldScores / M)
+	weights = gencov_weights(M, ldScores, N1, N2, No, h1, h2, agg_gencov, rho)
+	x = ldscore_reg(betaprod, ldScores, weights=weights, block_size=block_size)
+	return x
+
+	
+def gencor(betahat1, betahat2, ldScores, N1, N2, M, N_overlap=None, rho=None, 
+	block_size=1000):
+	'''
+	Current best-practice function for estimating genetic correlation via LD Score.
+	
+	Parameters
+	----------
+	Same as gencov()
+	
+	Returns
+	-------
+	TBD
+	
+	'''
 	hsq1 = h2g(N1*betahat1**2, ldScores, N1, M)
 	hsq2 = h2g(N1*betahat2**2, ldScores, N2, M)
-	cov = gencov(betahat1, betahat2, N1, N2, M, N_overlap=None, rho=None)
+	cov = gencov(betahat1, betahat2, N1, N2, M, N_overlap, rho, block_size)
 	biased_cor = cov.est / np.sqrt(hsq1.est * hsq2.est)
-	cor = RatioJackknife(biased_cov, cov.delete_vals, np.sqrt(hsq1.delete_vals*hsq2.delete_vals)
+	numer_delete_vals = cov.delete_cals
+	denom_delete_vals = np.sqrt(hsq1.delete_vals*hsq2.delete_vals
+	cor = RatioJackknife(biased_cov, cov.delete_vals, numer_delete_vals, denom_delete_vals)
 	return (hsq1, hsq2, cov, cor)
 	
 
@@ -117,19 +207,6 @@ def ldscore_reg(y, ldScores, weights=None, block_size=1000):
 		covariance estimates. Have to multiply by M/N or M, respectively. 
 	
 	'''
-	
-	if len(ldScores.shape) <= 1:
-		ldScores = np.atleast_2d(ldScores).T
-	if len(y.shape) > 1 or len(y.shape) == 0:
-		raise ValueError('y must have shape (M, )')
-	else:
-		y = np.atleast_2d(y).T
-	
-	num_snps = y.shape[0]
-	num_annots = ldScores.shape[1]
-	if weights is None:
-		weights = np.ones(num_snps)
-	
 	sqrtWeights = np.atleast_2d(np.sqrt(weights)).T
 	y = y * sqrtWeights
 	x = np.zeros((len(ldScores), num_annots + 1))

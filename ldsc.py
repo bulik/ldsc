@@ -260,6 +260,8 @@ def sumstats(args):
 		weights = heteroskedasticity_weights * overcounting_weights
 		reg = jk.ldscore_reg()
 	
+		if args.intercept:
+			pass
 	
 	# LD Score regression to estimate genetic correlation
 	elif args.sumstats_gencor:
@@ -325,6 +327,8 @@ if __name__ == '__main__':
 		help='Path to file with summary statistics for h2 estimation.')
 	parser.add_argument('--sumstats-gencor', default=None, type=str,
 		help='Path to file with summary statistics for genetic correlation estimation.')
+	parser.add_argument('--intercept', default=False, action='store_true',
+		help='For use with --sumstats-h2. Performs the same analysis as --sumstats-h2, but the output is focused on the LD Score regression intercept.')
 	parser.add_argument('--ref-ld', default=None, type=str,
 		help='Filename prefix for file with reference panel LD Scores.')
 	parser.add_argument('--ref-ld-chr', default=None, type=str,
