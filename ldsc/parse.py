@@ -14,10 +14,6 @@ def check_dir(dir):
 
 
 def check_rsid(rsids):
-
-	# check for nan 
-	if np.any(np.isnan(rsids)):
-		raise ValueError('Some SNP identifiers are nan.')
 	
 	# check for rsid = .
 	if np.any(rsids == '.'):
@@ -103,7 +99,7 @@ def chisq(fh):
 		if x.columns[i] != c:
 			raise	ValueError(msg.format(i=i,F=fh,C=c,W=x.columns[i]))
 
-	check_N(x['N'])
+	check_N(x['N'])	
 	check_rsid(x['SNP']) 
 	if 'MAF' in x.colnames:
 		check_maf(x['MAF'])
@@ -185,9 +181,10 @@ def betaprod(fh):
 def ldscore(fh):
 	fname = fh + '.l2.ldscore'
 	x = pd.read_csv(fname, header=0, delim_whitespace=True)
-	x.drop(['CHR','BP','CM','MAF'],axis=1)
+	x = x.drop(['CHR','BP','CM','MAF'],axis=1)
 	check_rsid(x['SNP']) 
-	x.ix[1:len(x.columns)] = x.ix[1:len(x.columns)].astype(float)
+	print x.columns
+	x.ix[:,1:len(x.columns)] = x.ix[:,1:len(x.columns)].astype(float)
 	return x
 
 
@@ -196,11 +193,11 @@ def ldscore22(fh):
 	for i in xrange(1,23):
 		chr_fh = fh + '.' + str(i)
 		x = pd.read_csv(fname, header=0, delim_whitespace=True)
-		x.drop(['CHR','BP','CM','MAF'],axis=1)
+		x = x.drop(['CHR','BP','CM','MAF'],axis=1)
 		chr_ld.append(x)
 		
 	x = pd.concat(chr_ld)
-	x.ix[1:len(x.columns)] = x.ix[1:len(x.columns)].astype(float)
+	x.ix[:,1:len(x.columns)] = x.ix[:,1:len(x.columns)].astype(float)
 	check_rsid(x['SNP']) # in case there are duplicated rs#'s on different chromosomes
 	return x
 	

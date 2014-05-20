@@ -261,7 +261,12 @@ def sumstats(args):
 		reg = jk.ldscore_reg()
 	
 		if args.intercept:
-			pass
+			lambda_gc = np.median(chisq) / 0.4549
+			mean_chisq = np.mean(chisq)
+			if mean_chisq > 1:
+				ratio = (intercept - 1) / (mean_chisq - 1)
+			else:
+				ratio = float('nan')
 	
 	# LD Score regression to estimate genetic correlation
 	elif args.sumstats_gencor:
