@@ -2,6 +2,144 @@ from __future__ import division
 import numpy as np
 from scipy.stats import norm
 
+
+def h2_weights(M, N, ldScores, hsq):
+	'''
+	Computes appropriate regression weights to correct for heteroskedasticity in the LD 
+	Score regression under an infinitesimal model. These regression weights are 
+	approximately equal to the reciprocal of the conditional variance function
+	1 / var(chi^2 | LD Score)
+	
+	Parameters
+	----------
+	M : int > 0
+		Number of SNPs used for estimating LD Score (need not equal number of SNPs included in
+		the regression).
+	N :  np.ndarray of ints > 0 with shape (M, )
+		Number of individuals sampled for each SNP.
+	ldScores : np.array 
+		LD Scores. 
+	hsq : float in [0,1]
+		Heritability estimate.
+	
+	Returns
+	-------
+	weights : np.array
+		Regression weights. Approx equal to reciprocal of conditional variance function.
+	
+	'''
+	ldScores = np.fmax(ldScores, 1)
+	c = hsq * N / M
+	weights = 1 / (1+c*ldScores)**2
+	return weights
+	
+	
+def gencor_weights(M, ldScores, N1, N2, No, h1, h2, rho_g, rho):
+	'''
+	Computes appropriate regression weights to correct for heteroskedasticity in the 
+	bivariate LDScore regression under and infinitesimal model. These regression weights are 
+	approximately equal to the reciprocal of the conditional variance function
+	1 / var(betahat1*betahat2 | LD Score)
+	
+	Parameters
+	----------
+	M : int > 0
+		Number of SNPs used for estimating LD Score (need not equal number of SNPs included in
+		the regression).
+	ldScores : np.array 
+		LD Scores. 
+	rhog : float in [0,1]
+		Genetic covariance estimate.
+	rho : float in [0,1]
+		Phenotypic correlation estimate.
+	N1 : np.ndarray of ints > 0 with shape (M, )
+		Number of individuals sampled for each SNP in study 1.
+	N2 : np.ndarray of ints > 0 with shape (M, )
+		Number of individuals sampled for each SNP in study 2.
+	No : np.ndarray of ints > 0 with shape (M, )
+		Number of overlapping individuals sampled for each SNP.
+	
+	Returns
+	-------
+	weights : np.array
+		Regression weights. Approx equal to reciprocal of conditional variance function.
+	
+	'''
+	ldScores = np.fmax(ldScores, 1) # set negative LD Score estimates to one
+	a = h1*ldScores / M + (1-h1) / N1 
+	b = h2*ldScores / M + (1-h2) / N2
+	c = rho_g*ldScores/M + No*rho/(N1*N1)
+	weights = a*b + 2*c**2
+	return 1/weights
+	
+
+def h2g(chisq, ldScores, N, M):
+	pass
+	
+
+def gencov():
+	pass
+	
+def gencor(betahat1, betahat2, ldScores, N1, N2, M, N_overlap=None, rho=None):
+	hsq1 = h2g(N1*betahat1**2, ldScores, N1, M)
+	hsq2 = h2g(N1*betahat2**2, ldScores, N2, M)
+	cov = gencov(betahat1, betahat2, N1, N2, M, N_overlap=None, rho=None)
+	biased_cor = cov.est / np.sqrt(hsq1.est * hsq2.est)
+	cor = RatioJackknife(biased_cov, cov.delete_vals, np.sqrt(hsq1.delete_vals*hsq2.delete_vals)
+	return (hsq1, hsq2, cov, cor)
+	
+
+def ldscore_reg(y, ldScores, weights=None, block_size=1000):
+	'''
+	Function to estimate heritability / partitioned heritability / genetic covariance/ 
+	partitioned genetic covariance from summary statistics. 
+	
+	NOTE: Weights should be 1 / variance.
+
+	Parameters
+	----------
+	y : np.matrix
+		Response variable (additive chi-square statistics if estimating h2, dominance
+		deviation chi-square statistics if estimating H2[DOMDEV], betahat1*betahat2 if
+		estimating genetic covariance).
+	ldScores : np.matrix
+		LD Scores or partitioned LD Scores.
+	weights : np.matrix
+		Regression weights.
+	block_size : int > 0
+		Size of blocks for block jackknife standard error. 
+	
+	Returns
+	-------
+	output : LinearJackknife
+		LD Score regression parameter + standard error estimates.
+		NOTE: these are the LD Score regression parameter estimates, *NOT* hsq or genetic 
+		covariance estimates. Have to multiply by M/N or M, respectively. 
+	
+	'''
+	
+	if len(ldScores.shape) <= 1:
+		ldScores = np.atleast_2d(ldScores).T
+	if len(y.shape) > 1 or len(y.shape) == 0:
+		raise ValueError('y must have shape (M, )')
+	else:
+		y = np.atleast_2d(y).T
+	
+	num_snps = y.shape[0]
+	num_annots = ldScores.shape[1]
+	if weights is None:
+		weights = np.ones(num_snps)
+	
+	sqrtWeights = np.atleast_2d(np.sqrt(weights)).T
+	y = y * sqrtWeights
+	x = np.zeros((len(ldScores), num_annots + 1))
+	x[:,0:num_annots] = ldScores * sqrtWeights
+	x[:,num_annots] = np.squeeze(sqrtWeights) # intercept 
+	x = np.matrix(x); y = np.matrix(y)
+	output = LstsqJackknife(x, y, block_size)
+	return output
+
+
 def obs_to_liab(h2_obs, P, K):
 	'''
 	Converts heritability on the observed scale in an ascertained sample to heritability 
@@ -97,6 +235,28 @@ class LstsqJackknife(object):
 	__block_vals_to_est__() :
 		Converts block values to full estimate.
 		
+	Attributes
+	----------
+	block_size : int
+		Size of all blocks except possibly the last block.
+	block_vals : np.matrix
+		Block jackknife block values.
+	delete_vals : np.matrix
+		Block jackknife delete-(block_size) values.
+	pseudovalues : np.matrix
+		Block jackknife pseudovalues.
+	est : np.matrix
+		Non-jackknifed estimate.
+	jknife_est : np.matrix
+		Jackknife estimate.
+	jknife_var : np.matrix
+	  Jackknife estimate of variance the jackknife estimate.
+	jknife_se : np.matrix
+		Jackknife estimate of the standard error of the jackknife estimate.
+	jknife_cov : np.matrix
+		Jackknife estimate of the variance-covariance matrix of the jackknife estimate. 
+	
+	
 	Possible TODO: impute FFT de-correlation (NP)
 	'''
 
@@ -121,7 +281,8 @@ class LstsqJackknife(object):
 
 		self.block_vals = self.__compute_block_vals__(x, y, block_size)
 		self.est = self.__block_vals_to_est__(self.block_vals)
-		self.pseudovalues = self.__block_vals_to_pseudovals__(self.block_vals, self.est)
+		(self.pseudovalues, self.delete_values) = 
+			self.__block_vals_to_pseudovals__(self.block_vals, self.est)
 		(self.jknife_est, self.jknife_val, self.jknife_se, self.jknife_cov) = 
 			self.__jknife__(self.psuedovalues)
 		
@@ -147,6 +308,7 @@ class LstsqJackknife(object):
 
 	def __block_vals_to_pseudovals__(self, block_vals, est):
 		pseudovalues = np.matrix(np.zeros((self.num_blocks, self.output_dim)))
+		delete_values = np.matrix(np.zeros((self.num_blocks, self.output_dim)))
 		xty_blocks = block_vals[0]
 		xtx_blocks = block_vals[1]
 		xty_tot = np.sum(xty_blocks, axis=0)
@@ -155,9 +317,10 @@ class LstsqJackknife(object):
 			delete_xty_j = xty_tot - xty_blocks[j]
 			delete_xtx_inv_j = np.linalg.inv(xtx_tot - xtx_blocks[j])
 			delete_value_j = np.dot(delete_xtx_inv_j, delete_xty_j).T
-			pseudovalues[j,:] = self.num_blocks*est - (self.num_blocks-1)*delete_value_j
+			pseudovalues[j,...] = self.num_blocks*est - (self.num_blocks-1)*delete_value_j
+			delete_values[j,...] = delete_value
 
-		return pseudovalues
+		return (pseudovalues, delete_values)
 		
 	def __block_vals_to_est__(self, block_vals):
 		xty_blocks = block_vals[0]
@@ -181,169 +344,37 @@ class LstsqJackknife(object):
 		return self.autocov(lag) / self.jknife_se
 		
 
-class GenCorJackknife(LstsqJackknife):
+class RatioJackknife(LstsqJackknife):
 	'''
 	Block jackknife class for genetic correlation estimation.
 	
-	Inherits from LstsqJackknife, but only for the autorcor, autocov and __jknife__ methods. 
+	Inherits from LstsqJackknife. 
+	
+	Parameters
+	----------
+	est : float
+		(Biased) ratio estimate (e.g., if we are estimate a = b / c, est should be \
+		\hat{a} = \hat{b} / \hat{c}.
+	numer_delete_vals : np.matrix
+		Delete-k values for the numerator.
+	denom_delete_vals:
+		Delete-k values for the denominator.
+		
 	'''
 
-	def __init__(self, betahat1, betahat2, N1, N2, N_overlap, block_size):
-		
-		# jackknife both h2's ### MAKE THIS A FUNCTION ### replace everything with N * LD Score
-		y = np.square(betahat)
-		x = N * ldScores
-		self.hsq1_jknife = ldscore_reg(y, x, weights=w_hsq1, block_size=b)
-		
-		
-		# jackknife genetic covariance
-		y = betahat1 * betahat2
-		self.gencov_jknife = LstsqJackknife(y, ldScores, weights=gencov_weights, block_size=b)
-		
-		# will this do elementwise multiplication on matrices???
-		self.numer_blocks = np.sqrt(self.hsq1_jknife.block_vals*self.hsq2_jknife.block_vals)
+	def __init__(self, est numer_delete_vals, denom_delete_vals):
+		self.est = est
+		self.numer_delete_vals = numer_delete_vals
+		self.denom_delete_vals = denom_delete_vals
+		self.pseudovalues = self.__delete_vals_to_pseudovals__(self.est, 
+			self.denom_delete_vals, self.numer_delete_vals)
 
-		self.denom_blocks = self.gencov_jknife.block_vals
-		
-		# jackknife the ratio estimate of genetic correlation
-		self.block_vals = self.__compute_block_vals__(self.numer_blocks, self.denom_blocks)
-		self.est = self.gencov_jknife.est / np.sqrt(self.hsq1_jknife.est*self.hsq2_jknife.est)
-		
-		
-		HERE IS WHERE BRENDAN STOPPED CODING TO GO TO THE GYM
-		self.pseudovalues = self.__block_vals_to_pseudovals__(self.block_vals, self.est)
 		(self.jknife_est, self.jknife_val, self.jknife_se, self.jknife_cov) = 
 			self.__jknife__(self.psuedovalues)
 
-	def __compute_block_vals__(self):
-		pass
-		
-	def __block_vals_to_est__(self):
-		pass
-		
-	def __block_vals_to_pseudovals__(self):
-		pass
-		
-	
-		
+	def __delete_vals_to_pseudovals__(self, est, denom, numer):
+		pseudovalues = np.matrix(np.zeros((self.num_blocks, self.output_dim)))
+		for j in xrange(0,self.num_blocks):
+			pseudovalues[j,...] = self.num_blocks*est - (self.num_blocks-1)*numer[j,...]/denom[j,...]
 
-		
-def infinitesimal_weights(M, ldScores, hsq_times_N):
-	'''
-	Computes appropriate regression weights to correct for heteroskedasticity in the LD 
-	Score regression under an infinitesimal model. These regression weights are 
-	approximately equal to the reciprocal of the conditional variance function
-	1 / var(chi^2 | LD Score)
-	
-	Parameters
-	----------
-	M : int > 0
-		Number of SNPs used for estimating LD Score (need not equal number of SNPs included in
-		the regression).
-	N :  np.ndarray of ints > 0 with shape (M, )
-		Number of individuals sampled for each SNP.
-	ldScores : np.array 
-		LD Scores. 
-	hsq : float in [0,1]
-		Heritability estimate 
-	
-	Returns
-	-------
-	weights : np.array
-		Regression weights. Approx equal to reciprocal of conditional variance function.
-	
-	'''
-	ldScores = np.fmax(ldScores, 1)
-	c = hsq_times_N / M
-	weights = 1 / (1+c*ldScores)**2
-	return weights
-	
-	
-def gencor_weights(M, ldScores, N1, N2, No, h1, h2, rho_g, rho):
-	'''
-	Computes appropriate regression weights to correct for heteroskedasticity in the 
-	bivariate LDScore regression under and infinitesimal model. These regression weights are 
-	approximately equal to the reciprocal of the conditional variance function
-	1 / var(betahat1*betahat2 | LD Score)
-	
-	Parameters
-	----------
-	M : int > 0
-		Number of SNPs used for estimating LD Score (need not equal number of SNPs included in
-		the regression).
-	ldScores : np.array 
-		LD Scores. 
-	rhog : float in [0,1]
-		Genetic covariance estimate.
-	rho : float in [0,1]
-		Phenotypic correlation estimate.
-	N1 : np.ndarray of ints > 0(M, )
-		Number of individuals sampled for each SNP in study 1.
-	N2 : np.ndarray of ints > 0(M, )
-		Number of individuals sampled for each SNP in study 2.
-	No : np.ndarray of ints > 0(M, )
-		Number of overlapping individuals sampled for each SNP.
-	
-	Returns
-	-------
-	weights : np.array
-		Regression weights. Approx equal to reciprocal of conditional variance function.
-	
-	'''
-	ldScores = np.fmax(ldScores, 1) # set negative LD Score estimates to one
-	a = h1*ldScores / M + (1-h1) / N1 
-	b = h2*ldScores / M + (1-h2) / N2
-	c = rho_g*ldScores/M + No*rho/(N1*N1)
-	weights = a*b + 2*c**2
-	return 1/weights
-	
-
-def ldscore_reg(y, ldScores, weights=None, block_size=1000):
-	'''
-	Function to estimate heritability / partitioned heritability / genetic covariance/ 
-	partitioned genetic covariance from summary statistics. 
-	
-	NOTE: Weights should be 1 / variance.
-
-	Parameters
-	----------
-	y : np.matrix
-		Response variable (additive chi-square statistics if estimating h2, dominance
-		deviation chi-square statistics if estimating H2[DOMDEV], betahat1*betahat2 if
-		estimating genetic covariance).
-	ldScores : np.matrix
-		LD Scores or partitioned LD Scores.
-	weights : np.matrix
-		Regression weights.
-	block_size : int > 0
-		Size of blocks for block jackknife standard error. 
-	
-	Returns
-	-------
-	output : LinearJackknife
-		LD Score regression parameter + standard error estimates.
-		NOTE: these are the LD Score regression parameter estimates, *NOT* hsq or genetic 
-		covariance estimates. Have to multiply by M/N or M, respectively. 
-	
-	'''
-	
-	if len(ldScores.shape) <= 1:
-		ldScores = np.atleast_2d(ldScores).T
-	if len(y.shape) > 1 or len(y.shape) == 0:
-		raise ValueError('y must have shape (M, )')
-	else:
-		y = np.atleast_2d(y).T
-	
-	num_snps = y.shape[0]
-	num_annots = ldScores.shape[1]
-	if weights is None:
-		weights = np.ones(num_snps)
-	
-	sqrtWeights = np.atleast_2d(np.sqrt(weights)).T
-	y = y * sqrtWeights
-	x = np.zeros((len(ldScores), num_annots + 1))
-	x[:,0:num_annots] = ldScores * sqrtWeights
-	x[:,num_annots] = np.squeeze(sqrtWeights) # intercept 
-	x = np.matrix(x); y = np.matrix(y)
-	output = LstsqJackknife(x, y, block_size)
-	return output
+		return pseudovalues
