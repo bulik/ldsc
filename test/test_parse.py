@@ -10,7 +10,6 @@ class Test_check_pvalue(unittest.TestCase):
 	def setUp(self):
 		pass
 		
-	@nose.tools.raises(ValueError)
 	def test_asdf(self):
 		pass
 
@@ -19,7 +18,6 @@ class Test_check_chisq(unittest.TestCase):
 	def setUp(self):
 		pass
 		
-	@nose.tools.raises(ValueError)
 	def test_asdf(self):
 		pass
 
@@ -28,7 +26,6 @@ class Test_check_maf(unittest.TestCase):
 	def setUp(self):
 		pass
 		
-	@nose.tools.raises(ValueError)
 	def test_asdf(self):
 		pass
 	
@@ -37,13 +34,12 @@ class Test_check_N(unittest.TestCase):
 	def setUp(self):
 		pass
 		
-	@nose.tools.raises(ValueError)
 	def test_asdf(self):
 		pass
 
 
 class Test_chisq(unittest.TestCase):
-	pass
+		pass
 	
 	
 class Test_betaprod(unittest.TestCase):
@@ -59,8 +55,19 @@ class Test_ldscore22(unittest.TestCase):
 
 
 class Test_M(unittest.TestCase):
-	pass
+	
+	@nose.tools.raises(ValueError)
+	def test_bad_M(self):
+		x = ps.M('test/parse_test/test_bad')
+	
+	def test_M(self):
+		x = ps.M('test/parse_test/test')
+		self.assertEqual(list(x), [1000,2000,3000]) 
 
 
 class Test_M22(unittest.TestCase):
-	pass
+
+	def test_M22(self):
+		x = ps.M22('test/parse_test/test')
+		self.assertEqual(list(x), [253, 506])
+	

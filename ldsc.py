@@ -228,19 +228,19 @@ def sumstats(args):
 	# filter based on filter flags
 	if args.maf is not None:
 		if 'MAF' in sumstats.colnames:
-	
+			pass
 		else: 
 			raise ValueError('Cannot find a column named MAF')
 			
 	if args.info_min is not None:
 		if 'INFO' in sumstats.colnames:
-			
+			pass	
 		else:
 			raise ValueError('Cannot find a column named INFO')
 
 	if args.info_max is not None:
 		if 'INFO' in sumstats.colnames:
-			
+			pass
 		else:
 			raise ValueError('Cannot find a column named INFO')
 
@@ -252,7 +252,7 @@ def sumstats(args):
 		
 		if args.chisq_max is not None:
 			log_msg = 'Removing all SNPs with chi-square > {X}.\n'
-			log_msg += 'Warning, this will produce biased h2 estimates. Use only for estimation of the LD Score regression intercept."
+			log_msg += 'Warning, this will produce biased h2 estimates. Use only for estimation of the LD Score regression intercept.'
 			print >>log_fh, log_msg.format(X=args.chisq_max)
 
 		heteroskedasticity_weights = jk.infinitesimal_weights()
@@ -347,7 +347,7 @@ if __name__ == '__main__':
 		help='Maximum chi^2 for SNPs included in the regression.\n(WARNING: will strongly bias h2 estimates. Use only for estimating LD Score regression intercept).')
 		
 	# Optional flags for genetic correlation
-	parser.add_argument('--overlap', default=0, type=Int,
+	parser.add_argument('--overlap', default=0, type=int,
 		help='Number of overlapping samples. Used only for weights in genetic covariance regression.')
 	parser.add_argument('--rho', default=0, type=float,
 		help='Population correlation between phenotypes. Used only for weights in genetic covariance regression.')
@@ -363,9 +363,7 @@ if __name__ == '__main__':
 	
 	# LD Score estimation
 	if (args.bin or args.bfile) and (args.l1 or args.l1sq or args.l2 or args.l4):
-		t = [x is not None for x in [args.l1, args.l1sq, args.l2, args.l4]]
-		
-		if np.sum(t) != 1:
+		if np.sum((args.l1, args.l2, args.l1sq, args.l4)) != 1:
 			raise ValueError('Must specify exactly one of --l1, --l1sq, --l2, --l4 for LN estimation.')
 		if args.bfile and args.bin:
 			raise ValueError('Cannot specify both --bin and --bfile.')

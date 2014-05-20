@@ -193,7 +193,7 @@ def ldscore(fh):
 
 def ldscore22(fh):
 	chr_ld = []
-	for i in xrange(23):
+	for i in xrange(1,23):
 		chr_fh = fh + '.' + str(i)
 		x = pd.read_csv(fname, header=0, delim_whitespace=True)
 		x.drop(['CHR','BP','CM','MAF'],axis=1)
@@ -207,15 +207,15 @@ def ldscore22(fh):
 	
 def M(fh):
 	fname = fh + '.l2.M'
-	x = open(fh, 'r').readline().split()
+	x = open(fname, 'r').readline().split()
 	x = [float(y) for y in x]
 	return x
 	
 	
 def M22(fh):
 	chr_M = []
-	for i in xrange(23):
-		chr_fh = fh + '.' + str(i)
+	for i in xrange(1,23):
+		chr_fh = fh + str(i)
 		chr_M.append(M(chr_fh))
 		
 	return np.sum(chr_M, axis=0)
