@@ -10,7 +10,7 @@ def check_dir(dir):
 	c1 = dir != 1
 	c2 = dir != -1
 	if np.any(np.logical_and(c1, c2)):
-		raise ValueError('DIR entry not equal to +/- 1.)
+		raise ValueError('DIR entry not equal to +/- 1.')
 
 
 def check_rsid(rsids):
@@ -21,10 +21,10 @@ def check_rsid(rsids):
 	
 	# check for rsid = .
 	if np.any(rsids == '.'):
-		raise ValueError('Some SNP identifiers are set to . (a dot).'
+		raise ValueError('Some SNP identifiers are set to . (a dot).')
 	
 	# check for duplicate rsids
-	if np.any(rsids.duplicated('SNP'):
+	if np.any(rsids.duplicated('SNP')):
 		raise ValueError('Duplicated SNP identifiers.')
 
 	
@@ -66,7 +66,7 @@ def check_maf(maf):
 	if np.max(chisq) >= 1:
 		raise ValueError('MAF > 1.')
 	if np.min(chisq) <= 0:
-		raise ValueError('MAF < 0.)
+		raise ValueError('MAF < 0.')
 	
 	
 def check_N(N):
@@ -83,12 +83,12 @@ def chisq(fh):
 #		'CHR': str,
 		'SNP': str,
 #		'CM': float,
-#		'BP', int,
-		'P', float,
-		'CHISQ', float,
-		'N', int,
-		'MAF', float,
-		'INFO', float,
+#		'BP': int,
+		'P': float,
+		'CHISQ': float,
+		'N': int,
+		'MAF': float,
+		'INFO': float,
 	}
 	usecols = dtype_dict.keys()
 	try:
@@ -99,9 +99,9 @@ def chisq(fh):
 	
 	msg = 'Expected column {I} of {F} to be {C}, got {W}' 
 	#for i, c in ['CHR','SNP','CM','BP','N']:
-	for i, c in ['SNP','N']
+	for i, c in ['SNP','N']:
 		if x.columns[i] != c:
-			raise	ValueError(msg.format(i=i,F=fh,C=c,W=x.columns[i])
+			raise	ValueError(msg.format(i=i,F=fh,C=c,W=x.columns[i]))
 
 	check_N(x['N'])
 	check_rsid(x['SNP']) 
@@ -117,7 +117,7 @@ def chisq(fh):
 		check_chisq(x['CHISQ'])
 	else:
 		msg = 'Expected column 5 of {F} to be P or CHISQ, got {W}' 
-		raise ValueError(msg.format(F=fh, W=x.columns[4])
+		raise ValueError(msg.format(F=fh, W=x.columns[4]))
 		
 	return x
 	
@@ -127,19 +127,19 @@ def betaprod(fh):
 #		'CHR': str,
 		'SNP': str,
 #		'CM': float,
-#		'BP', int,
-		'P1', float,
-		'CHISQ1', float,
-		'DIR1', int,
-		'N1', int,
-		'P2', float,
-		'CHISQ2', float,
-		'DIR2', int,
-		'N2', int,
-		'INFO1', float,
-		'INFO2', float
-		'MAF1', float,
-		'MAF2', float
+#		'BP': int,
+		'P1': float,
+		'CHISQ1': float,
+		'DIR1': int,
+		'N1': int,
+		'P2': float,
+		'CHISQ2': float,
+		'DIR2': int,
+		'N2': int,
+		'INFO1': float,
+		'INFO2': float,
+		'MAF1': float,
+		'MAF2': float
 	}
 	usecols = dtype_dict.keys()
 	try:

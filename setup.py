@@ -1,4 +1,4 @@
-try:
+lstry:
     from setuptools import setup
 except ImportError:
     from distutils.core import setup
@@ -10,7 +10,7 @@ config = {
     'download_url': '',
     'author_email': 'bulik@broadinstitute.org',
     'version': '0.0001',
-    'install_requires': ['nose', 'scipy.spstats', 'numpy', 'progressbar', 'bitarray', 'nose_parameterized'],
+    'install_requires': ['nose', 'scipy', 'numpy', 'progressbar', 'bitarray', 'nose_parameterized'],
     'packages': ['ldsc'],
     'scripts': ['ldsc.py'],
     'name': 'LDSC'
