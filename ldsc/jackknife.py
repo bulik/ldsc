@@ -174,7 +174,7 @@ def gencor(betahat1, betahat2, ldScores, N1, N2, M, N_overlap=None, rho=None,
 	cov = gencov(betahat1, betahat2, N1, N2, M, N_overlap, rho, block_size)
 	biased_cor = cov.est / np.sqrt(hsq1.est * hsq2.est)
 	numer_delete_vals = cov.delete_cals
-	denom_delete_vals = np.sqrt(hsq1.delete_vals*hsq2.delete_vals
+	denom_delete_vals = np.sqrt(hsq1.delete_vals*hsq2.delete_vals)
 	cor = RatioJackknife(biased_cov, cov.delete_vals, numer_delete_vals, denom_delete_vals)
 	return (hsq1, hsq2, cov, cor)
 	
@@ -207,6 +207,18 @@ def ldscore_reg(y, ldScores, weights=None, block_size=1000):
 		covariance estimates. Have to multiply by M/N or M, respectively. 
 	
 	'''
+	if len(ldScores.shape) <= 1:
+		ldScores = np.atleast_2d(ldScores).T
+	if len(y.shape) > 1 or len(y.shape) == 0:
+		raise ValueError('y must have shape (M, )')
+	else:
+		y = np.atleast_2d(y).T
+	
+	num_snps = y.shape[0]
+	num_annots = ldScores.shape[1]
+	if weights is None:
+		weights = np.ones(num_snps)
+		
 	sqrtWeights = np.atleast_2d(np.sqrt(weights)).T
 	y = y * sqrtWeights
 	x = np.zeros((len(ldScores), num_annots + 1))
@@ -358,16 +370,14 @@ class LstsqJackknife(object):
 
 		self.block_vals = self.__compute_block_vals__(x, y, block_size)
 		self.est = self.__block_vals_to_est__(self.block_vals)
-		(self.pseudovalues, self.delete_values) = 
-			self.__block_vals_to_pseudovals__(self.block_vals, self.est)
-		(self.jknife_est, self.jknife_val, self.jknife_se, self.jknife_cov) = 
-			self.__jknife__(self.psuedovalues)
+		(self.pseudovalues, self.delete_values) = self.__block_vals_to_pseudovals__(self.block_vals, self.est)
+		(self.jknife_est, self.jknife_var, self.jknife_se, self.jknife_cov) = self.__jknife__(self.pseudovalues, self.num_blocks)
 		
-	def __jknife__(self.pseudovalues) 
-		jknife_est = np.mean(self.pseudovalues, axis=0) 
-		jknife_var = np.var(self.pseudovalues, axis=0) / (self.num_blocks - 1) 
-		jknife_se = np.std(self.pseudovalues, axis=0) / np.sqrt(self.num_blocks - 1)
-		jknife_cov = np.cov(self.pseudovalues.T) / (self.num_blocks - 1)
+	def __jknife__(self, pseudovalues, num_blocks):
+		jknife_est = np.mean(pseudovalues, axis=0) 
+		jknife_var = np.var(pseudovalues, axis=0) / (num_blocks - 1) 
+		jknife_se = np.std(pseudovalues, axis=0) / np.sqrt(num_blocks - 1)
+		jknife_cov = np.cov(pseudovalues.T) / (num_blocks )
 		return (jknife_est, jknife_var, jknife_se, jknife_cov)
 
 	def __compute_block_vals__(self, x, y, block_size):
@@ -395,7 +405,7 @@ class LstsqJackknife(object):
 			delete_xtx_inv_j = np.linalg.inv(xtx_tot - xtx_blocks[j])
 			delete_value_j = np.dot(delete_xtx_inv_j, delete_xty_j).T
 			pseudovalues[j,...] = self.num_blocks*est - (self.num_blocks-1)*delete_value_j
-			delete_values[j,...] = delete_value
+			delete_values[j,...] = delete_value_j
 
 		return (pseudovalues, delete_values)
 		
@@ -425,29 +435,36 @@ class RatioJackknife(LstsqJackknife):
 	'''
 	Block jackknife class for genetic correlation estimation.
 	
-	Inherits from LstsqJackknife. 
+	Inherits from LstsqJackknife. 1-D only
 	
 	Parameters
 	----------
-	est : float
+	est : float or np.array with shape (# of ratios, )
 		(Biased) ratio estimate (e.g., if we are estimate a = b / c, est should be \
 		\hat{a} = \hat{b} / \hat{c}.
-	numer_delete_vals : np.matrix
+	numer_delete_vals : np.matrix with shape (# of blocks, # of ratios) or (# of blocks, )
 		Delete-k values for the numerator.
-	denom_delete_vals:
+	denom_delete_vals: np.matrix with shape (# of blocks, # of ratios) or (# of blocks, )
 		Delete-k values for the denominator.
+		
 		
 	'''
 
-	def __init__(self, est numer_delete_vals, denom_delete_vals):
-		self.est = est
-		self.numer_delete_vals = numer_delete_vals
-		self.denom_delete_vals = denom_delete_vals
-		self.pseudovalues = self.__delete_vals_to_pseudovals__(self.est, 
-			self.denom_delete_vals, self.numer_delete_vals)
-
-		(self.jknife_est, self.jknife_val, self.jknife_se, self.jknife_cov) = 
-			self.__jknife__(self.psuedovalues)
+	def __init__(self, est, numer_delete_vals, denom_delete_vals):
+		if len(numer_delete_vals.shape) <= 1:
+			numer_delete_vals = np.atleast_2d(numer_delete_vals).T
+		if len(denom_delete_vals.shape) <= 1:
+			denom_delete_vals = np.atleast_2d(denom_delete_vals).T
+		if numer_delete_vals.shape != denom_delete_vals.shape:
+			raise ValueError('numer_delete_vals.shape != denom_delete_vals.shape.')
+	
+		self.est = np.atleast_1d(np.array(est))
+		self.numer_delete_vals = numer_delete_vals 
+		self.denom_delete_vals = denom_delete_vals 
+		self.num_blocks = numer_delete_vals.shape[0]
+		self.output_dim = numer_delete_vals.shape[1]
+		self.pseudovalues = self.__delete_vals_to_pseudovals__(self.est, self.denom_delete_vals, self.numer_delete_vals)
+		(self.jknife_est, self.jknife_var, self.jknife_se, self.jknife_cov) = self.__jknife__(self.pseudovalues, self.num_blocks)
 
 	def __delete_vals_to_pseudovals__(self, est, denom, numer):
 		pseudovalues = np.matrix(np.zeros((self.num_blocks, self.output_dim)))

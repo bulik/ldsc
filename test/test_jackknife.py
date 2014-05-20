@@ -58,9 +58,71 @@ class TestLstsqJackknife(unittest.TestCase):
 		assert np.all(block_vals.reshape(3) - (1,2,3) < 10e-6)
 		
 	def test_autocor(self):
-		pass
+		x = np.matrix(np.random.normal(size=500, loc=-10).reshape((100,5)))
+		y = np.sum(x, axis=1)
+		y += np.random.normal(size=100, scale=10e-6).reshape((100,1))
+		j = jk.LstsqJackknife(x, y, 20)
+		j.autocor(1)		
+
+class Test_RatioJackknife_1D(unittest.TestCase):
+
+	def setUp(self):
+		self.numer_delete_vals = np.arange(1,11)
+		self.denom_delete_vals = - np.arange(1,11); self.denom_delete_vals[9] += 1
+		self.est = -1
+		self.num_blocks = len(self.numer_delete_vals)
+		self.jknife = jk.RatioJackknife(self.est, self.numer_delete_vals, self.denom_delete_vals)
 		
-class Test_infinitesimal_weights(unittest.TestCase):
+	def test_shapes(self):
+		self.assertEqual(self.jknife.est, self.est)
+		self.assertEqual(self.jknife.est.shape, (1,))
+		self.assertEqual(self.jknife.numer_delete_vals.shape, (self.num_blocks,1))
+		print self.jknife.numer_delete_vals
+		assert np.all(self.jknife.numer_delete_vals == np.atleast_2d(self.numer_delete_vals).T)
+		self.assertEqual(self.jknife.denom_delete_vals.shape, (self.num_blocks,1))
+		print self.jknife.denom_delete_vals
+		assert np.all(self.jknife.denom_delete_vals == np.atleast_2d(self.denom_delete_vals).T)
+		self.assertEqual(self.jknife.num_blocks, self.num_blocks)
+		self.assertEqual(self.jknife.pseudovalues.shape, self.jknife.numer_delete_vals.shape)
+
+	def test_jknife(self):
+		assert np.all(self.jknife.pseudovalues[0:9,:] == -1)
+		self.assertEqual(self.jknife.pseudovalues[9,:], 0)
+		assert np.abs(self.jknife.jknife_est[0,0] + 0.9) < 10e-6
+		assert np.abs(self.jknife.jknife_se - 0.1) < 10e-6
+		assert np.abs(self.jknife.jknife_var - 0.01) < 10e-6
+		assert np.abs(self.jknife.jknife_cov - 0.01) < 10e-6
+				
+class Test_RatioJackknife_1D(unittest.TestCase):
+
+	def setUp(self):
+		self.numer_delete_vals = np.arange(1,11)
+		self.denom_delete_vals = - np.arange(1,11); self.denom_delete_vals[9] += 1
+		self.est = -1
+		self.num_blocks = len(self.numer_delete_vals)
+		self.jknife = jk.RatioJackknife(self.est, self.numer_delete_vals, self.denom_delete_vals)
+		
+	def test_shapes(self):
+		self.assertEqual(self.jknife.est, self.est)
+		self.assertEqual(self.jknife.est.shape, (1,))
+		self.assertEqual(self.jknife.numer_delete_vals.shape, (self.num_blocks,1))
+		print self.jknife.numer_delete_vals
+		assert np.all(self.jknife.numer_delete_vals == np.atleast_2d(self.numer_delete_vals).T)
+		self.assertEqual(self.jknife.denom_delete_vals.shape, (self.num_blocks,1))
+		print self.jknife.denom_delete_vals
+		assert np.all(self.jknife.denom_delete_vals == np.atleast_2d(self.denom_delete_vals).T)
+		self.assertEqual(self.jknife.num_blocks, self.num_blocks)
+		self.assertEqual(self.jknife.pseudovalues.shape, self.jknife.numer_delete_vals.shape)
+
+	def test_jknife(self):
+		assert np.all(self.jknife.pseudovalues[0:9,:] == -1)
+		self.assertEqual(self.jknife.pseudovalues[9,:], 0)
+		assert np.abs(self.jknife.jknife_est[0,0] + 0.9) < 10e-6
+		assert np.abs(self.jknife.jknife_se - 0.1) < 10e-6
+		assert np.abs(self.jknife.jknife_var - 0.01) < 10e-6
+		assert np.abs(self.jknife.jknife_cov - 0.01) < 10e-6
+		
+class Test_h2_weights(unittest.TestCase):
 	
 	@param.expand((
 		[10,7,np.ones((10,2)), 0.5],
@@ -68,7 +130,7 @@ class Test_infinitesimal_weights(unittest.TestCase):
 		[5,34,np.ones((10,2)), 0.01]
 		))
 	def test_weights(self, M, N, ldScores, hsq):
-		x = jk.infinitesimal_weights(M, ldScores, hsq*N)
+		x = jk.h2_weights(ldScores, N, M, hsq)
 		self.assertTrue(np.all(x == 1 / (1 + hsq*N*ldScores/M)**2))
 	
 	
