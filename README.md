@@ -1,6 +1,8 @@
 LDSC (LD SCore) v 0.00001
 ======================
 
+Copyright (c) 2014 Brendan Bulik-Sullivan & Hilary Finucane
+
 (Warning: under very active development)
 
 
