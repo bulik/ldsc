@@ -116,7 +116,7 @@ class LstsqJackknife(object):
 			raise ValueError('Block size must be < N/2')
 
 		self.block_size = block_size		
-		self.num_blocks = int(np.ceil(self.N / self.block_size))
+		self.num_blocks = int(self.N / self.block_size)
 		if self.num_blocks > self.N:
 			raise ValueError('Number of blocks > number of data points')
 
@@ -130,10 +130,20 @@ class LstsqJackknife(object):
 		self.jknife_cov = np.cov(self.pseudovalues.T) / (self.num_blocks - 1)
 
 	def __compute_block_vals__(self, x, y, block_size):
+		N = self.N
+		separators = np.arange(0,N,block_size)
+		remainder = N % block_size
+		if remainder == 0:
+			separators = np.hstack([separators,N])
+		else:
+			for r in range(remainder):
+				separators[-(r+1)] += remainder - r
+
 		xty_block_vals = []; xtx_block_vals = []
-		for s in xrange(0, self.N, block_size):	
+		for i in range(len(separators)-1):	
 			# s = block start SNP index; e = block end SNP index
-			e = min(self.N, s+block_size)
+			s = separators[i]
+			e = separators[i+1]
 			xty = np.dot( x[s:e,...].T, y[s:e,...] )
 			xtx = np.dot( x[s:e,...].T, x[s:e,...] )
 			xty_block_vals.append(xty)
