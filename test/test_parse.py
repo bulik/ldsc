@@ -47,12 +47,21 @@ class Test_betaprod(unittest.TestCase):
 	
 
 class Test_ldscore(unittest.TestCase):
-	pass
 
+	def test_ldscore(self):
+		x = ps.ldscore('test/parse_test/test')
+		self.assertEqual(list(x['SNP']), ['rs'+str(i) for i in range(1,23)] ) 
+		self.assertEqual(list(x['AL2']), range(1,23) ) 
+		self.assertEqual(list(x['BL2']), range(2,46,2) ) 
 
 class Test_ldscore22(unittest.TestCase):
-	pass
-
+	
+	def test_ldscore22(self):
+		x = ps.ldscore22('test/parse_test/test')
+		self.assertEqual(list(x['SNP']), ['rs'+str(i) for i in range(1,23)] ) 
+		self.assertEqual(list(x['AL2']), range(1,23) ) 
+		self.assertEqual(list(x['BL2']), range(2,46,2) ) 
+	
 
 class Test_M(unittest.TestCase):
 	

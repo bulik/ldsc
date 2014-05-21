@@ -191,8 +191,8 @@ def ldscore(fh):
 def ldscore22(fh):
 	chr_ld = []
 	for i in xrange(1,23):
-		chr_fh = fh + '.' + str(i)
-		x = pd.read_csv(fname, header=0, delim_whitespace=True)
+		chr_fh = fh + str(i) + '.l2.ldscore'
+		x = pd.read_csv(chr_fh, header=0, delim_whitespace=True)
 		x = x.drop(['CHR','BP','CM','MAF'],axis=1)
 		chr_ld.append(x)
 		
