@@ -6,6 +6,14 @@ import nose
 from nose_parameterized import parameterized as param
 
 
+class Test_dir(unittest.TestCase):
+
+	@nose.tools.raises(ValueError)
+	def test(self):
+		dir = np.array((1,-1,0))
+		ps.check_dir(dir)
+
+ 
 class Test_check_pvalue(unittest.TestCase):
 	
 	@nose.tools.raises(ValueError)
