@@ -197,61 +197,87 @@ def betaprod(fh):
 	return x
 
 	
-def ldscore(fh):
+def ldscore(fh, num=None):
 	'''
 	Parses .l2.ldscore files. See docs/file_formats_ld.txt
-	
+
+	If num is not None, parses .l2.ldscore files split across [num] chromosomes (e.g., the 
+	output of parallelizing ldsc.py --l2 across chromosomes).
+
 	'''
-	fname = fh + '.l2.ldscore'
-	x = pd.read_csv(fname, header=0, delim_whitespace=True)
-	x = x.drop(['CHR','BP','CM','MAF'],axis=1)
+	parsefunc = lambda y : pd.read_csv(y, header=0, delim_whitespace=True).\
+		drop(['CHR','BP','CM','MAF'],axis=1)
+	
+	if num is not None:
+		chr_ld = [parsefunc(fh + str(i) + '.l2.ldscore') for i in xrange(1,num+1)]
+		x = pd.concat(chr_ld)
+	else:
+		x = parsefunc(fh + '.l2.ldscore')
+	
 	check_rsid(x['SNP']) 
-	print x.columns
 	x.ix[:,1:len(x.columns)] = x.ix[:,1:len(x.columns)].astype(float)
 	return x
-
-
-def ldscore22(fh):
-	'''
-	Parses .l2.ldscore files split across 22 chromosomes (e.g., the output of parallelizing
-	ldsc.py --l2 across chromosomes).
 	
+	
+def M(fh, num=None):
 	'''
+	Parses .l2.M files. See docs/file_formats_ld.txt.
+	
+	If num is not none, parses .l2.M files split across [num] chromosomes (e.g., the output 
+	of parallelizing ldsc.py --l2 across chromosomes).
 
-	chr_ld = []
-	for i in xrange(1,23):
-		chr_fh = fh + str(i) + '.l2.ldscore'
-		x = pd.read_csv(chr_fh, header=0, delim_whitespace=True)
-		x = x.drop(['CHR','BP','CM','MAF'],axis=1)
-		chr_ld.append(x)
+	'''
+	parsefunc = lambda y : [float(z) for z in open(y, 'r').readline().split()]
+	if num is not None:
+		x = np.sum([parsefunc(fh+str(i)+'.l2.M') for i in xrange(1,num+1)], axis=0)
+	else:
+		x = parsefunc(fh + '.l2.M')
 		
-	x = pd.concat(chr_ld)
-	x.ix[:,1:len(x.columns)] = x.ix[:,1:len(x.columns)].astype(float)
-	check_rsid(x['SNP']) # in case there are duplicated rs#'s on different chromosomes
 	return x
 	
-	
-def M(fh):
-	'''
-	Parses .l2.M files. See docs/file_formats_ld.txt
-	
-	'''
 
-	fname = fh + '.l2.M'
-	x = open(fname, 'r').readline().split()
-	x = [float(y) for y in x]
-	return x
+def __ID_List_Factory__(colnames, keepcol, fname_end, header=None, usecols=None):
 	
-	
-def M22(fh):
-	'''
-	Parses .l2.M files split across 22 chromosomes (e.g., the output of parallelizing
-	ldsc.py --l2 across chromosomes).
-	
-	'''
-	chr_M = []
-	for i in xrange(1,23):
-		chr_fh = fh + str(i)
-		chr_M.append(M(chr_fh))
+	class IDContainer(object):
 		
-	return np.sum(chr_M, axis=0)
+		def __init__(self, fname):
+			self.__usecols__ = usecols
+			self.__colnames__ = colnames
+			self.__keepcol__ = keepcol
+			self.__fname_end__ = fname_end
+			self.__header__ = header
+			self.__read__(fname)
+			self.n = len(self.IDList)
+
+		def __read__(self, fname):
+			end = self.__fname_end__
+			if end and not fname.endswith(end):
+				raise ValueError('{f} filename must end in {f}'.format(f=end))
+
+			self.df = pd.read_csv(fname, header=self.__header__, usecols=self.__usecols__, 
+				delim_whitespace=True)
+			if self.__colnames__: self.df.columns = self.__colnames__
+			self.IDList = self.df.iloc[:,[self.__keepcol__]]
+		
+		def loj(self, externalDf):
+			'''
+			Returns indices of those elements of self.IDList that appear in exernalDf
+			'''
+			r = externalDf.columns[0]
+			l = self.IDList.columns[0]
+			merge_df = externalDf.iloc[:,[0]]
+			merge_df['keep'] = True
+			z = pd.merge(self.IDList, merge_df, how='left',left_on=l, right_on=r, 
+				sort=False)
+			ii = z['keep'] == True	
+			return np.nonzero(ii)[0]
+
+	return IDContainer
+
+
+PlinkBIMFile = __ID_List_Factory__(['CHR', 'SNP','CM','BP'],1,'.bim',usecols=[0,1,2,3])
+VcfSNPFile = __ID_List_Factory__(['CHR','BP','SNP','CM'],2,'.snp',usecols=[0,1,2,3])
+PlinkFAMFile = __ID_List_Factory__(['IID'],0,'.fam',usecols=[1])
+VcfINDFile = __ID_List_Factory__(['IID'],0,'.ind',usecols=[0])
+FilterFile = __ID_List_Factory__(['ID'],0,None,usecols=[0])
+AnnotFile = __ID_List_Factory__(None,2,'.annot',header=0,usecols=None)
