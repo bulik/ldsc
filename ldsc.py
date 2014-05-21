@@ -6,11 +6,27 @@ import numpy as np
 import pandas as pd
 
 
+class logger(object):
+	'''
+	Lightweight logging.
+	
+	TODO: replace with logging module
+	
+	'''
+ 	def log(self, msg):
+		'''
+		Print to log file and stdout with a single command.
+		
+		'''
+		print >>self.log, msg
+		print msg
+	
+
 def __filter__(fname, noun, verb, merge_obj):
 	merged_list = None
 	if fname:
 		f = lambda x,n: x.format(noun=noun, verb=verb, fname=fname, num=n)
-		x = ld.FilterFile(fname)
+		x = ps.FilterFile(fname)
 	 	c = 'Read list of {num} {noun} to {verb} from {fname}'
 	 	print f(c, len(x.IDList))
 		merged_list = merge_obj.loj(x.IDList)
@@ -27,30 +43,35 @@ def __filter__(fname, noun, verb, merge_obj):
 
 def ldscore(args):
 	'''
+	Wrapper function for estimating l1, l1^2, l2 and l4 (+ optionally standard errors) from
+	reference panel genotypes. 
+	
 	Annot format is 
 	chr snp bp cm <annotations>
+	
 	'''
-
+	log = logger(args.out+'.log')
+	
 	if args.bin:
-		snp_file, snp_obj = args.bin+'.snp', ld.VcfSNPFile
-		ind_file, ind_obj = args.bin+'.ind', ld.VcfINDFile
+		snp_file, snp_obj = args.bin+'.snp', ps.VcfSNPFile
+		ind_file, ind_obj = args.bin+'.ind', ps.VcfINDFile
 		array_file, array_obj = args.bin+'.bin', ld.VcfBINFile
 	elif args.bfile:
-		snp_file, snp_obj = args.bfile+'.bim', ld.PlinkBIMFile
-		ind_file, ind_obj = args.bfile+'.fam', ld.PlinkFAMFile
+		snp_file, snp_obj = args.bfile+'.bim', ps.PlinkBIMFile
+		ind_file, ind_obj = args.bfile+'.fam', ps.PlinkFAMFile
 		array_file, array_obj = args.bfile+'.bed', ld.PlinkBEDFile
 
 	# read bim/snp
 	array_snps = snp_obj(snp_file)
 	m = len(array_snps.IDList)
-	print 'Read list of {m} SNPs from {f}'.format(m=m, f=snp_file)
+	log.log('Read list of {m} SNPs from {f}'.format(m=m, f=snp_file))
 	
 	# read annot
 	if args.annot:
-		annot = ld.AnnotFile(args.annot)
+		annot = ps.AnnotFile(args.annot)
 		num_annots,ma = len(annot.df.columns) - 4, len(annot.df)
-		print "Read {A} annotations for {M} SNPs from {f}".format(f=args.annot,A=num_annots,
-			M=ma)
+		log.log("Read {A} annotations for {M} SNPs from {f}".format(f=args.annot,A=num_annots,
+			M=ma))
 		annot_matrix = np.array(annot.df.iloc[:,4:])
 		annot_colnames = annot.df.columns[4:]
 	else:
@@ -60,7 +81,7 @@ def ldscore(args):
 	# read fam/ind
 	array_indivs = ind_obj(ind_file)
 	n = len(array_indivs.IDList)	 
-	print 'Read list of {n} individuals from {f}'.format(n=n, f=ind_file)
+	log.log('Read list of {n} individuals from {f}'.format(n=n, f=ind_file))
 	# read keep_indivs
 	if args.extract:
 		keep_indivs = __filter__(args.extract, 'individuals', 'include', array_indivs)
@@ -68,7 +89,7 @@ def ldscore(args):
 		keep_indivs = None
 		
 	# read genotype array
-	print 'Reading genotypes from {fname}'.format(fname=array_file)
+	log.log('Reading genotypes from {fname}'.format(fname=array_file))
 	geno_array = array_obj(array_file,n,array_snps, keep_indivs=keep_indivs, 
 		mafMin=args.maf)
 		
@@ -137,17 +158,17 @@ def ldscore(args):
 
 	else: # not block jackknife
 		if args.l1:
-			print "Estimating L1."
+			log.log("Estimating L1.")
 			lN = geno_array.l1VarBlocks(block_left, args.chunk_size, annot=annot_matrix)
 			col_prefix = "L1"; file_suffix = "l1"
 		
 		elif args.l1sq:
-			print "Estimating L1 ^ 2."
+			log.log("Estimating L1 ^ 2.")
 			lN = geno_array.l1sqVarBlocks(block_left, args.chunk_size, annot=annot_matrix)
 			col_prefix = "L1SQ"; file_suffix = "l1sq"
 		
 		elif args.l2:
-			print "Estimating LD Score (L2)."
+			log.log("Estimating LD Score (L2).")
 			lN = geno_array.ldScoreVarBlocks(block_left, args.chunk_size, annot=annot_matrix)
 			col_prefix = "L2"; file_suffix = "l2"
 	
@@ -167,7 +188,7 @@ def ldscore(args):
 	new_colnames = geno_array.colnames + ldscore_colnames
 	df = pd.DataFrame(np.c_[geno_array.df, lN])
 	df.columns = new_colnames
-	print "Writing results to {f}".format(f=out_fname)
+	log.log("Writing results to {f}".format(f=out_fname))
 	df.to_csv(out_fname, sep="\t", header=True, index=False)	
 	
 	# print .M
@@ -179,12 +200,21 @@ def ldscore(args):
 		print >> fout_M, '\t'.join(map(str,M))
 
 	fout_M.close()
+
 	
 def sumstats(args):
+	'''
+	Wrapper function for estmating
+		1. h2 / partitioned h2
+		2. genetic covariance / correlation
+		3. LD Score regression intercept
+	
+	from reference panel LD and GWAS summary statistics.
+	
+	'''
 	
 	# open output files
-	out_fh = open(args.out + ".ldscore.reg", 'wb')
-	log_fh = open(args.out + ".log", 'wb')
+	log = logger(args.out + ".log")
 		
 	# read .chisq or betaprod
 	if args.sumstats_h2:
@@ -193,18 +223,18 @@ def sumstats(args):
 		sumstats = ps.betaprod(args.sumstats_gencor)
 	
 	log_msg = 'Read summary statistics for {N} SNPs.'
-	print >>log_fh, log_msg.format(N=len(sumstats))
+	log.log(log_msg.format(N=len(sumstats)))
 	
 	# read reference panel LD Scores and .M 
 	if args.ref_ld:
 		ref_ldscores = ps.ldscore(args.ref_ld)
 		M = ps.M(args.ref_ld)
 	elif args.ref_ld_chr:
-		ref_ldscores = ps.ldscore22(args.ref_ld_chr)
-		M = ps.M22(args_ref_ld_chr)
+		ref_ldscores = ps.ldscore(args.ref_ld_chr,22)
+		M = ps.M(args_ref_ld_chr, 22)
 		
 	log_msg = 'Read reference panel LD Scores for {N} SNPs.'
-	print >>log_fh, log_msg.format(N=len(ref_ldscores))
+	log.log(log_msg.format(N=len(ref_ldscores)))
 
 	# read regression SNP LD Scores
 	if args.regression_snp_ld:
@@ -213,37 +243,54 @@ def sumstats(args):
 		w_ldscores = ps.ldscore22(args.regression_snp_ld)
 		
 	log_msg = 'Read LD Scores for {N} SNPs to be retained for regression.'
-	print >>log_fh, log_msg.format(N=len(w_ldscores))		
+	log.log(log_msg.format(N=len(w_ldscores)))
 	
 	# merge with reference panel LD Scores 
 	sumstats = pd.merge(sumstats, ref_ldscores, how="inner", on="SNP")
 	log_msg = 'After merging with reference panel LD, {N} SNPs remain.'
-	print >>log_fh, log_msg.format(N=len(sumstats))
+	log.log(log_msg.format(N=len(sumstats)))
 
 	# merge with regression SNP LD Scores
 	sumstats = pd.merge(sumstats, w_ldscores, how="inner", on="SNP")
 	log_msg = 'After merging with regression SNP LD, {N} SNPs remain.'
-	print >>log_fh, log_msg.format(N=len(sumstats))
+	log.log(log_msg.format(N=len(sumstats)))
 	
 	# filter based on filter flags
 	if args.maf is not None:
 		if 'MAF' in sumstats.colnames:
-			pass
+			ii = sumstats['MAF'] > args.maf
+			sumstats = sumstats[ii]
+			M = len(sumstats)
+			if M == 0:
+				err_msg = 'No SNPs retained for analysis after filtering on MAF > {F}.'
+				raise ValueError(err_msg.format(F=args.maf)
+			else:
+				log_msg = 'After filtering on MAF > {F}, {N} SNPs remain.'
+				log.log(log_msg.format(N=M))
 		else: 
 			raise ValueError('Cannot find a column named MAF')
 			
 	if args.info_min is not None:
 		if 'INFO' in sumstats.colnames:
-			pass	
+			ii = sumstats['INFO'] > args.info_min
+			sumstats = sumstats[ii]
+			M = len(sumstats)
+			if M == 0:
+				err_msg = 'No SNPs retained for analysis after filtering on INFO > {F}.'
+				raise ValueError(err_msg.format(F=args.info_min)
 		else:
 			raise ValueError('Cannot find a column named INFO')
 
 	if args.info_max is not None:
 		if 'INFO' in sumstats.colnames:
-			pass
+			ii = sumstats['INFO'] < args.info_max
+			sumstats = sumstats[ii]
+			M = len(sumstats)
+			if M == 0:
+				err_msg = 'No SNPs retained for analysis after filtering on INFO < {F}.'
+				raise ValueError(err_msg.format(F=args.info_max)
 		else:
 			raise ValueError('Cannot find a column named INFO')
-
 
 	# LD Score regression to estimate h2
 	if args.sumstats_h2:
@@ -253,7 +300,7 @@ def sumstats(args):
 		if args.chisq_max is not None:
 			log_msg = 'Removing all SNPs with chi-square > {X}.\n'
 			log_msg += 'Warning, this will produce biased h2 estimates. Use only for estimation of the LD Score regression intercept.'
-			print >>log_fh, log_msg.format(X=args.chisq_max)
+			log.log(log_msg.format(X=args.chisq_max))
 
 		heteroskedasticity_weights = jk.infinitesimal_weights()
 		overcounting_weights = 1 / np.fmax(w_ldscores, 1)
@@ -270,7 +317,10 @@ def sumstats(args):
 	
 	# LD Score regression to estimate genetic correlation
 	elif args.sumstats_gencor:
-		heteroskedasticity_weights = jk.gencor_weights()
+		
+
+
+		heteroskedasticity_weights = jk.gencor_weights(args.rho, args.overlap)
 		overcounting_weights = 1 / np.fmax(w_ldscores, 1)
 		weights = heteroskedasticity_weights * overcounting_weights
 		reg_gencov = jk.gencov_reg()
@@ -388,6 +438,11 @@ if __name__ == '__main__':
 			raise ValueError('Cannot specify both --ref-ld and --ref-ld-chr.')
 		if args.regression_snp_ld or args.regression_snp_ld_chr:
 			raise ValueError('Cannot specify both --regression-snp-ld and --regression-snp-ld-chr.')
+		if args.rho or args.overlap:
+			if not args.sumstats_gencor:
+				raise ValueError('--rho and --overlap can only be used with --sumstats-gencor.')
+			if not (args.rho and args.overlap):
+				raise ValueError('Must specify either both or neither of --rho and --overlap')
 		
 		if args.block_size is None: # default jackknife block size for h2/gencor
 			args.block_size = 2000
