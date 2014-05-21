@@ -14,7 +14,10 @@ def check_dir(dir):
 
 
 def check_rsid(rsids):
+	'''
+	Checks that rs numbers are sensible.
 	
+	'''
 	# check for rsid = .
 	if np.any(rsids == '.'):
 		raise ValueError('Some SNP identifiers are set to . (a dot).')
@@ -25,9 +28,11 @@ def check_rsid(rsids):
 
 	
 def check_pvalue(P):
-
-	# nonsense values should have been caught already by coercion to float
+	'''
+	Checks that P values are sensible. Nonsense values should have been caught already by 
+	coercion to float.
 	
+	'''
 	# check for missing 
 	if np.any(np.isnan(P)):
 		raise ValueError('Missing P-values')
@@ -40,8 +45,11 @@ def check_pvalue(P):
 
 
 def check_chisq(chisq):
-
-	# nonsense values should have been caught already by coercion to float
+	'''
+	Checks that chi-square statistics are sensible. Nonsense values should have been caught
+	already by coercion to float.
+	
+	'''
 	if np.any(np.isnan(chisq)):
 		raise ValueError('Missing chi-square statistics.')
 	
@@ -53,8 +61,11 @@ def check_chisq(chisq):
 
 
 def check_maf(maf):
-	
-	# nonsense values should have been caught already by coercion to float
+	'''
+	Checks that MAFs are sensible. Nonsense values should have been caught already by 
+	coercion to float.
+
+	'''
 	if np.any(np.isnan(maf)):
 		raise ValueError('Missing values in MAF.')
 	
@@ -66,14 +77,21 @@ def check_maf(maf):
 	
 	
 def check_N(N):
-	# coercion to int should have already taken care of nonsense
+	'''
+	Checks that sample sizes are sensible. Nonsense values should have been caught already 
+	by coercion to int.
 	
+	'''
 	if np.min(N) < 0:
 		raise ValueError('Negative N.')
 
 
 # parsers
 def chisq(fh):
+	'''
+	Parses .chisq files. See docs/file_formats_sumstats.txt
+	
+	'''
 	dtype_dict = {
 		'CHR': str,
 		'SNP': str,
@@ -114,6 +132,10 @@ def chisq(fh):
 	
 
 def betaprod(fh):
+	'''
+	Parses .betaprod files. See docs/file_formats_sumstats.txt
+	
+	'''
 	dtype_dict = {
 		'CHR': str,
 		'SNP': str,
@@ -171,6 +193,10 @@ def betaprod(fh):
 
 	
 def ldscore(fh):
+	'''
+	Parses .l2.ldscore files. See docs/file_formats_ld.txt
+	
+	'''
 	fname = fh + '.l2.ldscore'
 	x = pd.read_csv(fname, header=0, delim_whitespace=True)
 	x = x.drop(['CHR','BP','CM','MAF'],axis=1)
@@ -181,6 +207,12 @@ def ldscore(fh):
 
 
 def ldscore22(fh):
+	'''
+	Parses .l2.ldscore files split across 22 chromosomes (e.g., the output of parallelizing
+	ldsc.py --l2 across chromosomes).
+	
+	'''
+
 	chr_ld = []
 	for i in xrange(1,23):
 		chr_fh = fh + str(i) + '.l2.ldscore'
@@ -195,6 +227,11 @@ def ldscore22(fh):
 	
 	
 def M(fh):
+	'''
+	Parses .l2.M files. See docs/file_formats_ld.txt
+	
+	'''
+
 	fname = fh + '.l2.M'
 	x = open(fname, 'r').readline().split()
 	x = [float(y) for y in x]
@@ -202,6 +239,11 @@ def M(fh):
 	
 	
 def M22(fh):
+	'''
+	Parses .l2.M files split across 22 chromosomes (e.g., the output of parallelizing
+	ldsc.py --l2 across chromosomes).
+	
+	'''
 	chr_M = []
 	for i in xrange(1,23):
 		chr_fh = fh + str(i)
