@@ -36,7 +36,7 @@ def check_pvalue(P):
 	if np.max(P) > 1:
 		raise ValueError('P-values cannot be > 1.')
 	if np.min(P) <= 0:
-		raise ValueEror('P values cannot be <= 0')
+		raise ValueError('P values cannot be <= 0')
 
 
 def check_chisq(chisq):
@@ -60,9 +60,9 @@ def check_maf(maf):
 	
 	# check for MAF outside of the range (0,1)
 	if np.max(maf) >= 1:
-		raise ValueError('MAF > 1.')
+		raise ValueError('MAF >= 1.')
 	if np.min(maf) <= 0:
-		raise ValueError('MAF < 0.')
+		raise ValueError('MAF <= 0.')
 	
 	
 def check_N(N):
@@ -73,7 +73,6 @@ def check_N(N):
 
 
 # parsers
-
 def chisq(fh):
 	dtype_dict = {
 		'CHR': str,
@@ -94,27 +93,22 @@ def chisq(fh):
 			dtype=dtype_dict)
 	except AttributeError as e:
 		raise AttributeError('Improperly formatted chisq file: '+ e)
-	
-	msg = 'Expected column {I} of {F} to be {C}, got {W}' 
-	for i, c in enumerate(['SNP','N']):
-		if x.columns[i] != c:
-			raise	ValueError(msg.format(I=i,F=fh,C=c,W=x.columns[i]))
 
 	check_N(x['N'])	
 	check_rsid(x['SNP']) 
+	
 	if 'MAF' in x.columns:
 		check_maf(x['MAF'])
 		x['MAF'] = np.fmin(x['MAF'], 1-x['MAF'])
 	
-	if x.columns[2] == 'P':
+	if 'P' in x.columns:
 		check_pvalue(x['P'])
 		x['P'] = chdtri(1, x['P']); 
 		x.rename(columns={'P': 'CHISQ'}, inplace=True)
-	elif x.columns[2] == 'CHISQ':
+	elif 'CHISQ' in x.columns:
 		check_chisq(x['CHISQ'])
 	else:
-		msg = 'Expected column 4 of {F} to be P or CHISQ, got {W}' 
-		raise ValueError(msg.format(F=fh, W=x.columns[2]))
+		raise ValueError('.chisq file must have a column labeled either P or CHISQ.')
 
 	return x
 	
@@ -148,36 +142,30 @@ def betaprod(fh):
 	except AttributeError as e:
 		raise AttributeError('Improperly formatted betaprod file: '+ e)
 		
-	if x.columns[1] != 'SNP':
-		raise	ValueError('Improperly formatted betaprod file, first column should be SNP.')
-
 	check_rsid(x['SNP'])
+	
 	for i in ['1','2']:
 		N='N'+i; P='P'+i; CHISQ='CHISQ'+i; DIR='DIR'+i; MAF='MAF'+i; INFO='INFO'+i
-		if N not in x.columns:
-			raise ValueError('No column named {C} in betaprod.'.format(C=N))
-		if DIR not in x.columns:
-			raise ValueError('No column named {C} in betaprod.'.format(C=DIR))
+		BETAHAT='BETAHAT'+i
 		check_N(x[N])
 		check_dir(x[DIR])
 		if CHISQ in x.columns:
 			check_chisq(x[CHISQ])
-			betahat = np.sqrt[CHISQ] * dir
+			betahat = np.sqrt(x[CHISQ]/x[N]) * x[DIR]
 			x[CHISQ] = betahat
-			ii = x.columns == CHISQ
-			x.columns[ii] = 'BETAHAT'+i
+			x.rename(columns={CHISQ: BETAHAT}, inplace=True)
 		elif P in x.columns:
 			check_pvalue(x[P])
-			betahat = np.sqrt(chdtri(1, x[P])) * dir
+			betahat = np.sqrt(chdtri(1, x[P])/x[N])	* x[DIR]
 			x[P] = betahat
-			ii = x.columns == P
-			x.columns[ii] = 'BETAHAT'+i
+			x.rename(columns={P: BETAHAT}, inplace=True)
 		else:
 			raise ValueError('No column named P{i} or CHISQ{i} in betaprod.'.format(i=i))
 
+		del x[DIR]
 		if MAF in x.columns:
 			check_maf(x[MAF])
-			x[MAF] = x['MAF'] = np.min(x['MAF'], 1-x['MAF'])
+			x[MAF]  = np.min(x[MAF], 1-x[MAF])
 		
 	return x
 

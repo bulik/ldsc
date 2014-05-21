@@ -7,35 +7,65 @@ from nose_parameterized import parameterized as param
 
 
 class Test_check_pvalue(unittest.TestCase):
-	def setUp(self):
-		pass
+	
+	@nose.tools.raises(ValueError)
+	def test_missing(self):
+		p = np.array((1,0.5,float('nan')))
+		ps.check_pvalue(p)
 		
-	def test_asdf(self):
-		pass
+	@nose.tools.raises(ValueError)
+	def test_high(self):
+		p = np.array((1,0.5,2))
+		ps.check_pvalue(p)
+
+	@nose.tools.raises(ValueError)
+	def test_low(self):
+		p = np.array((1,0.5,0))
+		ps.check_pvalue(p)
 
 	
 class Test_check_chisq(unittest.TestCase):
-	def setUp(self):
-		pass
+	
+	@nose.tools.raises(ValueError)
+	def test_missing(self):
+		chisq = np.array((1,0.5,float('nan')))
+		ps.check_chisq(chisq)
 		
-	def test_asdf(self):
-		pass
+	@nose.tools.raises(ValueError)
+	def test_inf(self):
+		chisq = np.array((1,0.5,float('inf')))
+		ps.check_chisq(chisq)
 
+	@nose.tools.raises(ValueError)
+	def test_inf(self):
+		chisq = np.array((1,0.5,-1))
+		ps.check_chisq(chisq)
+
+
+class test_check_maf(unittest.TestCase):
 	
-class Test_check_maf(unittest.TestCase):
-	def setUp(self):
-		pass
-		
-	def test_asdf(self):
-		pass
+	@nose.tools.raises(ValueError)
+	def test_missing(self):
+		maf = np.array((1,0.5,float('nan')))
+		ps.check_maf(maf)
 	
+	@nose.tools.raises(ValueError)
+	def test_high(self):
+		maf = np.array((1,0.5,0.2))
+		ps.check_maf(maf)
+	
+	@nose.tools.raises(ValueError)
+	def test_low(self):
+		maf = np.array((0.1,0.5,0))
+		ps.check_maf(maf)
+
 
 class Test_check_N(unittest.TestCase):
-	def setUp(self):
-		pass
-		
-	def test_asdf(self):
-		pass
+
+	@nose.tools.raises(ValueError)
+	def test_low(self):
+		N = np.array((2,1,-1))
+		ps.check_N(N)
 
 
 class Test_chisq(unittest.TestCase):
@@ -51,13 +81,14 @@ class Test_chisq(unittest.TestCase):
 class Test_betaprod(unittest.TestCase):
 
 	def test_betaprod(self):
-		x = ps.betaprod('test/parse_test/test.chisq')
+		x = ps.betaprod('test/parse_test/test.betaprod')
 		self.assertEqual(list(x['SNP']), ['rs1', 'rs2','rs3'])	
-		self.assertEqual(list(x['N']), [100, 100, 100])	
-		self.assertEqual(list(x['INFO']), [1, 1, 1])	
-		assert np.all(np.abs(x['MAF'] - [0.5, 0.01, 0.01]) < 10e-6)
-		assert np.all(x.columns == ['SNP','N','CHISQ','INFO','MAF'])
-	
+		self.assertEqual(list(x['N1']), [100, 100, 100])	
+		self.assertEqual(list(x['N2']), [5, 5, 5])	
+		self.assertEqual(list(x.columns), ['SNP','N1','BETAHAT1','N2','BETAHAT2'])
+		self.assertEqual(list(x['BETAHAT1']), [-1,1,-1])
+		self.assertEqual(list(x['BETAHAT2']), [1,-1,1])
+
 
 class Test_ldscore(unittest.TestCase):
 
