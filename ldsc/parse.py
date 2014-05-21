@@ -7,6 +7,11 @@ from scipy.special import chdtri
 # input checking functions 
 
 def check_dir(dir):
+	'''
+	Checks that directions of effect are sensible. Nonsense values should have been caught
+	already by coercion to int.
+	
+	'''
 	c1 = dir != 1
 	c2 = dir != -1
 	if np.any(np.logical_and(c1, c2)):	
