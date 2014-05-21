@@ -59,9 +59,9 @@ def check_maf(maf):
 		raise ValueError('Missing values in MAF.')
 	
 	# check for MAF outside of the range (0,1)
-	if np.max(chisq) >= 1:
+	if np.max(maf) >= 1:
 		raise ValueError('MAF > 1.')
-	if np.min(chisq) <= 0:
+	if np.min(maf) <= 0:
 		raise ValueError('MAF < 0.')
 	
 	
@@ -76,17 +76,19 @@ def check_N(N):
 
 def chisq(fh):
 	dtype_dict = {
-#		'CHR': str,
+		'CHR': str,
 		'SNP': str,
-#		'CM': float,
-#		'BP': int,
+		'CM': float,
+		'BP': int,
 		'P': float,
 		'CHISQ': float,
 		'N': int,
 		'MAF': float,
 		'INFO': float,
 	}
-	usecols = dtype_dict.keys()
+	colnames = open(fh,'rb').readline().split()
+	usecols = ['SNP','P','CHISQ','N','MAF','INFO']	
+	usecols = [x for x in usecols if x in colnames]
 	try:
 		x = pd.read_csv(fh, header=0, delim_whitespace=True, usecols=usecols, 
 			dtype=dtype_dict)
@@ -94,36 +96,35 @@ def chisq(fh):
 		raise AttributeError('Improperly formatted chisq file: '+ e)
 	
 	msg = 'Expected column {I} of {F} to be {C}, got {W}' 
-	#for i, c in ['CHR','SNP','CM','BP','N']:
-	for i, c in ['SNP','N']:
+	for i, c in enumerate(['SNP','N']):
 		if x.columns[i] != c:
-			raise	ValueError(msg.format(i=i,F=fh,C=c,W=x.columns[i]))
+			raise	ValueError(msg.format(I=i,F=fh,C=c,W=x.columns[i]))
 
 	check_N(x['N'])	
 	check_rsid(x['SNP']) 
-	if 'MAF' in x.colnames:
+	if 'MAF' in x.columns:
 		check_maf(x['MAF'])
-		x['MAF'] = np.min(x['MAF'], 1-x['MAF'])
+		x['MAF'] = np.fmin(x['MAF'], 1-x['MAF'])
 	
-	if x.columns[4] == 'P':
+	if x.columns[2] == 'P':
 		check_pvalue(x['P'])
 		x['P'] = chdtri(1, x['P']); 
-		x.columns[4] = 'CHISQ'
-	elif x.columns[4] == 'CHISQ':
+		x.rename(columns={'P': 'CHISQ'}, inplace=True)
+	elif x.columns[2] == 'CHISQ':
 		check_chisq(x['CHISQ'])
 	else:
-		msg = 'Expected column 5 of {F} to be P or CHISQ, got {W}' 
-		raise ValueError(msg.format(F=fh, W=x.columns[4]))
-		
+		msg = 'Expected column 4 of {F} to be P or CHISQ, got {W}' 
+		raise ValueError(msg.format(F=fh, W=x.columns[2]))
+
 	return x
 	
 
 def betaprod(fh):
 	dtype_dict = {
-#		'CHR': str,
+		'CHR': str,
 		'SNP': str,
-#		'CM': float,
-#		'BP': int,
+		'CM': float,
+		'BP': int,
 		'P1': float,
 		'CHISQ1': float,
 		'DIR1': int,
@@ -137,7 +138,10 @@ def betaprod(fh):
 		'MAF1': float,
 		'MAF2': float
 	}
-	usecols = dtype_dict.keys()
+	colnames = open(fh,'rb').readline().split()
+	usecols = [x+str(i) for i in xrange(1,3) for x in ['DIR','P','CHISQ','N','MAF','INFO']]
+	usecols.append('SNP')
+	usecols = [x for x in usecols if x in colnames]
 	try:
 		x = pd.read_csv(fh, header=0, delim_whitespace=True, usecols=usecols, 
 			dtype=dtype_dict)

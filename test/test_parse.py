@@ -39,11 +39,24 @@ class Test_check_N(unittest.TestCase):
 
 
 class Test_chisq(unittest.TestCase):
-		pass
 	
-	
+	def test_chisq(self):
+		x = ps.chisq('test/parse_test/test.chisq')
+		self.assertEqual(list(x['SNP']), ['rs1', 'rs2','rs3'])	
+		self.assertEqual(list(x['N']), [100, 100, 100])	
+		self.assertEqual(list(x['INFO']), [1, 1, 1])	
+		assert np.all(np.abs(x['MAF'] - [0.5, 0.01, 0.01]) < 10e-6)
+		assert np.all(x.columns == ['SNP','N','CHISQ','INFO','MAF'])
+
 class Test_betaprod(unittest.TestCase):
-	pass
+
+	def test_betaprod(self):
+		x = ps.betaprod('test/parse_test/test.chisq')
+		self.assertEqual(list(x['SNP']), ['rs1', 'rs2','rs3'])	
+		self.assertEqual(list(x['N']), [100, 100, 100])	
+		self.assertEqual(list(x['INFO']), [1, 1, 1])	
+		assert np.all(np.abs(x['MAF'] - [0.5, 0.01, 0.01]) < 10e-6)
+		assert np.all(x.columns == ['SNP','N','CHISQ','INFO','MAF'])
 	
 
 class Test_ldscore(unittest.TestCase):
