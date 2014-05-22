@@ -223,6 +223,8 @@ def sumstats(args):
 	# read .chisq or betaprod
 	if args.sumstats_h2:
 		sumstats = ps.chisq(args.sumstats_h2)
+	elif args.sumstats_intercept:
+		sumstats = ps.chisq(args.sumstats_intercept)
 	elif args.sumstats_gencor:
 		sumstats = ps.betaprod(args.sumstats_gencor)
 	
@@ -236,7 +238,12 @@ def sumstats(args):
 	elif args.ref_ld_chr:
 		ref_ldscores = ps.ldscore(args.ref_ld_chr,22)
 		M_annot = ps.M(args_ref_ld_chr, 22)
-	
+		
+	print ref_ldscores.ix[:,1:len(ref_ldscores.columns)]
+	print np.var(np.matrix(ref_ldscores.ix[:,1:len(ref_ldscores.columns )]), axis=0)
+	if np.any(ref_ldscores.ix[:,1:len(ref_ldscores.columns)].var() == 0):
+		raise ValueError('Zero-variance LD Score. Possibly an empty column?')
+
 	log_msg = 'Read reference panel LD Scores for {N} SNPs.'
 	log.log(log_msg.format(N=len(ref_ldscores)))
 
@@ -311,14 +318,34 @@ def sumstats(args):
 			raise ValueError('Cannot find a column named INFO.')
 
 	# LD Score regression intercept
-	if args.intercept:
-		raise NotImplementedError
-		lambda_gc = np.median(chisq) / 0.4549
-		mean_chisq = np.mean(chisq)
+	if args.sumstats_intercept:
+		log.log('Estimating LD Score regression intercept')
+		# filter out large-effect loci
+		max_N = np.max(sumstats['N'])
+		max_chisq = max(0.01*max_N, 20)
+		sumstats = sumstats[sumstats['CHISQ'] < max_chisq]
+		log_msg = 'After filtering on chi^2 < {C}, {N} SNPs remain.'
+		if len(sumstats) == 0:
+			raise ValueError(log_msg.format(C=max_chisq, N='no'))
+		else:
+			log.log(log_msg.format(C=max_chisq, N=len(sumstats)))
+		
+		lambda_gc = np.median(sumstats['CHISQ']) / 0.4549
+		mean_chisq = np.mean(sumstats['CHISQ'])
+		h2hat = jk.h2g(sumstats['CHISQ'], sumstats[ref_ld_colnames], sumstats[w_ld_colname],
+			sumstats['N'], M_annot, args.block_size)
+		intercept = h2hat.est[-1]
+		intercept_se = h2hat.jknife_se[-1]
 		if mean_chisq > 1:
 			ratio = (intercept - 1) / (mean_chisq - 1)
 		else:
 			ratio = float('nan')
+		
+		print lambda_gc
+		print mean_chisq
+		print intercept
+		print intercept_se
+		print ratio
 
 	# LD Score regression to estimate h2
 	elif args.sumstats_h2:
@@ -381,6 +408,8 @@ if __name__ == '__main__':
 	# Summary Statistic Estimation Flags
 	
 	# Input for sumstats
+	parser.add_argument('--sumstats-intercept', default=None, type=str,
+		help='Path to file with summary statistics for LD Score regression estimation.')
 	parser.add_argument('--sumstats-h2', default=None, type=str,
 		help='Path to file with summary statistics for h2 estimation.')
 	parser.add_argument('--sumstats-gencor', default=None, type=str,
@@ -401,8 +430,8 @@ if __name__ == '__main__':
 		help='Minimum INFO score for SNPs included in the regression.')
 	parser.add_argument('--info-max', default=None, type=float,
 		help='Maximum INFO score for SNPs included in the regression.')
-	parser.add_argument('--chisq-max', default=None, type=float,
-		help='Maximum chi^2 for SNPs included in the regression.\n(WARNING: will strongly bias h2 estimates. Use only for estimating LD Score regression intercept).')
+#	parser.add_argument('--chisq-max', default=None, type=float,
+#		help='Maximum chi^2 for SNPs included in the regression.\n(WARNING: will strongly bias h2 estimates. Use only for estimating LD Score regression intercept).')
 		
 	# Optional flags for genetic correlation
 	parser.add_argument('--overlap', default=0, type=int,
@@ -432,11 +461,12 @@ if __name__ == '__main__':
 		ldscore(args)
 	
 	# Summary statistics
-	elif (args.sumstats_h2 or args.sumstats_gencor) and (args.ref_ld or args.ref_ld_chr)\
-		and (args.regression_snp_ld or args.regression_snp_ld_chr):
+	elif (args.sumstats_h2 or args.sumstats_gencor or args.sumstats_intercept) and\
+		(args.ref_ld or args.ref_ld_chr) and\
+		(args.regression_snp_ld or args.regression_snp_ld_chr):
 	
-		if args.sumstats_h2 and args.sumstats_gencor:	
-			raise ValueError('Cannot specify both --sumstats-h2 and --sumstats-gencor.')
+		if np.sum(np.array((args.sumstats_intercept, args.sumstats_h2, args.sumstats_gencor)).astype(bool)) > 1:	
+			raise ValueError('Cannot specify more than one of --sumstats-h2, --sumstats-gencor, --sumstats-intercept.')
 		if args.ref_ld and args.ref_ld_chr:
 			raise ValueError('Cannot specify both --ref-ld and --ref-ld-chr.')
 		if args.regression_snp_ld and args.regression_snp_ld_chr:
@@ -446,6 +476,8 @@ if __name__ == '__main__':
 				raise ValueError('--rho and --overlap can only be used with --sumstats-gencor.')
 			if not (args.rho and args.overlap):
 				raise ValueError('Must specify either both or neither of --rho and --overlap')
+#		if args.chisq_max and not args.intercept:
+#			raise ValueError('Using --chisq-max will result in biased h2 estimates. Use only with --sumstats-intercept.')
 		
 		if args.block_size is None: # default jackknife block size for h2/gencor
 			args.block_size = 2000

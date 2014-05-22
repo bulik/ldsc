@@ -217,8 +217,6 @@ def ldscore(fh, num=None):
 	
 	check_rsid(x['SNP']) 
 	x.ix[:,1:len(x.columns)] = x.ix[:,1:len(x.columns)].astype(float)
-	if np.any(np.var(x.ix[:,1:len(x.columns)], axis=1) == 0):
-		raise ValueError('Zero-variance LD Score. Possibly an empty column?')
 
 	return x
 	
