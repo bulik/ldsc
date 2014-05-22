@@ -66,8 +66,8 @@ class LstsqJackknife(object):
 		Predictors.
 	y : np.matrix with shape ()
 		Response variable.
-	block_size: int, > 0
-		Size of jackknife blocks.
+	num_blocks: int, > 0
+		Number of jackknife blocks.
 
 	Attributes
 	----------
@@ -101,7 +101,7 @@ class LstsqJackknife(object):
 	Possible TODO: impute FFT de-correlation (NP)
 	'''
 
-	def __init__(self, x, y, block_size):
+	def __init__(self, x, y, num_blocks):
 		if len(x.shape) <= 1:
 			x = np.atleast_2d(x).T
 		if len(y.shape) <= 1:
@@ -111,16 +111,16 @@ class LstsqJackknife(object):
 		if self.N != x.shape[0]:
 			raise ValueError('Number of data points in y != number of data points in x')
 		
-		self.output_dim = x.shape[1] 
-		if block_size > self.N / 2:
-			raise ValueError('Block size must be < N/2')
+		self.output_dim = x.shape[1]
 
-		self.block_size = block_size		
-		self.num_blocks = int(self.N / self.block_size)
+		self.num_blocks = num_blocks		
 		if self.num_blocks > self.N:
 			raise ValueError('Number of blocks > number of data points')
 
-		self.block_vals = self.__compute_block_vals__(x, y, block_size)
+		print 'Number of blocks = ', num_blocks
+		print 'N = ', self.N
+
+		self.block_vals = self.__compute_block_vals__(x, y, num_blocks)
 		self.est = self.__block_vals_to_est__(self.block_vals)
 		self.pseudovalues = self.__block_vals_to_pseudovals__(self.block_vals, self.est)
 		
@@ -129,11 +129,12 @@ class LstsqJackknife(object):
 		self.jknife_se = np.std(self.pseudovalues, axis=0) / np.sqrt(self.num_blocks - 1)
 		self.jknife_cov = np.cov(self.pseudovalues.T) / (self.num_blocks - 1)
 
-	def __compute_block_vals__(self, x, y, block_size):
+	def __compute_block_vals__(self, x, y, num_blocks):
 		N = self.N
+		block_size = int(N/num_blocks)
 		separators = np.arange(0,N,block_size)
-		remainder = N % block_size
-		if remainder == 0:
+		remainder = N - separators[-1]
+		if len(separators) == num_blocks:
 			separators = np.hstack([separators,N])
 		else:
 			for r in range(remainder):
@@ -260,7 +261,7 @@ def gencor_weights(M, ldScores, N1, N2, No, h1, h2, rho_g, rho):
 	return weights
 	
 
-def ldscore_reg(y, ldScores, weights=None, block_size=1000):
+def ldscore_reg(y, ldScores, weights=None, num_blocks=200):
 	'''
 	Function to estimate heritability / partitioned heritability / genetic covariance/ 
 	partitioned genetic covariance from summary statistics. 
@@ -277,8 +278,8 @@ def ldscore_reg(y, ldScores, weights=None, block_size=1000):
 		LD Scores or partitioned LD Scores.
 	weights : np.matrix
 		Regression weights.
-	block_size : int > 0
-		Size of blocks for block jackknife standard error. 
+	num_blocks : int > 0
+		Number of blocks for block jackknife standard error. 
 	
 	Returns
 	-------
@@ -307,5 +308,5 @@ def ldscore_reg(y, ldScores, weights=None, block_size=1000):
 	x[:,0:num_annots] = ldScores * sqrtWeights
 	x[:,num_annots] = np.squeeze(sqrtWeights) # intercept 
 	x = np.matrix(x); y = np.matrix(y)
-	output = LstsqJackknife(x, y, block_size)
+	output = LstsqJackknife(x, y, num_blocks)
 	return output
