@@ -30,7 +30,7 @@ class TestLstsqJackknife(unittest.TestCase):
 		assert np.all(j.jknife_var < 10e-6)
 		self.assertEqual(j.jknife_var.shape, (1,5) )
 		assert np.all(j.jknife_cov < 10e-6)
-		self.assertEqual(j.jknife_cov.shape, (5,5) )
+		self	.assertEqual(j.jknife_cov.shape, (5,5) )
 		
 	@param.expand((
 		[np.array([0,0,1,0,0]), 10],
@@ -139,10 +139,10 @@ class Test_h2_weights(unittest.TestCase):
 	
 class Test_gencov_weights(unittest.TestCase):
 
-	def test_weights_no_overlap():
+	def test_weights_no_overlap(self):
 		pass
 		
-	def test_weights_overlap():
+	def test_weights_overlap(self):
 		pass
 
 	

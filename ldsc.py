@@ -1,6 +1,7 @@
 from __future__ import division
 import ldsc.ldscore as ld
 import ldsc.parse as ps
+import ldsc.jackknife as jk
 import argparse
 import numpy as np
 import pandas as pd
@@ -13,12 +14,15 @@ class logger(object):
 	TODO: replace with logging module
 	
 	'''
+	def __init__(self, fh):
+		self.log_fh = open(fh, 'wb')
+		
  	def log(self, msg):
 		'''
 		Print to log file and stdout with a single command.
 		
 		'''
-		print >>self.log, msg
+		print >>self.log_fh, msg
 		print msg
 	
 
@@ -228,11 +232,11 @@ def sumstats(args):
 	# read reference panel LD Scores and .M 
 	if args.ref_ld:
 		ref_ldscores = ps.ldscore(args.ref_ld)
-		M = ps.M(args.ref_ld)
+		M_annot = ps.M(args.ref_ld)
 	elif args.ref_ld_chr:
 		ref_ldscores = ps.ldscore(args.ref_ld_chr,22)
-		M = ps.M(args_ref_ld_chr, 22)
-		
+		M_annot = ps.M(args_ref_ld_chr, 22)
+	
 	log_msg = 'Read reference panel LD Scores for {N} SNPs.'
 	log.log(log_msg.format(N=len(ref_ldscores)))
 
@@ -242,6 +246,7 @@ def sumstats(args):
 	elif args.regression_snp_ld_chr:
 		w_ldscores = ps.ldscore22(args.regression_snp_ld)
 		
+	
 	log_msg = 'Read LD Scores for {N} SNPs to be retained for regression.'
 	log.log(log_msg.format(N=len(w_ldscores)))
 	
@@ -255,84 +260,82 @@ def sumstats(args):
 	log_msg = 'After merging with regression SNP LD, {N} SNPs remain.'
 	log.log(log_msg.format(N=len(sumstats)))
 	
+	# this has to be here, because pandas will modify duplicate column names on merge
+	ref_ld_colnames = ref_ldscores.columns[1:len(ref_ldscores.columns)]	
+	w_ld_colname = sumstats.columns[-1]
+	del(ref_ldscores); del(w_ldscores)
+	
 	# filter based on filter flags
 	if args.maf is not None:
-		if 'MAF' in sumstats.colnames:
+		if 'MAF' in sumstats.columns:
 			ii = sumstats['MAF'] > args.maf
 			sumstats = sumstats[ii]
 			M = len(sumstats)
 			if M == 0:
 				err_msg = 'No SNPs retained for analysis after filtering on MAF > {F}.'
-				raise ValueError(err_msg.format(F=args.maf)
+				raise ValueError(err_msg.format(F=args.maf))
 			else:
 				log_msg = 'After filtering on MAF > {F}, {N} SNPs remain.'
-				log.log(log_msg.format(N=M))
+				log.log(log_msg.format(F=args.maf, N=M))
 		else: 
-			raise ValueError('Cannot find a column named MAF')
+			raise ValueError('Cannot find a column named MAF.')
 			
 	if args.info_min is not None:
-		if 'INFO' in sumstats.colnames:
+		if 'INFO' in sumstats.columns:
 			ii = sumstats['INFO'] > args.info_min
 			sumstats = sumstats[ii]
 			M = len(sumstats)
 			if M == 0:
 				err_msg = 'No SNPs retained for analysis after filtering on INFO > {F}.'
-				raise ValueError(err_msg.format(F=args.info_min)
+				raise ValueError(err_msg.format(F=args.info_min))
+			else:
+				log_msg = 'After filtering on INFO > {F}, {N} SNPs remain.'
+				log.log(log_msg.format(F=args.info_min, N=M))
+
 		else:
-			raise ValueError('Cannot find a column named INFO')
+			raise ValueError('Cannot find a column named INFO.')
 
 	if args.info_max is not None:
-		if 'INFO' in sumstats.colnames:
+		if 'INFO' in sumstats.columns:
 			ii = sumstats['INFO'] < args.info_max
 			sumstats = sumstats[ii]
 			M = len(sumstats)
 			if M == 0:
 				err_msg = 'No SNPs retained for analysis after filtering on INFO < {F}.'
-				raise ValueError(err_msg.format(F=args.info_max)
+				raise ValueError(err_msg.format(F=args.info_max))
+			else:
+				log_msg = 'After filtering on INFO < {F}, {N} SNPs remain.'
+				log.log(log_msg.format(F=args.info_max, N=M))
+
 		else:
-			raise ValueError('Cannot find a column named INFO')
+			raise ValueError('Cannot find a column named INFO.')
+
+	# LD Score regression intercept
+	if args.intercept:
+		raise NotImplementedError
+		lambda_gc = np.median(chisq) / 0.4549
+		mean_chisq = np.mean(chisq)
+		if mean_chisq > 1:
+			ratio = (intercept - 1) / (mean_chisq - 1)
+		else:
+			ratio = float('nan')
 
 	# LD Score regression to estimate h2
-	if args.sumstats_h2:
-		
-		
-		
-		if args.chisq_max is not None:
-			log_msg = 'Removing all SNPs with chi-square > {X}.\n'
-			log_msg += 'Warning, this will produce biased h2 estimates. Use only for estimation of the LD Score regression intercept.'
-			log.log(log_msg.format(X=args.chisq_max))
-
-		heteroskedasticity_weights = jk.infinitesimal_weights()
-		overcounting_weights = 1 / np.fmax(w_ldscores, 1)
-		weights = heteroskedasticity_weights * overcounting_weights
-		reg = jk.ldscore_reg()
-	
-		if args.intercept:
-			lambda_gc = np.median(chisq) / 0.4549
-			mean_chisq = np.mean(chisq)
-			if mean_chisq > 1:
-				ratio = (intercept - 1) / (mean_chisq - 1)
-			else:
-				ratio = float('nan')
+	elif args.sumstats_h2:
+		h2hat = jk.h2g(sumstats['CHISQ'], sumstats[ref_ld_colnames], sumstats[w_ld_colname],
+			sumstats['N'], M_annot, args.block_size)
+		print h2hat.est
+		print h2hat.jknife_se
+		print h2hat.autocor(lag=1)
+		print h2hat.jknife_cov	
 	
 	# LD Score regression to estimate genetic correlation
 	elif args.sumstats_gencor:
-		
 
 
-		heteroskedasticity_weights = jk.gencor_weights(args.rho, args.overlap)
-		overcounting_weights = 1 / np.fmax(w_ldscores, 1)
-		weights = heteroskedasticity_weights * overcounting_weights
-		reg_gencov = jk.gencov_reg()
-	
-	# process and format output
-	
-	# print
-	
-	
 
+		gencovhat = jk.gencov_reg()
 	
-
 		
 if __name__ == '__main__':
 	parser = argparse.ArgumentParser()
@@ -436,7 +439,7 @@ if __name__ == '__main__':
 			raise ValueError('Cannot specify both --sumstats-h2 and --sumstats-gencor.')
 		if args.ref_ld and args.ref_ld_chr:
 			raise ValueError('Cannot specify both --ref-ld and --ref-ld-chr.')
-		if args.regression_snp_ld or args.regression_snp_ld_chr:
+		if args.regression_snp_ld and args.regression_snp_ld_chr:
 			raise ValueError('Cannot specify both --regression-snp-ld and --regression-snp-ld-chr.')
 		if args.rho or args.overlap:
 			if not args.sumstats_gencor:

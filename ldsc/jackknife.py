@@ -73,7 +73,7 @@ def gencov_weights(M, ldScores, N1, N2, No, h1, h2, rho_g, rho):
 	return 1 / weights
 
 
-def h2g(chisq, ldScores, N, M, block_size=1000):
+def h2g(chisq, ref_ld_scores, w_ld_scores, N, M, block_size=1000):
 	'''
 	Current best-practice function for estimating h2g / partitioned h2g via LD Score.
 	
@@ -86,8 +86,10 @@ def h2g(chisq, ldScores, N, M, block_size=1000):
 	----------
 	chisq : np.ndarray of floats with shape (M, )
 		Chi-square statistics from GWAS.
-	ldScores : np.matrix of floats with shape (M, # of annotations)
+	ref_ld_scores : np.matrix of floats with shape (M, # of annotations)
 		LD Scores.
+	w_ld_scores : np.matrix of floats wih shape (M, # of annotations)
+		LD Scores for overcounting weights.
 	N : np.ndarray of ints > 0
 		Sample size. Use (# cases) + (# controls) for case/control GWAS. The case/control
 		ratio is taken into account when converting to the liability scale.
@@ -101,14 +103,17 @@ def h2g(chisq, ldScores, N, M, block_size=1000):
 	
 	'''
 	# aggregate estimate of h2, used only in regression weights
-	agg_h2 = (np.mean(chisq) - 1) / np.mean(N*ldScores / M)
-	weights = h2_weights(ldscores, N, M, agg_h2)
-	x = ldscore_reg(chisq, ldScores, weights=weights, block_size=block_size)
+	ref_ld_tot = np.sum(ref_ld_scores, axis=1)
+	w_ld_scores = np.fmax(w_ld_scores, 1)	
+	agg_h2 = (np.mean(chisq) - 1) / np.mean(N*ref_ld_tot / M)
+	weights = h2_weights(np.sum(ref_ld_tot, axis=1), N, M, agg_h2) 
+	weights *= 1 / w_ld_scores
+	x = ldscore_reg(chisq, ref_ld_scores, weights=weights, block_size=block_size)
 	return x
 
 
-def gencov(betahat1, betahat2, ldScores, N1, N2, M, N_overlap=None, rho=None, 
-	block_size=1000):
+def gencov(betahat1, betahat2, ref_ld_scores, w_ld_scores, N1, N2, M, N_overlap=None,
+	rho=None, block_size=1000):
 	'''
 	Current best-practice function for estimating genetic covariance / partitioned genetic
 	covariance via LD Score.
@@ -148,10 +153,13 @@ def gencov(betahat1, betahat2, ldScores, N1, N2, M, N_overlap=None, rho=None,
 		Jackknife object with genetic covariance estimate on observed scale.
 
 	'''	
+	ref_ld_tot = np.sum(ref_ld_scores, axis=1)
+	w_ld_scores = np.fmax(w_ld_scores, 1)	
 	betaprod = betahat1*betahat2
-	agg_gencov = np.mean(betaprod)/ np.mean(ldScores / M)
-	weights = gencov_weights(M, ldScores, N1, N2, No, h1, h2, agg_gencov, rho)
-	x = ldscore_reg(betaprod, ldScores, weights=weights, block_size=block_size)
+	agg_gencov = np.mean(betaprod)/ np.mean(ref_ld_tot / M)
+	weights = gencov_weights(M, ref_ld_tot, N1, N2, No, h1, h2, agg_gencov, rho)
+	weights *= 1 / w_ld_scores
+	x = ldscore_reg(betaprod, ref_ld_scores, weights=weights, block_size=block_size)
 	return x
 
 	
