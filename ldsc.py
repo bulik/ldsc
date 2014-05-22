@@ -239,9 +239,7 @@ def sumstats(args):
 		ref_ldscores = ps.ldscore(args.ref_ld_chr,22)
 		M_annot = ps.M(args_ref_ld_chr, 22)
 		
-	print ref_ldscores.ix[:,1:len(ref_ldscores.columns)]
-	print np.var(np.matrix(ref_ldscores.ix[:,1:len(ref_ldscores.columns )]), axis=0)
-	if np.any(ref_ldscores.ix[:,1:len(ref_ldscores.columns)].var() == 0):
+	if np.any(ref_ldscores.iloc[:,1:len(ref_ldscores.columns)].var(axis=0) == 0):
 		raise ValueError('Zero-variance LD Score. Possibly an empty column?')
 
 	log_msg = 'Read reference panel LD Scores for {N} SNPs.'
@@ -271,6 +269,8 @@ def sumstats(args):
 	ref_ld_colnames = ref_ldscores.columns[1:len(ref_ldscores.columns)]	
 	w_ld_colname = sumstats.columns[-1]
 	del(ref_ldscores); del(w_ldscores)
+	
+	### TODO this doesn't work for genetic correlation (colnames are MAF1, MAF2 not MAF, etc)
 	
 	# filter based on filter flags
 	if args.maf is not None:
@@ -334,18 +334,18 @@ def sumstats(args):
 		mean_chisq = np.mean(sumstats['CHISQ'])
 		h2hat = jk.h2g(sumstats['CHISQ'], sumstats[ref_ld_colnames], sumstats[w_ld_colname],
 			sumstats['N'], M_annot, args.block_size)
-		intercept = h2hat.est[-1]
-		intercept_se = h2hat.jknife_se[-1]
+		intercept = float(h2hat.est[:,-1])
+		intercept_se = float(h2hat.jknife_se[:,-1])
 		if mean_chisq > 1:
 			ratio = (intercept - 1) / (mean_chisq - 1)
 		else:
 			ratio = float('nan')
 		
-		print lambda_gc
-		print mean_chisq
-		print intercept
-		print intercept_se
-		print ratio
+		print h2hat.est
+		print 'Lambda GC: ', lambda_gc
+		print 'Mean Chi^2: ', mean_chisq
+		print 'Intercept: ', intercept, '('+str(intercept_se)+')'
+		print 'Ratio:' ,ratio
 
 	# LD Score regression to estimate h2
 	elif args.sumstats_h2:
@@ -358,11 +358,11 @@ def sumstats(args):
 	
 	# LD Score regression to estimate genetic correlation
 	elif args.sumstats_gencor:
+		gencorhat = jk.gencor(sumstats['BETAHAT1'], sumstats['BETAHAT2'], 
+			sumstats[ref_ld_colnames], sumstats[w_ld_colname], sumstats['N1'],
+			sumstats['N2'], M_annot, args.overlap, args.rho, args.block_size)
+		print gencorhat
 
-
-
-		gencovhat = jk.gencov_reg()
-	
 		
 if __name__ == '__main__':
 	parser = argparse.ArgumentParser()

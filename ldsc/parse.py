@@ -105,7 +105,7 @@ def chisq(fh):
 		'BP': int,
 		'P': float,
 		'CHISQ': float,
-		'N': int,
+		'N': int, # cast to int for typechecking, then switch to float for division
 		'MAF': float,
 		'INFO': float,
 	}
@@ -119,6 +119,7 @@ def chisq(fh):
 		raise AttributeError('Improperly formatted chisq file: '+ e)
 
 	check_N(x['N'])	
+	x['N'] = x['N'].astype(float)
 	check_rsid(x['SNP']) 
 	
 	if 'MAF' in x.columns:
@@ -150,7 +151,7 @@ def betaprod(fh):
 		'P1': float,
 		'CHISQ1': float,
 		'DIR1': int,
-		'N1': int,
+		'N1': int, # cast to int for typechecking, then switch to float later for division
 		'P2': float,
 		'CHISQ2': float,
 		'DIR2': int,
@@ -176,6 +177,7 @@ def betaprod(fh):
 		N='N'+i; P='P'+i; CHISQ='CHISQ'+i; DIR='DIR'+i; MAF='MAF'+i; INFO='INFO'+i
 		BETAHAT='BETAHAT'+i
 		check_N(x[N])
+		x[N] = x[N].astype(float)
 		check_dir(x[DIR])
 		if CHISQ in x.columns:
 			check_chisq(x[CHISQ])

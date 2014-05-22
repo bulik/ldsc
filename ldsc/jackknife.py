@@ -66,9 +66,12 @@ def gencov_weights(M, ldScores, N1, N2, No, h1, h2, rho_g, rho):
 	
 	'''
 	ldScores = np.fmax(ldScores, 1) # set negative LD Score estimates to one
-	a = h1*ldScores / M + (1-h1) / N1 
+	a = h1*ldScores / M + (1-h1) / N1
 	b = h2*ldScores / M + (1-h2) / N2
-	c = rho_g*ldScores/M + No*rho/(N1*N1)
+	c = rho_g*ldScores/M 
+	if No*rho != 0: # pandas does a weird 0 / dataframe = Inf thing
+		c += No*rho/(N1*N2)
+	
 	weights = a*b + 2*c**2
 	return 1 / weights
 
@@ -103,17 +106,21 @@ def h2g(chisq, ref_ld_scores, w_ld_scores, N, M, block_size=1000):
 	
 	'''
 	# aggregate estimate of h2, used only in regression weights
-	ref_ld_tot = np.sum(ref_ld_scores, axis=1)
+	ref_ld_tot = np.squeeze(np.sum(ref_ld_scores, axis=1))
+	M_tot = np.sum(M)
 	w_ld_scores = np.fmax(w_ld_scores, 1)	
-	agg_h2 = (np.mean(chisq) - 1) / np.mean(N*ref_ld_tot / M)
-	weights = h2_weights(np.sum(ref_ld_tot, axis=1), N, M, agg_h2) 
-	weights *= 1 / w_ld_scores
+	agg_h2 = (np.mean(chisq) - 1) / np.mean(N*ref_ld_tot / M_tot)
+	weights = h2_weights(np.sum(ref_ld_tot, axis=1), N, M_tot, agg_h2) 
+	weights *= 1 / w_ld_scores	
+	if np.all(weights == 0):
+		raise ValueError('Something is wrong, all regression weights are zero.')	
+
 	x = ldscore_reg(chisq, ref_ld_scores, weights=weights, block_size=block_size)
 	return x
 
 
-def gencov(betahat1, betahat2, ref_ld_scores, w_ld_scores, N1, N2, M, N_overlap=None,
-	rho=None, block_size=1000):
+def gencov(betahat1, betahat2, ref_ld_scores, w_ld_scores, N1, N2, M, hsq1, hsq2, 
+	N_overlap=None, rho=None, block_size=1000):
 	'''
 	Current best-practice function for estimating genetic covariance / partitioned genetic
 	covariance via LD Score.
@@ -153,18 +160,22 @@ def gencov(betahat1, betahat2, ref_ld_scores, w_ld_scores, N1, N2, M, N_overlap=
 		Jackknife object with genetic covariance estimate on observed scale.
 
 	'''	
-	ref_ld_tot = np.sum(ref_ld_scores, axis=1)
+	ref_ld_tot = np.squeeze(np.sum(ref_ld_scores, axis=1))
+	M_tot = np.sum(M)
 	w_ld_scores = np.fmax(w_ld_scores, 1)	
 	betaprod = betahat1*betahat2
-	agg_gencov = np.mean(betaprod)/ np.mean(ref_ld_tot / M)
-	weights = gencov_weights(M, ref_ld_tot, N1, N2, No, h1, h2, agg_gencov, rho)
+	agg_gencov = np.mean(betaprod)/ np.mean(ref_ld_tot / M_tot)
+	weights = gencov_weights(M_tot, ref_ld_tot, N1, N2, N_overlap, hsq1, hsq2, agg_gencov, rho)
 	weights *= 1 / w_ld_scores
+	if np.all(weights == 0):
+		raise ValueError('Something is wrong, all regression weights are zero.')	
+		
 	x = ldscore_reg(betaprod, ref_ld_scores, weights=weights, block_size=block_size)
 	return x
 
 	
-def gencor(betahat1, betahat2, ldScores, N1, N2, M, N_overlap=None, rho=None, 
-	block_size=1000):
+def gencor(betahat1, betahat2, ref_ld_scores, w_ld_scores, N1, N2, M, N_overlap=None,
+	rho=None, block_size=1000):
 	'''
 	Current best-practice function for estimating genetic correlation via LD Score.
 	
@@ -177,14 +188,18 @@ def gencor(betahat1, betahat2, ldScores, N1, N2, M, N_overlap=None, rho=None,
 	TBD
 	
 	'''
-	hsq1 = h2g(N1*betahat1**2, ldScores, N1, M)
-	hsq2 = h2g(N1*betahat2**2, ldScores, N2, M)
-	cov = gencov(betahat1, betahat2, N1, N2, M, N_overlap, rho, block_size)
-	biased_cor = cov.est / np.sqrt(hsq1.est * hsq2.est)
-	numer_delete_vals = cov.delete_cals
-	denom_delete_vals = np.sqrt(hsq1.delete_vals*hsq2.delete_vals)
-	cor = RatioJackknife(biased_cov, cov.delete_vals, numer_delete_vals, denom_delete_vals)
-	return (hsq1, hsq2, cov, cor)
+	hsq1 = h2g(N1*betahat1**2, ref_ld_scores, w_ld_scores, N1, M, block_size)
+	hsq2 = h2g(N1*betahat2**2, ref_ld_scores, w_ld_scores, N2, M, block_size)
+	tot_h1 = np.sum(hsq1.est[:,0:len(hsq1.est)-1])
+	tot_h2 = np.sum(hsq2.est[:,0:len(hsq1.est)-2])
+
+	cov = gencov(betahat1, betahat2, ref_ld_scores, w_ld_scores, N1, N2, M, tot_h1, tot_h2,
+		N_overlap, rho, block_size)
+	biased_cor = cov.est / np.sqrt(np.multiply(hsq1.est, hsq2.est))
+	numer_delete_vals = cov.delete_values
+	denom_delete_vals = np.sqrt(np.multiply(hsq1.delete_values,hsq2.delete_values))
+	cor = RatioJackknife(biased_cor, numer_delete_vals, denom_delete_vals)
+	return (hsq1.est, hsq2.est, cov.est, cor.est)
 	
 
 def ldscore_reg(y, ldScores, weights=None, block_size=1000):
@@ -222,12 +237,15 @@ def ldscore_reg(y, ldScores, weights=None, block_size=1000):
 	else:
 		y = np.atleast_2d(y).T
 	
+	# coerce to array; data frames behave strangely
+	y = np.array(y)
+	ldScores = np.array(ldScores)
 	num_snps = y.shape[0]
 	num_annots = ldScores.shape[1]
 	if weights is None:
 		weights = np.ones(num_snps)
 		
-	sqrtWeights = np.atleast_2d(np.sqrt(weights)).T
+	sqrtWeights = np.atleast_2d(np.array(np.sqrt(weights))).T
 	y = y * sqrtWeights
 	x = np.zeros((len(ldScores), num_annots + 1))
 	x[:,0:num_annots] = ldScores * sqrtWeights
@@ -408,20 +426,31 @@ class LstsqJackknife(object):
 		xtx_blocks = block_vals[1]
 		xty_tot = np.sum(xty_blocks, axis=0)
 		xtx_tot = np.sum(xtx_blocks, axis=0)
-		for j in xrange(0,self.num_blocks):
-			delete_xty_j = xty_tot - xty_blocks[j]
-			delete_xtx_inv_j = np.linalg.inv(xtx_tot - xtx_blocks[j])
-			delete_value_j = np.dot(delete_xtx_inv_j, delete_xty_j).T
-			pseudovalues[j,...] = self.num_blocks*est - (self.num_blocks-1)*delete_value_j
-			delete_values[j,...] = delete_value_j
-
+		try:
+			for j in xrange(0,self.num_blocks):
+				delete_xty_j = xty_tot - xty_blocks[j]
+				delete_xtx_inv_j = np.linalg.inv(xtx_tot - xtx_blocks[j])
+				delete_value_j = np.dot(delete_xtx_inv_j, delete_xty_j).T
+				pseudovalues[j,...] = self.num_blocks*est - (self.num_blocks-1)*delete_value_j
+				delete_values[j,...] = delete_value_j
+		except np.linalg.linalg.LinAlgError as e:
+			msg = 'Singular design matrix in at least one delete-k jackknife block. '
+			msg += 'Check that you have not passed highly correlated partitioned LD Scores.'
+			raise np.linalg.linalg.LinAlgError(msg, e)
+			
 		return (pseudovalues, delete_values)
 		
 	def __block_vals_to_est__(self, block_vals):
 		xty_blocks = block_vals[0]
 		xtx_blocks = block_vals[1]
 		xty = np.sum(xty_blocks, axis=0)
-		xtx_inv = np.linalg.inv(np.sum(xtx_blocks, axis=0))
+		try:
+			xtx_inv = np.linalg.inv(np.sum(xtx_blocks, axis=0))
+		except np.linalg.linalg.LinAlgError as e:
+			msg = "Singular design matrix in at least one delete-k jackknife block. "
+			msg += 'Check that you have not passed highly correlated partitioned LD Scores.'
+			raise np.linalg.linalg.LinAlgError(msg, e)
+	
 		return np.matrix(np.dot(xtx_inv, xty).T)
 		
 	def autocov(self, lag):
