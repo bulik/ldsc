@@ -13,14 +13,14 @@ class TestLstsqJackknife(unittest.TestCase):
 
 	@param.expand((
 	[np.array([1,2,3,4,5]), 10],
-	[np.array([0,-1,-2,0,100]),5],
-	[np.array([1,1,1,1,1]),1]
+	[np.array([0,-1,-2,0,100]),20],
+	[np.array([1,1,1,1,1]),100]
 	))
-	def test_2d_reg_exact(self, beta, block_size):
+	def test_2d_reg_exact(self, beta, num_blocks):
 		x = np.matrix(np.random.normal(size=500).reshape((100,5)))
 		x += 10
 		y = np.dot(x, beta).T
-		j = jk.LstsqJackknife(x, y, block_size)
+		j = jk.LstsqJackknife(x, y, num_blocks)
 		assert np.all(j.est - beta < 10e-6)
 		self.assertEqual(j.est.shape, (1,5) )
 		assert np.all(j.jknife_est - beta < 10e-6)
@@ -34,14 +34,14 @@ class TestLstsqJackknife(unittest.TestCase):
 		
 	@param.expand((
 		[np.array([0,0,1,0,0]), 10],
-		[np.array([11,1.123,-233,0,100]),5],
-		[np.array([14,15,1,1,1]),1]
+		[np.array([11,1.123,-233,0,100]),20],
+		[np.array([14,15,1,1,1]),100]
 		))
-	def test_2d_reg_noise(self, beta, block_size):
+	def test_2d_reg_noise(self, beta, num_blocks):
 		x = np.matrix(np.random.normal(size=500, loc=-10).reshape((100,5)))
 		y = np.dot(x, beta).T
 		y += np.random.normal(size=100, scale=10e-6).reshape((100,1))
-		j = jk.LstsqJackknife(x, y, block_size)
+		j = jk.LstsqJackknife(x, y, num_blocks)
 		assert np.all(j.est - beta < 10e-6)
 		assert np.all(j.jknife_est - beta < 10e-6)
 		assert np.all(j.jknife_se < 10e-3)
@@ -77,10 +77,10 @@ class test_ldscore_reg(unittest.TestCase):
 	def setUp(self):
 		self.ldScores = np.arange(20)
 		self.y = np.arange(20)
-		self.block_size = 2
+		self.num_blocks = 10
 	
 	def test_reg(self):
-		x = jk.ldscore_reg(self.y, self.ldScores, block_size=self.block_size)		
+		x = jk.ldscore_reg(self.y, self.ldScores, num_blocks=self.num_blocks)		
 		self.assertTrue(np.all(x.est - 1 < 10**-6) )
 		self.assertTrue(np.all(x.jknife_se - 0 < 10**-6) )
 		self.assertTrue(np.all(x.jknife_var - 0 < 10**-6))
@@ -92,10 +92,10 @@ class test_ldscore_reg_2D(unittest.TestCase):
 	def setUp(self):
 		self.ldScores = np.vstack((np.arange(6), (0,-2,4,3,-1,-8))).T
 		self.y = np.sum(self.ldScores, axis=1)
-		self.block_size = 3
+		self.num_blocks = 2
 	
 	def test_reg(self):
-		x = jk.ldscore_reg(self.y, self.ldScores, block_size=self.block_size)	
+		x = jk.ldscore_reg(self.y, self.ldScores, num_blocks=self.num_blocks)	
 		self.assertTrue(np.all(x.est[0,0:2] - (1,1) < 10**-6) )
 		self.assertTrue(np.all(x.jknife_se[0,0:2] - (0,0) < 10**-6) )
 		self.assertTrue(np.all(x.jknife_var[0,0:2] - (0,0) < 10**-6))
