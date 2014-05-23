@@ -70,7 +70,7 @@ def gencov_weights(M, ldScores, N1, N2, No, h1, h2, rho_g, rho):
 	b = h2*ldScores / M + (1-h2) / N2
 	c = rho_g*ldScores/M 
 	if No*rho != 0: # pandas does a weird 0 / dataframe = Inf thing
-		c += No*rho/(N1*N2)
+		c += float(No*rho)/(N1*N2)
 	
 	weights = a*b + 2*c**2
 	return 1 / weights
@@ -373,6 +373,7 @@ class LstsqJackknife(object):
 	
 	
 	Possible TODO: impute FFT de-correlation (NP)
+	
 	'''
 
 	def __init__(self, x, y, block_size):
@@ -484,6 +485,12 @@ class RatioJackknife(LstsqJackknife):
 	denom_delete_vals: np.matrix with shape (# of blocks, # of ratios) or (# of blocks, )
 		Delete-k values for the denominator.
 		
+	Warning
+	-------
+	If any of the delete-k block values for a category is zero, will return nan for 
+	jknife_est and inf for jknife_var and jknife_se for that category. jknife_cov will
+	have the expected dimension, but the row and column corresponding to covariance with
+	the category with a zero delete-k block value will be nan. 
 		
 	'''
 
@@ -502,8 +509,16 @@ class RatioJackknife(LstsqJackknife):
 		self.output_dim = numer_delete_vals.shape[1]
 		self.pseudovalues = self.__delete_vals_to_pseudovals__(self.est, self.denom_delete_vals, self.numer_delete_vals)
 		(self.jknife_est, self.jknife_var, self.jknife_se, self.jknife_cov) = self.__jknife__(self.pseudovalues, self.num_blocks)
+		### TODO: if doing partitioned gencor, have to compute jackknife for total gencor and 
+		# partitioned gencor separately. One of the partitions can have Inf standard error
+		# even if total gencor has finite standard error
+		
+		### TODO what should jknife_est be if the SE is infinite? 
 
 	def __delete_vals_to_pseudovals__(self, est, denom, numer):
+		### TODO: deal with denominator values that are either zero or cross zero
+		if np.any(denom == 0):
+			return float('inf')
 		pseudovalues = np.matrix(np.zeros((self.num_blocks, self.output_dim)))
 		for j in xrange(0,self.num_blocks):
 			pseudovalues[j,...] = self.num_blocks*est - (self.num_blocks-1)*numer[j,...]/denom[j,...]

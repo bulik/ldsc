@@ -119,7 +119,7 @@ def ldscore(args):
 
 	block_left = ld.getBlockLefts(coords, max_dist)
 	if block_left[len(block_left)-1] == 0 and not args.yes_really:
-		error_msg = 'Do you really want to compute whole-chomosome LD Score? If so, set the'
+		error_msg = 'Do you really want to compute whole-chomosome LD Score? If so, set the '
 		error_msg += '--yes-really flag (warning: it will use a lot of time / memory)'
 		raise ValueError(error_msg)
 
