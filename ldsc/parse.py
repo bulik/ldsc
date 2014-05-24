@@ -23,7 +23,7 @@ def filter_df(df, colname, pred):
 	
 	'''
 	if colname in df.columns:
-		df2 = df[pred(df[colnames])]
+		df2 = df[pred( df[colname] )]
 	else: 
 		raise ValueError('Cannot find a column named {C}.'.format(C=colname))
 
@@ -243,6 +243,8 @@ def ldscore(fh, num=None):
 	else:
 		x = parsefunc(fh + '.l2.ldscore')
 	
+	ii = x['SNP'] != '.'
+	x = x[ii]
 	check_rsid(x['SNP']) 
 	x.ix[:,1:len(x.columns)] = x.ix[:,1:len(x.columns)].astype(float)
 

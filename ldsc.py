@@ -221,23 +221,32 @@ def sumstats(args):
 	log = logger(args.out + ".log")
 		
 	# read .chisq or betaprod
-	if args.sumstats_h2:
-		sumstats = ps.chisq(args.sumstats_h2)
-	elif args.sumstats_intercept:
-		sumstats = ps.chisq(args.sumstats_intercept)
-	elif args.sumstats_gencor:
-		sumstats = ps.betaprod(args.sumstats_gencor)
+	try:
+		if args.sumstats_h2:
+			sumstats = ps.chisq(args.sumstats_h2)
+		elif args.sumstats_intercept:
+			sumstats = ps.chisq(args.sumstats_intercept)
+		elif args.sumstats_gencor:
+			sumstats = ps.betaprod(args.sumstats_gencor)
+	except ValueError as e:
+		log.log('Error parsing summary statistics.')
+		raise e
 	
 	log_msg = 'Read summary statistics for {N} SNPs.'
 	log.log(log_msg.format(N=len(sumstats)))
 	
 	# read reference panel LD Scores and .M 
-	if args.ref_ld:
-		ref_ldscores = ps.ldscore(args.ref_ld)
-		M_annot = ps.M(args.ref_ld)
-	elif args.ref_ld_chr:
-		ref_ldscores = ps.ldscore(args.ref_ld_chr,22)
-		M_annot = ps.M(args_ref_ld_chr, 22)
+	try:
+		if args.ref_ld:
+			ref_ldscores = ps.ldscore(args.ref_ld)
+			M_annot = ps.M(args.ref_ld)
+	
+		elif args.ref_ld_chr:
+			ref_ldscores = ps.ldscore(args.ref_ld_chr,22)
+			M_annot = ps.M(args.ref_ld_chr, 22)
+	except ValueError as e:
+		log.log('Error parsing reference LD.')
+		raise e
 		
 	if np.any(ref_ldscores.iloc[:,1:len(ref_ldscores.columns)].var(axis=0) == 0):
 		raise ValueError('Zero-variance LD Score. Possibly an empty column?')
@@ -246,11 +255,14 @@ def sumstats(args):
 	log.log(log_msg.format(N=len(ref_ldscores)))
 
 	# read regression SNP LD Scores
-	if args.regression_snp_ld:
-		w_ldscores = ps.ldscore(args.regression_snp_ld)
-	elif args.regression_snp_ld_chr:
-		w_ldscores = ps.ldscore22(args.regression_snp_ld)
-		
+	try:
+		if args.regression_snp_ld:
+			w_ldscores = ps.ldscore(args.regression_snp_ld)
+		elif args.regression_snp_ld_chr:
+			w_ldscores = ps.ldscore22(args.regression_snp_ld)
+	except ValueError as e:
+		log.log('Error parsing regression SNP LD')
+		raise e
 	
 	log_msg = 'Read LD Scores for {N} SNPs to be retained for regression.'
 	log.log(log_msg.format(N=len(w_ldscores)))
@@ -270,15 +282,16 @@ def sumstats(args):
 	w_ld_colname = sumstats.columns[-1]
 	del(ref_ldscores); del(w_ldscores)
 	
-	
 	err_msg = 'No SNPs retained for analysis after filtering on {C} {P} {F}.'
 	log_msg = 'After filtering on {C} {P} {F}, {N} SNPs remain.'
 	loop = ['1','2'] if args.sumstats_gencor else ['']
-	var_to_arg = {'infomax': args.info_max, 'infomin': args.info_min, 'maf', args.maf}
+	var_to_arg = {'infomax': args.info_max, 'infomin': args.info_min, 'maf': args.maf}
 	var_to_cname  = {'infomax': 'INFO', 'infomin': 'INFO', 'maf': 'MAF'}
-	var_to_pred = {'infomax': 'INFO', 'infomin': 'INFO', 'maf': 'MAF'}
+	var_to_pred = {'infomax': lambda x: x < args.info_max, 
+		'infomin': lambda x: x > args.info_min, 
+		'maf': lambda x: x > args.maf}
 	var_to_predstr = {'infomax': '<', 'infomin': '>', 'maf': '>'}
-	for v in var_to_arg.keys()
+	for v in var_to_arg.keys():
 		arg = var_to_arg[v]; pred = var_to_pred[v]; pred_str = var_to_predstr[v]
 		for p in loop:
 			cname = var_to_cname[v] + p; 
@@ -314,28 +327,34 @@ def sumstats(args):
 		else:
 			ratio = float('nan')
 		
-		print h2hat.est
-		print 'Lambda GC: ', lambda_gc
-		print 'Mean Chi^2: ', mean_chisq
-		print 'Intercept: ', intercept, '('+str(intercept_se)+')'
-		print 'Ratio:' ,ratio
+		log.log( 'h2: '+str(h2hat.est[:,0:len(h2hat.est) ])) # exclude intercept
+		log.log( 'Lambda GC: '+ str(lambda_gc))
+		log.log( 'Mean Chi^2: '+ str(mean_chisq))
+		log.log( 'Intercept: '+ str(intercept)+' ('+str(intercept_se)+')')
+		log.log( 'Ratio: '+str(ratio))
 
 	# LD Score regression to estimate h2
 	elif args.sumstats_h2:
+		log.log('Estimating heritability.')
 		h2hat = jk.h2g(sumstats['CHISQ'], sumstats[ref_ld_colnames], sumstats[w_ld_colname],
 			sumstats['N'], M_annot, args.block_size)
-		print h2hat.est
-		print h2hat.jknife_se
-		print h2hat.autocor(lag=1)
-		print h2hat.jknife_cov	
+		log.log( h2hat.est )
+		log.log( h2hat.jknife_se) 
+		log.log( h2hat.autocor(lag=1) )
+		log.log( h2hat.jknife_cov	)
 	
 	# LD Score regression to estimate genetic correlation
 	elif args.sumstats_gencor:
+		log.log('Estimating genetic correlation')
 		gencorhat = jk.gencor(sumstats['BETAHAT1'], sumstats['BETAHAT2'], 
 			sumstats[ref_ld_colnames], sumstats[w_ld_colname], sumstats['N1'],
 			sumstats['N2'], M_annot, args.overlap, args.rho, args.block_size)
-		print gencorhat
-
+		#log.log( gencorhat )
+		print np.multiply(np.matrix(M_annot), gencorhat[0][:,0:5]), gencorhat[0][:,5]
+		print np.multiply(np.matrix(M_annot), gencorhat[1][:,0:5]), gencorhat[1][:,5]
+		print np.multiply(np.matrix(M_annot), gencorhat[2][:,0:5]), gencorhat[2][:,5]
+		print np.multiply(np.matrix(M_annot), gencorhat[3][:,0:5])
+		print gencorhat[4]
 		
 if __name__ == '__main__':
 	parser = argparse.ArgumentParser()

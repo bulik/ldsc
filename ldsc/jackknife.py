@@ -30,7 +30,8 @@ def h2_weights(ldScores, N, M, hsq):
 	'''
 	ldScores = np.fmax(ldScores, 1)
 	c = hsq * N / M
-	weights = 1 / (1+c*ldScores)**2
+	weights = 1 / np.square((1+np.multiply(c, ldScores)))
+	weights = np.divide(weights, np.sum(weights))
 	return weights
 	
 	
@@ -66,14 +67,14 @@ def gencov_weights(M, ldScores, N1, N2, No, h1, h2, rho_g, rho):
 	
 	'''
 	ldScores = np.fmax(ldScores, 1) # set negative LD Score estimates to one
-	a = h1*ldScores / M + (1-h1) / N1
-	b = h2*ldScores / M + (1-h2) / N2
+	a = h1*ldScores / M + np.divide((1-h1), N1)
+	b = h2*ldScores / M + np.divide((1-h2), N2)
 	c = rho_g*ldScores/M 
 	if No*rho != 0: # pandas does a weird 0 / dataframe = Inf thing
-		c += float(No*rho)/(N1*N2)
+		c += np.divide(float(No*rho), np.multiply(N1,N2))
 	
-	weights = a*b + 2*c**2
-	return 1 / weights
+	weights = a*b + 2*np.square(c)
+	return np.divide(1, weights)
 
 
 def h2g(chisq, ref_ld_scores, w_ld_scores, N, M, block_size=1000):
@@ -106,15 +107,21 @@ def h2g(chisq, ref_ld_scores, w_ld_scores, N, M, block_size=1000):
 	
 	'''
 	# aggregate estimate of h2, used only in regression weights
-	ref_ld_tot = np.squeeze(np.sum(ref_ld_scores, axis=1))
+	n_annot = ref_ld_scores.shape[1]
+	n_snp = ref_ld_scores.shape[0]
+	ref_ld_scores = np.matrix(ref_ld_scores) # shape (n_snp, n_annot)
+	w_ld_scores = np.matrix(w_ld_scores).T # shape (n_snp, 1)
+	N = np.matrix(N).T # shape (n_snp, 1)
+	NLD = np.multiply(N, ref_ld_scores)
+	NLD_tot = np.multiply(N, np.sum(ref_ld_scores, axis=1))
 	M_tot = np.sum(M)
 	w_ld_scores = np.fmax(w_ld_scores, 1)	
-	agg_h2 = (np.mean(chisq) - 1) / np.mean(N*ref_ld_tot / M_tot)
-	weights = h2_weights(np.sum(ref_ld_tot, axis=1), N, M_tot, agg_h2) 
-	weights *= 1 / w_ld_scores	
+	agg_h2 = float( (np.mean(chisq) - 1) / np.mean(NLD_tot / M_tot))
+	weights = h2_weights(np.sum(ref_ld_scores, axis=1), N, M_tot, agg_h2) 
+	weights = np.multiply(np.divide(1, w_ld_scores), weights)
 	if np.all(weights == 0):
 		raise ValueError('Something is wrong, all regression weights are zero.')	
-
+	ref_ld_scores = np.multiply(ref_ld_scores, N)
 	x = ldscore_reg(chisq, ref_ld_scores, weights=weights, block_size=block_size)
 	return x
 
@@ -169,7 +176,7 @@ def gencov(betahat1, betahat2, ref_ld_scores, w_ld_scores, N1, N2, M, hsq1, hsq2
 	weights *= 1 / w_ld_scores
 	if np.all(weights == 0):
 		raise ValueError('Something is wrong, all regression weights are zero.')	
-		
+	
 	x = ldscore_reg(betaprod, ref_ld_scores, weights=weights, block_size=block_size)
 	return x
 
@@ -188,18 +195,36 @@ def gencor(betahat1, betahat2, ref_ld_scores, w_ld_scores, N1, N2, M, N_overlap=
 	TBD
 	
 	'''
+	# np.matrix(M).T has shape (n_annot,1)
+	cat_to_tot = lambda x: np.dot(x, np.matrix(M).T)
+	n_annot = ref_ld_scores.shape[1]
+	
+	# h2g for both phenotypes
 	hsq1 = h2g(N1*betahat1**2, ref_ld_scores, w_ld_scores, N1, M, block_size)
 	hsq2 = h2g(N1*betahat2**2, ref_ld_scores, w_ld_scores, N2, M, block_size)
-	tot_h1 = np.sum(hsq1.est[:,0:len(hsq1.est)-1])
-	tot_h2 = np.sum(hsq2.est[:,0:len(hsq1.est)-2])
-
-	cov = gencov(betahat1, betahat2, ref_ld_scores, w_ld_scores, N1, N2, M, tot_h1, tot_h2,
-		N_overlap, rho, block_size)
-	biased_cor = cov.est / np.sqrt(np.multiply(hsq1.est, hsq2.est))
-	numer_delete_vals = cov.delete_values
-	denom_delete_vals = np.sqrt(np.multiply(hsq1.delete_values,hsq2.delete_values))
-	cor = RatioJackknife(biased_cor, numer_delete_vals, denom_delete_vals)
-	return (hsq1.est, hsq2.est, cov.est, cor.est)
+	tot_hsq1 = float(cat_to_tot(hsq1.est[:,0:n_annot]))
+	tot_hsq2 = float(cat_to_tot(hsq2.est[:,0:n_annot]))
+	
+	# genetic covariance
+	cov = gencov(betahat1, betahat2, ref_ld_scores, w_ld_scores, N1, N2, M, tot_hsq1,
+		tot_hsq2, N_overlap, rho, block_size)
+	tot_cov = float(cat_to_tot(cov.est[:,0:n_annot]))
+	# per-category genetic correlation
+	biased_cor_cat = cov.est[:,0:n_annot] / np.sqrt(np.multiply(hsq1.est[:,0:n_annot], 
+		hsq2.est[:,0:n_annot]))
+		
+	numer_delete_vals_cat = cov.delete_values[:,0:n_annot]
+	denom_delete_vals_cat = np.sqrt(np.multiply(hsq1.delete_values[:,0:n_annot], 
+		hsq2.delete_values[:,0:n_annot]))
+	cor_cat = RatioJackknife(biased_cor_cat, numer_delete_vals_cat, denom_delete_vals_cat)
+	# total genetic correlation
+	biased_cor_tot = tot_cov / np.sqrt(tot_hsq1*tot_hsq2)
+	numer_delete_vals_tot = cat_to_tot(numer_delete_vals_cat)
+	hsq1_delete_vals = cat_to_tot(hsq1.delete_values[:,0:n_annot])
+	hsq2_delete_vals = cat_to_tot(hsq2.delete_values[:,0:n_annot])
+	denom_delete_vals_tot = np.sqrt(np.multiply(hsq1_delete_vals, hsq2_delete_vals))
+	cor_tot = RatioJackknife(biased_cor_tot, numer_delete_vals_tot, denom_delete_vals_tot)
+	return (hsq1.est, hsq2.est, cov.est, cor_cat.est, cor_tot.est)
 	
 
 def ldscore_reg(y, ldScores, weights=None, block_size=1000):
@@ -239,16 +264,18 @@ def ldscore_reg(y, ldScores, weights=None, block_size=1000):
 	
 	# coerce to array; data frames behave strangely
 	y = np.array(y)
-	ldScores = np.array(ldScores)
+	ldScores = np.matrix(ldScores)
 	num_snps = y.shape[0]
 	num_annots = ldScores.shape[1]
+	
 	if weights is None:
 		weights = np.ones(num_snps)
-		
-	sqrtWeights = np.atleast_2d(np.array(np.sqrt(weights))).T
-	y = y * sqrtWeights
+	
+	weights = np.matrix(weights).reshape(num_snps, 1)
+	sqrtWeights = np.sqrt(weights)
+	y = np.multiply(y,sqrtWeights)
 	x = np.zeros((len(ldScores), num_annots + 1))
-	x[:,0:num_annots] = ldScores * sqrtWeights
+	x[:,0:num_annots] = np.multiply(ldScores, sqrtWeights)
 	x[:,num_annots] = np.squeeze(sqrtWeights) # intercept 
 	x = np.matrix(x); y = np.matrix(y)
 	output = LstsqJackknife(x, y, block_size)
@@ -394,11 +421,12 @@ class LstsqJackknife(object):
 		self.num_blocks = int(np.ceil(self.N / self.block_size))
 		if self.num_blocks > self.N:
 			raise ValueError('Number of blocks > number of data points')
-
+		
 		self.block_vals = self.__compute_block_vals__(x, y, block_size)
 		self.est = self.__block_vals_to_est__(self.block_vals)
 		(self.pseudovalues, self.delete_values) = self.__block_vals_to_pseudovals__(self.block_vals, self.est)
 		(self.jknife_est, self.jknife_var, self.jknife_se, self.jknife_cov) = self.__jknife__(self.pseudovalues, self.num_blocks)
+			
 		
 	def __jknife__(self, pseudovalues, num_blocks):
 		jknife_est = np.mean(pseudovalues, axis=0) 
@@ -455,7 +483,7 @@ class LstsqJackknife(object):
 		return np.matrix(np.dot(xtx_inv, xty).T)
 		
 	def autocov(self, lag):
-		pseudoerrors = self.pseudovalues - np.mean(self.pseudovalues)
+		pseudoerrors = self.pseudovalues - np.mean(self.pseudovalues, axis=0)
 		if lag <= 0 or lag >= self.num_blocks:
 			error_msg = 'Lag >= number of blocks ({L} vs {N})'
 			raise ValueError(error_msg.format(L=lag, N=self.num_blocks))
@@ -466,7 +494,7 @@ class LstsqJackknife(object):
 		return autocov
 
 	def autocor(self, lag):
-		return self.autocov(lag) / self.jknife_se
+		return self.autocov(lag) / np.var(self.pseudovalues, axis=0)
 		
 
 class RatioJackknife(LstsqJackknife):
@@ -509,16 +537,8 @@ class RatioJackknife(LstsqJackknife):
 		self.output_dim = numer_delete_vals.shape[1]
 		self.pseudovalues = self.__delete_vals_to_pseudovals__(self.est, self.denom_delete_vals, self.numer_delete_vals)
 		(self.jknife_est, self.jknife_var, self.jknife_se, self.jknife_cov) = self.__jknife__(self.pseudovalues, self.num_blocks)
-		### TODO: if doing partitioned gencor, have to compute jackknife for total gencor and 
-		# partitioned gencor separately. One of the partitions can have Inf standard error
-		# even if total gencor has finite standard error
 		
-		### TODO what should jknife_est be if the SE is infinite? 
-
 	def __delete_vals_to_pseudovals__(self, est, denom, numer):
-		### TODO: deal with denominator values that are either zero or cross zero
-		if np.any(denom == 0):
-			return float('inf')
 		pseudovalues = np.matrix(np.zeros((self.num_blocks, self.output_dim)))
 		for j in xrange(0,self.num_blocks):
 			pseudovalues[j,...] = self.num_blocks*est - (self.num_blocks-1)*numer[j,...]/denom[j,...]
