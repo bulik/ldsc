@@ -270,53 +270,26 @@ def sumstats(args):
 	w_ld_colname = sumstats.columns[-1]
 	del(ref_ldscores); del(w_ldscores)
 	
-	### TODO this doesn't work for genetic correlation (colnames are MAF1, MAF2 not MAF, etc)
 	
-	# filter based on filter flags
-	if args.maf is not None:
-		if 'MAF' in sumstats.columns:
-			ii = sumstats['MAF'] > args.maf
-			sumstats = sumstats[ii]
-			M = len(sumstats)
-			if M == 0:
-				err_msg = 'No SNPs retained for analysis after filtering on MAF > {F}.'
-				raise ValueError(err_msg.format(F=args.maf))
-			else:
-				log_msg = 'After filtering on MAF > {F}, {N} SNPs remain.'
-				log.log(log_msg.format(F=args.maf, N=M))
-		else: 
-			raise ValueError('Cannot find a column named MAF.')
-			
-	if args.info_min is not None:
-		if 'INFO' in sumstats.columns:
-			ii = sumstats['INFO'] > args.info_min
-			sumstats = sumstats[ii]
-			M = len(sumstats)
-			if M == 0:
-				err_msg = 'No SNPs retained for analysis after filtering on INFO > {F}.'
-				raise ValueError(err_msg.format(F=args.info_min))
-			else:
-				log_msg = 'After filtering on INFO > {F}, {N} SNPs remain.'
-				log.log(log_msg.format(F=args.info_min, N=M))
-
-		else:
-			raise ValueError('Cannot find a column named INFO.')
-
-	if args.info_max is not None:
-		if 'INFO' in sumstats.columns:
-			ii = sumstats['INFO'] < args.info_max
-			sumstats = sumstats[ii]
-			M = len(sumstats)
-			if M == 0:
-				err_msg = 'No SNPs retained for analysis after filtering on INFO < {F}.'
-				raise ValueError(err_msg.format(F=args.info_max))
-			else:
-				log_msg = 'After filtering on INFO < {F}, {N} SNPs remain.'
-				log.log(log_msg.format(F=args.info_max, N=M))
-
-		else:
-			raise ValueError('Cannot find a column named INFO.')
-
+	err_msg = 'No SNPs retained for analysis after filtering on {C} {P} {F}.'
+	log_msg = 'After filtering on {C} {P} {F}, {N} SNPs remain.'
+	loop = ['1','2'] if args.sumstats_gencor else ['']
+	var_to_arg = {'infomax': args.info_max, 'infomin': args.info_min, 'maf', args.maf}
+	var_to_cname  = {'infomax': 'INFO', 'infomin': 'INFO', 'maf': 'MAF'}
+	var_to_pred = {'infomax': 'INFO', 'infomin': 'INFO', 'maf': 'MAF'}
+	var_to_predstr = {'infomax': '<', 'infomin': '>', 'maf': '>'}
+	for v in var_to_arg.keys()
+		arg = var_to_arg[v]; pred = var_to_pred[v]; pred_str = var_to_predstr[v]
+		for p in loop:
+			cname = var_to_cname[v] + p; 
+			if arg is not None:
+				sumstats = ps.filter_df(sumstats, cname, pred)
+				snp_count = len(sumstats)
+				if snp_count == 0:
+					raise ValueError(err_msg.format(C=cname, F=arg, P=pred_str))
+				else:
+					log.log(log_msg.format(C=cname, F=arg, N=snp_count, P=pred_str))
+		
 	# LD Score regression intercept
 	if args.sumstats_intercept:
 		log.log('Estimating LD Score regression intercept')
@@ -430,8 +403,6 @@ if __name__ == '__main__':
 		help='Minimum INFO score for SNPs included in the regression.')
 	parser.add_argument('--info-max', default=None, type=float,
 		help='Maximum INFO score for SNPs included in the regression.')
-#	parser.add_argument('--chisq-max', default=None, type=float,
-#		help='Maximum chi^2 for SNPs included in the regression.\n(WARNING: will strongly bias h2 estimates. Use only for estimating LD Score regression intercept).')
 		
 	# Optional flags for genetic correlation
 	parser.add_argument('--overlap', default=0, type=int,

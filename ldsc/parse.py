@@ -3,6 +3,32 @@ import numpy as np
 import pandas as pd
 from scipy.special import chdtri
 
+def filter_df(df, colname, pred):
+	'''
+	Filters df down to those rows where pred applied to colname returns True
+	
+	Parameters
+	----------
+	df : pd.DataFrame
+		Data frame to filter.
+	colname : string
+		Name of a column in df.
+	pred : function
+		Function that takes one argument (the data type of colname) and returns True or False.
+		
+	Returns
+	-------
+	df2 : pd.DataFrame
+		Filtered version of df. 
+	
+	'''
+	if colname in df.columns:
+		df2 = df[pred(df[colnames])]
+	else: 
+		raise ValueError('Cannot find a column named {C}.'.format(C=colname))
+
+	return df2
+
 
 # input checking functions 
 
