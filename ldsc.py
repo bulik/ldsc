@@ -219,7 +219,7 @@ def sumstats(args):
 	
 	# open output files
 	log = logger(args.out + ".log")
-		
+	log.log(args)
 	# read .chisq or betaprod
 	try:
 		if args.sumstats_h2:
@@ -278,6 +278,9 @@ def sumstats(args):
 	log.log(log_msg.format(N=len(sumstats)))
 	
 	# this has to be here, because pandas will modify duplicate column names on merge
+	### TODO still not quite satisfactory -- what if user accidentally submits
+	# the same file for ref_ld and w_ld? 
+	# maybe don't merge, but just get the row numbers to prevent modification of colnames??
 	ref_ld_colnames = ref_ldscores.columns[1:len(ref_ldscores.columns)]	
 	w_ld_colname = sumstats.columns[-1]
 	del(ref_ldscores); del(w_ldscores)
@@ -346,10 +349,12 @@ def sumstats(args):
 	# LD Score regression to estimate genetic correlation
 	elif args.sumstats_gencor:
 		log.log('Estimating genetic correlation')
+		print sumstats.columns
 		gencorhat = jk.gencor(sumstats['BETAHAT1'], sumstats['BETAHAT2'], 
 			sumstats[ref_ld_colnames], sumstats[w_ld_colname], sumstats['N1'],
 			sumstats['N2'], M_annot, args.overlap, args.rho, args.block_size)
 		#log.log( gencorhat )
+		# 	return (hsq1.est, hsq2.est, cov.est, cor_cat.est, cor_tot.est)
 		print np.multiply(np.matrix(M_annot), gencorhat[0][:,0:5]), gencorhat[0][:,5]
 		print np.multiply(np.matrix(M_annot), gencorhat[1][:,0:5]), gencorhat[1][:,5]
 		print np.multiply(np.matrix(M_annot), gencorhat[2][:,0:5]), gencorhat[2][:,5]

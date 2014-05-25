@@ -1,41 +1,80 @@
+'''
+(c) 2014 Brendan Bulik-Sullivan and Hilary Finucane
+
+This module contains basic functions for estimating 
+	1. heritability / partitioned heritability
+	2. genetic covariance
+	3. genetic correlation
+	4. block jackknife standard errors (hence the module name) for all of the above.
+	
+Numpy does this annoying thing where it treats an array of shape (M, ) very differently
+from an array of shape (M, 1). In order to deal with univariate LD Score regression
+and partitioned LD Score regression with the same code, everything in this module deals
+with numpy matrices. 
+
+Weird bugs may result if you pass numpy arrays or pandas dataframes without first 
+converting to matrix. 
+
+'''
+
 from __future__ import division
 import numpy as np
 from scipy.stats import norm
 
 
-def h2_weights(ldScores, N, M, hsq):
+def _weight(x, w):
+	
 	'''
-	Computes appropriate regression weights to correct for heteroskedasticity in the LD 
-	Score regression under an infinitesimal model. These regression weights are 
-	approximately equal to the reciprocal of the conditional variance function
-	1 / var(chi^2 | LD Score)
+	Re-weights x by multiplying by w.
 	
 	Parameters
 	----------
-	M : int > 0
-		Number of SNPs used for estimating LD Score (need not equal number of SNPs included in
-		the regression).
-	N :  np.ndarray of ints > 0 with shape (M, )
-		Number of individuals sampled for each SNP.
-	ldScores : np.array 
-		LD Scores. 
-	hsq : float in [0,1]
-		Heritability estimate.
-	
+	x : np.matrix with shape (n_row, n_col)
+		Rows are observations.
+	w : np.matrix with shape (n_row, 1)
+		Regression weights.
+
 	Returns
 	-------
-	weights : np.array
-		Regression weights. Approx equal to reciprocal of conditional variance function.
+	
+	x_new : np.matrix with shape (n_row, n_col)
+		x_new[i,j] = x[i,j] * w[i]
 	
 	'''
-	ldScores = np.fmax(ldScores, 1)
-	c = hsq * N / M
-	weights = 1 / np.square((1+np.multiply(c, ldScores)))
-	weights = np.divide(weights, np.sum(weights))
-	return weights
+	if np.any(w <= 0):
+		raise ValueError('Weights must be > 0')
+		
+	w = w / float(np.sum(w))
+	x_new = np.multiply(w, x)
+	return x_new
 	
+
+def _append_intercept(x):
+
+	'''
+	Appends an intercept term to the design matrix for a linear regression.
 	
-def gencov_weights(M, ldScores, N1, N2, No, h1, h2, rho_g, rho):
+	Parameters
+	----------
+	x : np.matrix with shape (n_row, n_col)
+		Design matrix. Columns are predictors; rows are observations. 
+
+	Returns
+	-------
+	
+	x_new : np.matrix with shape (n_row, n_col+1)
+		Design matrix with intercept term appended.
+	
+	'''
+	
+	n_row = x.shape[0]
+	int = np.matrix(np.ones(n_row)).reshape((n_row,1))
+	x_new = np.concatenate((x, int), axis = 1)
+	return x_new
+
+	
+def _gencov_weights(ld, w_ld, N1, N2, No, M, h1, h2, rho_g, rho):
+
 	'''
 	Computes appropriate regression weights to correct for heteroskedasticity in the 
 	bivariate LDScore regression under and infinitesimal model. These regression weights are 
@@ -44,245 +83,86 @@ def gencov_weights(M, ldScores, N1, N2, No, h1, h2, rho_g, rho):
 	
 	Parameters
 	----------
+	ld : np.matrix with shape (n_snp, 1) 
+		LD Scores (non-partitioned)
+	w_ld : np.matrix with shape (n_snp, 1)
+		LD Scores (non-partitioned) computed with sum r^2 taken over only those SNPs included 
+		in the regression.
 	M : int > 0
 		Number of SNPs used for estimating LD Score (need not equal number of SNPs included in
 		the regression).
-	ldScores : np.array 
-		LD Scores. 
+	N1, N2 :  np.matrix of ints > 0 with shape (M, 1)
+		Number of individuals sampled for each SNP for each study.
+	No : np.matrix of ints > 0 with shape (M, 1)
+		Number of overlapping individuals per SNP.
+	h1, h2 : float in [0,1]
+		Heritability estimates for each study.
 	rhog : float in [0,1]
 		Genetic covariance estimate.
 	rho : float in [0,1]
 		Phenotypic correlation estimate.
-	N1 : np.ndarray of ints > 0 with shape (M, )
-		Number of individuals sampled for each SNP in study 1.
-	N2 : np.ndarray of ints > 0 with shape (M, )
-		Number of individuals sampled for each SNP in study 2.
-	No : np.ndarray of ints > 0 with shape (M, )
-		Number of overlapping individuals sampled for each SNP.
 	
 	Returns
 	-------
-	weights : np.array
+	w : np.matrix with shape (n_snp, 1)
 		Regression weights. Approx equal to reciprocal of conditional variance function.
 	
 	'''
-	ldScores = np.fmax(ldScores, 1) # set negative LD Score estimates to one
-	a = h1*ldScores / M + np.divide((1-h1), N1)
-	b = h2*ldScores / M + np.divide((1-h2), N2)
-	c = rho_g*ldScores/M 
-	if No*rho != 0: # pandas does a weird 0 / dataframe = Inf thing
-		c += np.divide(float(No*rho), np.multiply(N1,N2))
-	
-	weights = a*b + 2*np.square(c)
-	return np.divide(1, weights)
+
+	ld = np.fmax(ld, 1.0)
+	w_ld = np.fmax(w_ld, 1.0) 
+	# prevent integer division bugs with np.divide
+	N1 = N1.astype(float); N2 = N2.astype(float); No = No.astype(float)
+	a = h1*ld / M + np.divide((1.0-h1), N1)
+	b = h2*ld / M + np.divide((1.0-h2), N2)
+	c = rho_g*ld / M + np.divide(No*rho, np.multiply(N1,N2))
+	het_w = np.multiply(a, b) + 2*np.square(c)
+	oc_w = np.divide(1.0, w_ld)
+	w = np.multiply(het_w, oc_w)
+	return w
 
 
-def h2g(chisq, ref_ld_scores, w_ld_scores, N, M, block_size=1000):
+def _hsq_weights(ld, w_ld, N, M, hsq):
+
 	'''
-	Current best-practice function for estimating h2g / partitioned h2g via LD Score.
-	
-	If the GWAS in question is an ascertained case-control sample, N = total sample size
-	and the returned value of h2g (and the corresponding standard errors!) will be on the 
-	observed scale. Use obs_to_liab along with an estimate of prevalence in order to 
-	transform to the liability scale. 
+	Computes appropriate regression weights to correct for heteroskedasticity in the LD 
+	Score regression under an infinitesimal model. These regression weights are 
+	approximately equal to the reciprocal of the conditional variance function
+	1 / var(chi^2 | LD Score)
 	
 	Parameters
 	----------
-	chisq : np.ndarray of floats with shape (M, )
-		Chi-square statistics from GWAS.
-	ref_ld_scores : np.matrix of floats with shape (M, # of annotations)
-		LD Scores.
-	w_ld_scores : np.matrix of floats wih shape (M, # of annotations)
-		LD Scores for overcounting weights.
-	N : np.ndarray of ints > 0
-		Sample size. Use (# cases) + (# controls) for case/control GWAS. The case/control
-		ratio is taken into account when converting to the liability scale.
-	M : np.matrix of ints > 0
-		Number of SNPs per annotation in the reference panel.
+	ld : np.matrix with shape (n_snp, 1) 
+		LD Scores (non-partitioned). 
+	w_ld : np.matrix with shape (n_snp, 1)
+		LD Scores (non-partitioned) computed with sum r^2 taken over only those SNPs included 
+		in the regression.
+	N :  np.matrix of ints > 0 with shape (M, 1)
+		Number of individuals sampled for each SNP.
+	M : int > 0
+		Number of SNPs used for estimating LD Score (need not equal number of SNPs included in
+		the regression).
+	hsq : float in [0,1]
+		Heritability estimate.
 	
 	Returns
 	-------
-	x : LstsqJackknife
-		Jackknife object with h2g estimate on the observed scale.
+	w : np.matrix with shape (n_snp, 1)
+		Regression weights. Approx equal to reciprocal of conditional variance function.
 	
 	'''
-	# aggregate estimate of h2, used only in regression weights
-	n_annot = ref_ld_scores.shape[1]
-	n_snp = ref_ld_scores.shape[0]
-	ref_ld_scores = np.matrix(ref_ld_scores) # shape (n_snp, n_annot)
-	w_ld_scores = np.matrix(w_ld_scores).T # shape (n_snp, 1)
-	N = np.matrix(N).T # shape (n_snp, 1)
-	NLD = np.multiply(N, ref_ld_scores)
-	NLD_tot = np.multiply(N, np.sum(ref_ld_scores, axis=1))
-	M_tot = np.sum(M)
-	w_ld_scores = np.fmax(w_ld_scores, 1)	
-	agg_h2 = float( (np.mean(chisq) - 1) / np.mean(NLD_tot / M_tot))
-	weights = h2_weights(np.sum(ref_ld_scores, axis=1), N, M_tot, agg_h2) 
-	weights = np.multiply(np.divide(1, w_ld_scores), weights)
-	if np.all(weights == 0):
-		raise ValueError('Something is wrong, all regression weights are zero.')	
-	ref_ld_scores = np.multiply(ref_ld_scores, N)
-	x = ldscore_reg(chisq, ref_ld_scores, weights=weights, block_size=block_size)
-	return x
-
-
-def gencov(betahat1, betahat2, ref_ld_scores, w_ld_scores, N1, N2, M, hsq1, hsq2, 
-	N_overlap=None, rho=None, block_size=1000):
-	'''
-	Current best-practice function for estimating genetic covariance / partitioned genetic
-	covariance via LD Score.
 	
-	Genetic covariance is not on a particularly interpretable scale, especially when one or
-	both studies are ascertained case/control sample. However, genetic correlation is always
-	on an interpretable scale (e.g., gencov_obs / sqrt(h2_obs1 * h2_obs2) is on the 
-	un-ascertained liability scale, because the observed-to-liability factors in the 
-	numerator and denominator cancel. 
-	
-	Genetic covariance is more useful for significance testing, because the estimate of 
-	genetic correlation is a ratio estimator, and obtaining reliable confidence intervals 
-	for ratio estimators is tricky.
-	
-	Parameters
-	----------
-	betahat1 : np.ndarray of floats with shape (M, )
-		Effect-size estimates from study 1.
-	betahat2 : np.ndarray of floats with shape (M, )
-		Effect-size estimates from study 2.
-	ldScores : np.matrix of floats with shape (M, # of annotations)
-		LD Scores.
-	N1 : np.ndarray of ints > 0
-		Sample size of study 1. Use (# cases) + (# controls) for case/control GWAS. The case/
-		control ratio is taken into account when converting to the liability scale.
-	N2 : np.ndarray of ints > 0
-		Sample size of study 2.
-	M : np.matrix of ints > 0
-		Number of SNPs per annotation in the reference panel.
-	N_overlap : np.ndarray of ints > 0, default = 0.
-		Number of individuals included in both studies. If N_overlap is not zero, then the LD
-		Score regression estimates of genetic covariance will be unbiased
-	
-	Returns
-	-------
-	x : LstsqJackknife
-		Jackknife object with genetic covariance estimate on observed scale.
-
-	'''	
-	ref_ld_tot = np.squeeze(np.sum(ref_ld_scores, axis=1))
-	M_tot = np.sum(M)
-	w_ld_scores = np.fmax(w_ld_scores, 1)	
-	betaprod = betahat1*betahat2
-	agg_gencov = np.mean(betaprod)/ np.mean(ref_ld_tot / M_tot)
-	weights = gencov_weights(M_tot, ref_ld_tot, N1, N2, N_overlap, hsq1, hsq2, agg_gencov, rho)
-	weights *= 1 / w_ld_scores
-	if np.all(weights == 0):
-		raise ValueError('Something is wrong, all regression weights are zero.')	
-	
-	x = ldscore_reg(betaprod, ref_ld_scores, weights=weights, block_size=block_size)
-	return x
-
-	
-def gencor(betahat1, betahat2, ref_ld_scores, w_ld_scores, N1, N2, M, N_overlap=None,
-	rho=None, block_size=1000):
-	'''
-	Current best-practice function for estimating genetic correlation via LD Score.
-	
-	Parameters
-	----------
-	Same as gencov()
-	
-	Returns
-	-------
-	TBD
-	
-	'''
-	# np.matrix(M).T has shape (n_annot,1)
-	cat_to_tot = lambda x: np.dot(x, np.matrix(M).T)
-	n_annot = ref_ld_scores.shape[1]
-	
-	# h2g for both phenotypes
-	hsq1 = h2g(N1*betahat1**2, ref_ld_scores, w_ld_scores, N1, M, block_size)
-	hsq2 = h2g(N1*betahat2**2, ref_ld_scores, w_ld_scores, N2, M, block_size)
-	tot_hsq1 = float(cat_to_tot(hsq1.est[:,0:n_annot]))
-	tot_hsq2 = float(cat_to_tot(hsq2.est[:,0:n_annot]))
-	
-	# genetic covariance
-	cov = gencov(betahat1, betahat2, ref_ld_scores, w_ld_scores, N1, N2, M, tot_hsq1,
-		tot_hsq2, N_overlap, rho, block_size)
-	tot_cov = float(cat_to_tot(cov.est[:,0:n_annot]))
-	# per-category genetic correlation
-	biased_cor_cat = cov.est[:,0:n_annot] / np.sqrt(np.multiply(hsq1.est[:,0:n_annot], 
-		hsq2.est[:,0:n_annot]))
-		
-	numer_delete_vals_cat = cov.delete_values[:,0:n_annot]
-	denom_delete_vals_cat = np.sqrt(np.multiply(hsq1.delete_values[:,0:n_annot], 
-		hsq2.delete_values[:,0:n_annot]))
-	cor_cat = RatioJackknife(biased_cor_cat, numer_delete_vals_cat, denom_delete_vals_cat)
-	# total genetic correlation
-	biased_cor_tot = tot_cov / np.sqrt(tot_hsq1*tot_hsq2)
-	numer_delete_vals_tot = cat_to_tot(numer_delete_vals_cat)
-	hsq1_delete_vals = cat_to_tot(hsq1.delete_values[:,0:n_annot])
-	hsq2_delete_vals = cat_to_tot(hsq2.delete_values[:,0:n_annot])
-	denom_delete_vals_tot = np.sqrt(np.multiply(hsq1_delete_vals, hsq2_delete_vals))
-	cor_tot = RatioJackknife(biased_cor_tot, numer_delete_vals_tot, denom_delete_vals_tot)
-	return (hsq1.est, hsq2.est, cov.est, cor_cat.est, cor_tot.est)
-	
-
-def ldscore_reg(y, ldScores, weights=None, block_size=1000):
-	'''
-	Function to estimate heritability / partitioned heritability / genetic covariance/ 
-	partitioned genetic covariance from summary statistics. 
-	
-	NOTE: Weights should be 1 / variance.
-
-	Parameters
-	----------
-	y : np.matrix
-		Response variable (additive chi-square statistics if estimating h2, dominance
-		deviation chi-square statistics if estimating H2[DOMDEV], betahat1*betahat2 if
-		estimating genetic covariance).
-	ldScores : np.matrix
-		LD Scores or partitioned LD Scores.
-	weights : np.matrix
-		Regression weights.
-	block_size : int > 0
-		Size of blocks for block jackknife standard error. 
-	
-	Returns
-	-------
-	output : LinearJackknife
-		LD Score regression parameter + standard error estimates.
-		NOTE: these are the LD Score regression parameter estimates, *NOT* hsq or genetic 
-		covariance estimates. Have to multiply by M/N or M, respectively. 
-	
-	'''
-	if len(ldScores.shape) <= 1:
-		ldScores = np.atleast_2d(ldScores).T
-	if len(y.shape) > 1 or len(y.shape) == 0:
-		raise ValueError('y must have shape (M, )')
-	else:
-		y = np.atleast_2d(y).T
-	
-	# coerce to array; data frames behave strangely
-	y = np.array(y)
-	ldScores = np.matrix(ldScores)
-	num_snps = y.shape[0]
-	num_annots = ldScores.shape[1]
-	
-	if weights is None:
-		weights = np.ones(num_snps)
-	
-	weights = np.matrix(weights).reshape(num_snps, 1)
-	sqrtWeights = np.sqrt(weights)
-	y = np.multiply(y,sqrtWeights)
-	x = np.zeros((len(ldScores), num_annots + 1))
-	x[:,0:num_annots] = np.multiply(ldScores, sqrtWeights)
-	x[:,num_annots] = np.squeeze(sqrtWeights) # intercept 
-	x = np.matrix(x); y = np.matrix(y)
-	output = LstsqJackknife(x, y, block_size)
-	return output
+	ld = np.fmax(ld, 1.0)
+	w_ld = np.fmax(w_ld, 1.0) 
+	c = hsq * N / M
+	het_w = np.divide(1.0, np.square(1.0+np.multiply(c, ld)))
+	oc_w = np.divide(1.0, w_ld)
+	w = np.multiply(het_w, oc_w)
+	return w
 
 
 def obs_to_liab(h2_obs, P, K):
+
 	'''
 	Converts heritability on the observed scale in an ascertained sample to heritability 
 	on the liability scale in the population.
@@ -302,6 +182,7 @@ def obs_to_liab(h2_obs, P, K):
 		Heritability of liability in the population and standard error.
 		
 	'''
+	
 	if K <= 0 or K >= 1:
 		raise ValueError('K must be in the range (0,1)')
 	if P <= 0 or P >= 1:
@@ -313,8 +194,330 @@ def obs_to_liab(h2_obs, P, K):
 	h2_liab = h2_obs * conversion_factor
 	return h2_liab
 	
+
+class Hsq(object):
+
+	'''
+	The conflict between python and genetics capitalization conventions (capitalize 
+	objects, but additive heritability is lowercase) makes me sad :-(
+	
+	Class for estimating heritability / partitioned heritability from summary statistics.
+	
+	Parameters
+	----------
+	chisq : np.matrix with shape (n_snp, 1)
+		Chi-square statistics. 
+	ld : np.matrix with shape (n_snp, n_annot) 
+		LD Scores.
+	w_ld : np.matrix with shape (n_snp, 1)
+		LD Scores (non-partitioned) computed with sum r^2 taken over only those SNPs included 
+		in the regression.
+	N :  np.matrix of ints > 0 with shape (M, 1)
+		Number of individuals sampled for each SNP.
+	M : int > 0
+		Number of SNPs used for estimating LD Score (need not equal number of SNPs included in
+		the regression).
+	block_size : int, default = 1000
+		Block jackknife block size (in units of SNPs)
+	
+	Attributes
+	----------
+	N : int
+		Sample size. In a case/control study, this should be total sample size: number of 
+		cases + number of controls. NOT some measure of effective sample size that accounts 
+		for case/control ratio. The case-control ratio comes into play when converting from
+		observed to liability scale (in the function obs_to_liab).
+	M : np.matrix of ints with shape (n_annot, 1)
+		Total number of SNPs per category in the reference panel used for estimating LD Score.
+	M_tot : int
+		Total number of SNPs in the reference panel used for estimating LD Score.
+	n_annot : int
+		Number of partitions.
+	n_snp : int
+		Number of SNPs included in the regression.	
+	mean_chisq : float
+		Mean chi-square.
+	w_mean_chisq : float
+		Weighted mean chi-square (with the same weights as the regression).
+	lambda_gc : float
+		Devlin and Roeder lambda GC (median chi-square / 0.4549).
+	autocor : float
+		Lag-1 autocorrelation between block jackknife pseudoerrors. If much above zero, the 
+		block jackknife standard error will be unreliable. This can be solved by using a 
+		larger block size.
+	hsq_cov : np.matrix with shape (n_annot, n_annot)
+		Block jackknife estimate of variance-covariance matrix of the partitioned h2 estimates.
+	cat_hsq : np.matrix with shape (n_annot, 1)
+	 	Partitioned heritability estimates.
+	cat_hsq_se : np.matrix with shape (n_annot, 1)
+		Standard errors of partitioned heritability estimates.
+	intercept : float
+		LD Score regression intercept.
+	intercept_se : float
+		Standard error of LD Score regression intercept.
+	tot_hsq : float
+		Total h2g estimate.
+	tot_hsq_se : float
+		Block jackknife estimate of standard error of the total h2g estimate. 
+	_jknife : LstsqJackknife
+		Jackknife object.
+		
+	Methods
+	-------
+	_aggregate(y, x, M_tot) :
+		Aggregate estimator. 
+		
+	'''
+	
+	def __init__(self, chisq, ref_ld, w_ld, N, M, block_size=1000):
+	
+		self.N = N
+		self.M = M
+		self.M_tot = np.sum(M)
+		self.n_annot = ref_ld.shape[1]
+		self.n_snp = ref_ld.shape[0]
+		self.mean_chisq = np.mean(chisq)
+		self.lambda_gc = np.median(chisq) / 0.4549
+		
+		ref_ld_tot = np.sum(ref_ld, axis=1)
+		agg_hsq = self._aggregate(chisq, np.multiply(N, ref_ld_tot), M_tot)
+		weights = _hsq_weights(ref_ld_tot, N, M_tot, agg_h2) 
+		if np.all(weights == 0):
+			raise ValueError('Something is wrong, all regression weights are zero.')	
+
+		x = np.multiply(N, ref_ld_scores)
+		x = _append_intercept(x)
+		x = _weight(x, weights)
+		y = _weight(chisq, weights)
+		
+		self._jknife = LstsqJackknife(x, y, block_size)
+		self.autocor = self._jknife.autocor(1)
+		no_intercept_cov = self._jknife.jknife_cov[0:n_annot,0:n_annot]
+		self.hsq_cov = np.multiply(np.square(self.M), no_intercept_cov)
+		self.cat_hsq = np.multiply(self.M, self._jknife.est[0:self.n_annot])
+		self.cat_hsq_se = np.multiply(self.M, self._jknife.jknife_se[0:self.n_annot])
+		self.intercept = self._jknife.est[self.n_annot]
+		self.intercept_se = self._jknife.jknife_se[self.n_annot]
+		self.tot_hsq = np.sum(self.cat_hsq)
+		self.tot_hsq_se = 0  ### TODO
+		
+	def _aggregate(self, y, x, M_tot):
+		'''Aggregate estimator. For use in regression weights.'''
+		numerator = np.mean(y) - 1.0
+		denominator = np.mean(x) / M_tot
+		agg = numerator / denominator
+		return agg
+
+
+class Gencov(Hsq):
+	
+	'''
+	Class for estimating genetic covariance / partitioned genetic covariance from summary 
+	statistics.	Inherits from Hsq, but only for _aggregate. Note: the efficiency of the 
+	estimate will be improved if first you estimate heritability for each trait then 
+	feed these values into hsq1 and hsq2. This is only used for the regression weights. 
+	
+	Could probably refactor so as to reuse more code from Hsq, but (a) the amount of 
+	duplicated code is small and (b) although the procedure for estimating genetic 
+	covariance and h2 is now very similar, there is no guarantee that it will stay this
+	way.
+	
+	Parameters
+	----------
+	bhat1, bhat2 : np.matrix with shape (n_snp, 1)
+		(Signed) effect-size estimates for each study. In a case control study, bhat should be
+		the signed square root of chi-square, where the sign is + if OR > 1 and - otherwise. 
+	ld : np.matrix with shape (n_snp, n_annot) 
+		LD Scores.
+	w_ld : np.matrix with shape (n_snp, 1)
+		LD Scores (non-partitioned) computed with sum r^2 taken over only those SNPs included 
+		in the regression.
+	N1, N2 :  np.matrix of ints > 0 with shape (M, 1)
+		Number of individuals sampled for each SNP for each study.
+	M : int > 0
+		Number of SNPs used for estimating LD Score (need not equal number of SNPs included in
+		the regression).
+	hsq1, hsq2 : float
+		Heritability estimates for each study (used in regression weights).
+	N_overlap : int, default 0.
+		Number of overlapping samples.
+	rho : float in [-1,1]
+		Estimate of total phenotypic correlation between trait 1 and trait 2. Only used for 
+		regression weights, and then only when N_overlap > 0. 	
+	block_size : int, default = 1000
+		Block jackknife block size (in units of SNPs)
+	
+	Attributes
+	----------
+	(this list does not include attributes identical to the parent class's)
+	N1, N2 : int
+		Sample sizes. In a case/control study, this should be total sample size: number of 
+		cases + number of controls. NOT some measure of effective sample size that accounts 
+		for case/control ratio. The case-control ratio comes into play when converting from
+		observed to liability scale (in the function obs_to_liab).
+	gencov_cov : np.matrix with shape (n_annot, n_annot)
+		Block jackknife estimate of variance-covariance matrix of the partitioned h2 estimates.
+	cat_gencov : np.matrix with shape (n_annot, 1)
+	 	Partitioned heritability estimates.
+	cat_gencov_se : np.matrix with shape (n_annot, 1)
+		Standard errors of partitioned heritability estimates.
+	intercept : float
+		LD Score regression intercept. NB this is not on the same scale as the intercept from
+		the regression chisq ~ LD Score. The intercept from the genetic covariance regression
+		is on the same scale as N_overlap / (N1*N2). 
+	intercept_se : float
+		Standard error of LD Score regression intercept.
+	tot_gencov : float
+		Total h2g estimate.
+	tot_gencov_se : float
+		Block jackknife estimate of standard error of the total h2g estimate. 
+	_jknife : LstsqJackknife
+		Jackknife object.
+		
+	'''
+	
+	def __init__(self, bhat1, bhat2, ref_ld, w_ld, N1, N2, M, hsq1, hsq2, N_overlap=None,
+		rho=None, block_size=1000):
+		
+		self.N1 = N1
+		self.N2 = N2
+		self.N_overlap = N_overlap if N_overlap is not None else 0
+		self.M = M
+		self.M_tot = np.sum(M)
+		self.n_annot = ref_ld.shape[1]
+		self.n_snp = ref_ld.shape[0]
+		
+		ref_ld_tot = np.sum(ref_ld, axis=1)
+		y = np.multiply(bhat1, bhat2)
+		agg_gencov = self._aggregate(y, ref_ld_tot, M_tot)
+		weights = _gencov_weights(ref_ld, w_ld, N1, N2, N_overlap, M, hsq1, hsq2, 
+			agg_gencov, rho) 
+		if np.all(weights == 0):
+			raise ValueError('Something is wrong, all regression weights are zero.')	
+
+		x = _append_intercept(ref_ld)
+		x = _weight(x, weights)
+		y = _weight(y, weights)
+		
+		self._jknife = LstsqJackknife(x, y, block_size)
+		self.autocor = self._jknife.autocor(1)
+		self.gencov_cov = np.multiply(np.square(self.M), self._jknife.jknife_cov)
+		self.cat_gencov = np.multiply(self.M, self._jknife.est[0:self.n_annot])
+		self.cat_gencov_se = np.multiply(self.M, self._jknife.jknife_se[0:self.n_annot])
+		self.intercept = self._jknife.est[self.n_annot]
+		self.intercept_se = self._jknife.jknife_se[self.n_annot]
+		self.tot_gencov = np.sum(self.cat_hsq)
+		self.tot_gencov_se = 0  ### TODO
+	
+
+class Gencor(object):
+
+	'''
+	Class for estimating genetic correlation from summary statistics. Implemented as a ratio
+	estimator with block jackknife bias correction (the block jackknife allows for 
+	estimation of reasonably good standard errors from dependent data and decreases the 
+	bias in a ratio estimate from O(1/N) to O(1/N^2), where N = number of data points). 
+	
+	Parameters
+	----------
+	bhat1, bhat2 : np.matrix with shape (n_snp, 1)
+		(Signed) effect-size estimates for each study. In a case control study, bhat should be
+		the signed square root of chi-square, where the sign is + if OR > 1 and - otherwise. 
+	ld : np.matrix with shape (n_snp, n_annot) 
+		LD Scores.
+	w_ld : np.matrix with shape (n_snp, 1)
+		LD Scores (non-partitioned) computed with sum r^2 taken over only those SNPs included 
+		in the regression.
+	N1, N2 :  np.matrix of ints > 0 with shape (M, 1)
+		Number of individuals sampled for each SNP for each study.
+	M : int > 0
+		Number of SNPs used for estimating LD Score (need not equal number of SNPs included in
+		the regression).
+	hsq1, hsq2 : float
+		Heritability estimates for each study (used in regression weights).
+	N_overlap : int, default 0.
+		Number of overlapping samples.
+	rho : float in [-1,1]
+		Estimate of total phenotypic correlation between trait 1 and trait 2. Only used for 
+		regression weights, and then only when N_overlap > 0. 	
+	block_size : int, default = 1000
+		Block jackknife block size (in units of SNPs)
+	
+	Attributes
+	----------
+	N1, N2 : int
+		Sample sizes. In a case/control study, this should be total sample size: number of 
+		cases + number of controls. NOT some measure of effective sample size that accounts 
+		for case/control ratio. The case-control ratio comes into play when converting from
+		observed to liability scale (in the function obs_to_liab).
+	M : np.matrix of ints with shape (n_annot, 1)
+		Total number of SNPs per category in the reference panel used for estimating LD Score.
+	M_tot : int
+		Total number of SNPs in the reference panel used for estimating LD Score.
+	n_annot : int
+		Number of partitions.
+	n_snp : int
+		Number of SNPs included in the regression.	
+	hsq1, hsq2 : Hsq
+		Heritability estimates for traits 1 and 2, respectively.
+	gencov : Gencov
+		Genetic covariance estimate.
+	autocor : float
+		Lag-1 autocorrelation between ratio block jackknife pseudoerrors. If much above zero, 
+		the block jackknife standard error will be unreliable. This can be solved by using a 
+		larger block size.
+	tot_gencor : float
+		Total genetic correlation. 
+	tot_gencor_se : float
+		Genetic correlation standard error.
+	_gencor : RatioJackknife
+		Jackknife used for estimating genetic correlation. 
+
+	'''
+	
+	def __init__(self, bhat1, bhat2, ref_ld, w_ld, N1, N2, M, N_overlap=None,	rho=None, 
+		block_size=1000):
+
+		self.N1 = N1
+		self.N2 = N2
+		self.N_overlap = N_overlap if N_overlap is not None else 0
+		self.rho = rho if rho is not None else 0
+		self.M = M
+		self.M_tot = np.sum(M)
+		self.n_annot = ref_ld.shape[1]
+		self.n_snp = ref_ld.shape[0]			
+		
+		# first hsq
+		chisq1 = np.multiply(N, np.square(bhat1))
+		self.hsq1 = Hsq(chisq1, ref_ld, w_ld, N1, M, block_size)
+		
+		# second hsq
+		chisq2 = np.multiply(N, np.square(bhat1))
+		self.hsq2 = Hsq(chisq2, ref_ld, w_ld, N2, M, block_size)
+		
+		# genetic covariance
+		self.gencov = Gencov(bhat1, bhat2, ref_ld, w_ld, N1, N2, M, self.hsq1.tot_hsq,
+			self.hsq2.tot_hsq, self.N_overlap, self.rho, block_size)
+		
+		# total genetic correlation
+		self.tot_gencor_biased = self.gencov.tot_gencov /\
+			np.sqrt(self.hsq1.tot_hsq * self.hsq2.tot_hsq)
+		numer_delete_vals = cat_to_tot(numer_delete_vals_cat, self.M)
+		hsq1_delete_vals = cat_to_tot(hsq1.delete_values[:,0:n_annot], self.M)
+		hsq2_delete_vals = cat_to_tot(hsq2.delete_values[:,0:n_annot], self.M)
+		denom_delete_vals = np.sqrt(np.multiply(hsq1_delete_vals, hsq2_delete_vals))
+		self._gencor = RatioJackknife(biased_cor_tot, numer_delete_vals, denom_delete_vals)
+		self.autocor = self.gencor.autocor(1)
+		self.tot_gencor = self.gencor.jknife_est
+		self.tot_gencor_se = self.gencor.jknife_se
+
+		def cat_to_tot(self, x, M):
+			'''Converts per-category pseudovalues to total pseudovalues.'''
+			return float(np.dot(x, np.matrix(M).T))
+	
 	
 class LstsqJackknife(object):
+
 	'''
 	Least-squares block jackknife.
 	
@@ -498,6 +701,7 @@ class LstsqJackknife(object):
 		
 
 class RatioJackknife(LstsqJackknife):
+
 	'''
 	Block jackknife class for genetic correlation estimation.
 	
