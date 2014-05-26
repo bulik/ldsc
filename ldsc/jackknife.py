@@ -13,7 +13,12 @@ and partitioned LD Score regression with the same code, everything in this modul
 with numpy matrices. 
 
 Weird bugs may result if you pass numpy arrays or pandas dataframes without first 
-converting to matrix. 
+converting to a matrix with the correct shape.
+
+Terminology note -- the intended use case for this module is an LD Score regression with
+n_snps SNPs included in the regression and n_annot (partitioned) LD Scores (which means 
+that the number of parameters estimated in the regression will be n_annot + 1, since we
+also estimate an intercept term).
 
 '''
 
@@ -91,9 +96,9 @@ def _gencov_weights(ld, w_ld, N1, N2, No, M, h1, h2, rho_g, rho):
 	M : int > 0
 		Number of SNPs used for estimating LD Score (need not equal number of SNPs included in
 		the regression).
-	N1, N2 :  np.matrix of ints > 0 with shape (M, 1)
+	N1, N2 :  np.matrix of ints > 0 with shape (n_snp, 1)
 		Number of individuals sampled for each SNP for each study.
-	No : np.matrix of ints > 0 with shape (M, 1)
+	No : np.matrix of ints > 0 with shape (n_snp, 1)
 		Number of overlapping individuals per SNP.
 	h1, h2 : float in [0,1]
 		Heritability estimates for each study.
@@ -137,7 +142,7 @@ def _hsq_weights(ld, w_ld, N, M, hsq):
 	w_ld : np.matrix with shape (n_snp, 1)
 		LD Scores (non-partitioned) computed with sum r^2 taken over only those SNPs included 
 		in the regression.
-	N :  np.matrix of ints > 0 with shape (M, 1)
+	N :  np.matrix of ints > 0 with shape (n_snp, 1)
 		Number of individuals sampled for each SNP.
 	M : int > 0
 		Number of SNPs used for estimating LD Score (need not equal number of SNPs included in
@@ -212,7 +217,7 @@ class Hsq(object):
 	w_ld : np.matrix with shape (n_snp, 1)
 		LD Scores (non-partitioned) computed with sum r^2 taken over only those SNPs included 
 		in the regression.
-	N :  np.matrix of ints > 0 with shape (M, 1)
+	N :  np.matrix of ints > 0 with shape (n_snp, 1)
 		Number of individuals sampled for each SNP.
 	M : int > 0
 		Number of SNPs used for estimating LD Score (need not equal number of SNPs included in
@@ -227,7 +232,7 @@ class Hsq(object):
 		cases + number of controls. NOT some measure of effective sample size that accounts 
 		for case/control ratio. The case-control ratio comes into play when converting from
 		observed to liability scale (in the function obs_to_liab).
-	M : np.matrix of ints with shape (n_annot, 1)
+	M : np.matrix of ints with shape (1, n_annot)
 		Total number of SNPs per category in the reference panel used for estimating LD Score.
 	M_tot : int
 		Total number of SNPs in the reference panel used for estimating LD Score.
@@ -246,10 +251,10 @@ class Hsq(object):
 		block jackknife standard error will be unreliable. This can be solved by using a 
 		larger block size.
 	hsq_cov : np.matrix with shape (n_annot, n_annot)
-		Block jackknife estimate of variance-covariance matrix of the partitioned h2 estimates.
-	cat_hsq : np.matrix with shape (n_annot, 1)
+		Block jackknife estimate of variance-covariance matrix of partitioned h2 estimates.
+	cat_hsq : np.matrix with shape (1, n_annot)
 	 	Partitioned heritability estimates.
-	cat_hsq_se : np.matrix with shape (n_annot, 1)
+	cat_hsq_se : np.matrix with shape (1, n_annot)
 		Standard errors of partitioned heritability estimates.
 	intercept : float
 		LD Score regression intercept.
@@ -332,7 +337,7 @@ class Gencov(Hsq):
 	w_ld : np.matrix with shape (n_snp, 1)
 		LD Scores (non-partitioned) computed with sum r^2 taken over only those SNPs included 
 		in the regression.
-	N1, N2 :  np.matrix of ints > 0 with shape (M, 1)
+	N1, N2 :  np.matrix of ints > 0 with shape (n_snp, 1)
 		Number of individuals sampled for each SNP for each study.
 	M : int > 0
 		Number of SNPs used for estimating LD Score (need not equal number of SNPs included in
@@ -357,9 +362,9 @@ class Gencov(Hsq):
 		observed to liability scale (in the function obs_to_liab).
 	gencov_cov : np.matrix with shape (n_annot, n_annot)
 		Block jackknife estimate of variance-covariance matrix of the partitioned h2 estimates.
-	cat_gencov : np.matrix with shape (n_annot, 1)
+	cat_gencov : np.matrix with shape (1, n_annot)
 	 	Partitioned heritability estimates.
-	cat_gencov_se : np.matrix with shape (n_annot, 1)
+	cat_gencov_se : np.matrix with shape (1, n_annot)
 		Standard errors of partitioned heritability estimates.
 	intercept : float
 		LD Score regression intercept. NB this is not on the same scale as the intercept from
@@ -428,7 +433,7 @@ class Gencor(object):
 	w_ld : np.matrix with shape (n_snp, 1)
 		LD Scores (non-partitioned) computed with sum r^2 taken over only those SNPs included 
 		in the regression.
-	N1, N2 :  np.matrix of ints > 0 with shape (M, 1)
+	N1, N2 :  np.matrix of ints > 0 with shape (n_snp, 1)
 		Number of individuals sampled for each SNP for each study.
 	M : int > 0
 		Number of SNPs used for estimating LD Score (need not equal number of SNPs included in
@@ -450,7 +455,7 @@ class Gencor(object):
 		cases + number of controls. NOT some measure of effective sample size that accounts 
 		for case/control ratio. The case-control ratio comes into play when converting from
 		observed to liability scale (in the function obs_to_liab).
-	M : np.matrix of ints with shape (n_annot, 1)
+	M : np.matrix of ints with shape (1, n_annot)
 		Total number of SNPs per category in the reference panel used for estimating LD Score.
 	M_tot : int
 		Total number of SNPs in the reference panel used for estimating LD Score.
@@ -544,9 +549,9 @@ class LstsqJackknife(object):
 	
 	Parameters
 	----------
-	x : np.matrix with shape ()
+	x : np.matrix with shape (n_snp, n_annot)
 		Predictors.
-	y : np.matrix with shape ()
+	y : np.matrix with shape (n_snp, 1)
 		Response variable.
 	block_size: int, > 0
 		Size of jackknife blocks.
@@ -555,18 +560,23 @@ class LstsqJackknife(object):
 	----------
 	num_blocks : int 
 		Number of jackknife blocks
-	est : np.matrix
+	block_size : int
+		Size of each jackknife block (measures in # of SNPs).
+	est : np.matrix with shape (1, n_annot)
 		Value of estimator applied to full data set.
-	pseudovalues : np.matrix
+	pseudovalues : np.matrix with shape (n_blocks, n_annot)
 		Jackknife pseudovalues.
-	psuedoerrors : np.matrix
-		Jackknife pseudoerrors.
-	jknife_est : np.matrix
-		Mean pseudovalue.,
-	jknife_var : np.matrix
+	delete_values : np.matrix
+		Block jackknife delete-(block_size) values.
+	jknife_est : np.matrix with shape (1, n_annot)
+		Mean pseudovalue.
+	jknife_var : np.matrix with shape (1, n_annot)
 		Estimated variance of jackknife estimator.
-	jknife_se : np.matrix
+	jknife_se : np.matrix with shape (1, n_annot)
 		Estimated standard error of jackknife estimator.
+	jknife_cov : np.matrix with shape (n_annot, n_annnot)
+		Estimated variance-covariance matrix of the jackknife estimator. Diagonal entries
+		are equal to jknife_var.
 
 	Methods
 	-------
@@ -580,27 +590,6 @@ class LstsqJackknife(object):
 	__block_vals_to_est__() :
 		Converts block values to full estimate.
 		
-	Attributes
-	----------
-	block_size : int
-		Size of all blocks except possibly the last block.
-	block_vals : np.matrix
-		Block jackknife block values.
-	delete_vals : np.matrix
-		Block jackknife delete-(block_size) values.
-	pseudovalues : np.matrix
-		Block jackknife pseudovalues.
-	est : np.matrix
-		Non-jackknifed estimate.
-	jknife_est : np.matrix
-		Jackknife estimate.
-	jknife_var : np.matrix
-	  Jackknife estimate of variance the jackknife estimate.
-	jknife_se : np.matrix
-		Jackknife estimate of the standard error of the jackknife estimate.
-	jknife_cov : np.matrix
-		Jackknife estimate of the variance-covariance matrix of the jackknife estimate. 
-	
 	
 	Possible TODO: impute FFT de-correlation (NP)
 	
@@ -614,7 +603,7 @@ class LstsqJackknife(object):
 	
 		self.N = y.shape[0]
 		if self.N != x.shape[0]:
-			raise ValueError('Number of data points in y != number of data points in x')
+			raise ValueError('Number of data points in y != number of data points in x.')
 		
 		self.output_dim = x.shape[1] 
 		if block_size > self.N / 2:
@@ -623,15 +612,18 @@ class LstsqJackknife(object):
 		self.block_size = block_size		
 		self.num_blocks = int(np.ceil(self.N / self.block_size))
 		if self.num_blocks > self.N:
-			raise ValueError('Number of blocks > number of data points')
+			raise ValueError('Number of blocks > number of data points.')
 		
 		self.block_vals = self.__compute_block_vals__(x, y, block_size)
 		self.est = self.__block_vals_to_est__(self.block_vals)
-		(self.pseudovalues, self.delete_values) = self.__block_vals_to_pseudovals__(self.block_vals, self.est)
-		(self.jknife_est, self.jknife_var, self.jknife_se, self.jknife_cov) = self.__jknife__(self.pseudovalues, self.num_blocks)
+		(self.pseudovalues, self.delete_values) =\
+			self.__block_vals_to_pseudovals__(self.block_vals, self.est)
+		(self.jknife_est, self.jknife_var, self.jknife_se, self.jknife_cov) =\
+			self.__jknife__(self.pseudovalues, self.num_blocks)
 			
 		
 	def __jknife__(self, pseudovalues, num_blocks):
+		'''Converts pseudovalues to jackknife estimates'''
 		jknife_est = np.mean(pseudovalues, axis=0) 
 		jknife_var = np.var(pseudovalues, axis=0) / (num_blocks - 1) 
 		jknife_se = np.std(pseudovalues, axis=0) / np.sqrt(num_blocks - 1)
@@ -639,6 +631,7 @@ class LstsqJackknife(object):
 		return (jknife_est, jknife_var, jknife_se, jknife_cov)
 
 	def __compute_block_vals__(self, x, y, block_size):
+		'''Computes block values'''
 		xty_block_vals = []; xtx_block_vals = []
 		for s in xrange(0, self.N, block_size):	
 			# s = block start SNP index; e = block end SNP index
@@ -652,6 +645,7 @@ class LstsqJackknife(object):
 		return block_vals
 
 	def __block_vals_to_pseudovals__(self, block_vals, est):
+		'''Converts block values to pseudovalues'''
 		pseudovalues = np.matrix(np.zeros((self.num_blocks, self.output_dim)))
 		delete_values = np.matrix(np.zeros((self.num_blocks, self.output_dim)))
 		xty_blocks = block_vals[0]
@@ -673,6 +667,7 @@ class LstsqJackknife(object):
 		return (pseudovalues, delete_values)
 		
 	def __block_vals_to_est__(self, block_vals):
+		'''Converts block values to the total (non-jackknife) estimate'''
 		xty_blocks = block_vals[0]
 		xtx_blocks = block_vals[1]
 		xty = np.sum(xty_blocks, axis=0)
@@ -686,6 +681,7 @@ class LstsqJackknife(object):
 		return np.matrix(np.dot(xtx_inv, xty).T)
 		
 	def autocov(self, lag):
+		'''Computes lag [lag] pseudovalue autocovariance'''
 		pseudoerrors = self.pseudovalues - np.mean(self.pseudovalues, axis=0)
 		if lag <= 0 or lag >= self.num_blocks:
 			error_msg = 'Lag >= number of blocks ({L} vs {N})'
@@ -697,15 +693,25 @@ class LstsqJackknife(object):
 		return autocov
 
 	def autocor(self, lag):
+	
+		'''
+		Computes lag [lag] pseudovalue autocorrelation. Note that this assumes that the 
+		psuedovalues are generated by a stationary process, which is not quite right. 
+		Nevertheless, if the lag-one autocorrelation is substantially higher than zero, it is 
+		a good sign that you should consider using a larger block size in order to estimate
+		the regression standard error.
+		
+		'''
+		
 		return self.autocov(lag) / np.var(self.pseudovalues, axis=0)
 		
 
 class RatioJackknife(LstsqJackknife):
 
 	'''
-	Block jackknife class for genetic correlation estimation.
+	Block jackknife class for a ratio estimator (for genetic correlation estimation).
 	
-	Inherits from LstsqJackknife. 1-D only
+	Inherits from LstsqJackknife.
 	
 	Parameters
 	----------
@@ -739,12 +745,16 @@ class RatioJackknife(LstsqJackknife):
 		self.denom_delete_vals = denom_delete_vals 
 		self.num_blocks = numer_delete_vals.shape[0]
 		self.output_dim = numer_delete_vals.shape[1]
-		self.pseudovalues = self.__delete_vals_to_pseudovals__(self.est, self.denom_delete_vals, self.numer_delete_vals)
-		(self.jknife_est, self.jknife_var, self.jknife_se, self.jknife_cov) = self.__jknife__(self.pseudovalues, self.num_blocks)
+		self.pseudovalues = self.__delete_vals_to_pseudovals__(self.est,\
+			self.denom_delete_vals, self.numer_delete_vals)
+		(self.jknife_est, self.jknife_var, self.jknife_se, self.jknife_cov) =\
+		self.__jknife__(self.pseudovalues, self.num_blocks)
 		
 	def __delete_vals_to_pseudovals__(self, est, denom, numer):
+		'''Converts delete-k values to pseudovalues.'''
 		pseudovalues = np.matrix(np.zeros((self.num_blocks, self.output_dim)))
 		for j in xrange(0,self.num_blocks):
-			pseudovalues[j,...] = self.num_blocks*est - (self.num_blocks-1)*numer[j,...]/denom[j,...]
+			pseudovalues[j,...] = self.num_blocks*est - (self.num_blocks - 1)*\
+				numer[j,...]/denom[j,...]
 
 		return pseudovalues
