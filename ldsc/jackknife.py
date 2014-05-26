@@ -50,7 +50,7 @@ def _weight(x, w):
 		raise ValueError('Weights must be > 0')
 		
 	w = w / float(np.sum(w))
-	x_new = np.multiply(w, x)
+	x_new = np.multiply(x, w)
 	return x_new
 	
 
@@ -74,7 +74,7 @@ def _append_intercept(x):
 	
 	n_row = x.shape[0]
 	int = np.matrix(np.ones(n_row)).reshape((n_row,1))
-	x_new = np.concatenate((x, int), axis = 1)
+	x_new = np.concatenate((x, int), axis=1)
 	return x_new
 
 	
@@ -715,12 +715,12 @@ class RatioJackknife(LstsqJackknife):
 	
 	Parameters
 	----------
-	est : float or np.array with shape (# of ratios, )
+	est : float or np.array with shape (1, n_annot)
 		(Biased) ratio estimate (e.g., if we are estimate a = b / c, est should be \
 		\hat{a} = \hat{b} / \hat{c}.
-	numer_delete_vals : np.matrix with shape (# of blocks, # of ratios) or (# of blocks, )
+	numer_delete_vals : np.matrix with shape (n_blocks, n_annot) 
 		Delete-k values for the numerator.
-	denom_delete_vals: np.matrix with shape (# of blocks, # of ratios) or (# of blocks, )
+	denom_delete_vals: np.matrix with shape (n_blocks, n_annot) 
 		Delete-k values for the denominator.
 		
 	Warning
@@ -733,14 +733,10 @@ class RatioJackknife(LstsqJackknife):
 	'''
 
 	def __init__(self, est, numer_delete_vals, denom_delete_vals):
-		if len(numer_delete_vals.shape) <= 1:
-			numer_delete_vals = np.atleast_2d(numer_delete_vals).T
-		if len(denom_delete_vals.shape) <= 1:
-			denom_delete_vals = np.atleast_2d(denom_delete_vals).T
 		if numer_delete_vals.shape != denom_delete_vals.shape:
 			raise ValueError('numer_delete_vals.shape != denom_delete_vals.shape.')
 	
-		self.est = np.atleast_1d(np.array(est))
+		self.est = est
 		self.numer_delete_vals = numer_delete_vals 
 		self.denom_delete_vals = denom_delete_vals 
 		self.num_blocks = numer_delete_vals.shape[0]
