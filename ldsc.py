@@ -553,8 +553,6 @@ if __name__ == '__main__':
 				raise ValueError('--rho and --overlap can only be used with --sumstats-gencor.')
 			if not (args.rho and args.overlap):
 				raise ValueError('Must specify either both or neither of --rho and --overlap')
-#		if args.chisq_max and not args.intercept:
-#			raise ValueError('Using --chisq-max will result in biased h2 estimates. Use only with --sumstats-intercept.')
 		
 		if args.block_size is None: # default jackknife block size for h2/gencor
 			args.block_size = 2000
