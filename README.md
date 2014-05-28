@@ -27,6 +27,8 @@ What can I do with LDSC?
 Installation
 ------------
 
+Prerequisites -- git, python 2.7, virtualenv.
+
 0. Download python 2.7
 1. Download dependencies: numpy, scipy, pandas, bitarrary, progressbar, argparse
 	(e.g., via pip install)
