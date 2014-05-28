@@ -48,8 +48,8 @@ def _weight(x, w):
 	'''
 	if np.any(w <= 0):
 		raise ValueError('Weights must be > 0')
-		
-	w = w / float(np.sum(w))
+
+	w = np.sqrt(w) / float(np.sum(w))
 	x_new = np.multiply(x, w)
 	return x_new
 	
@@ -98,8 +98,8 @@ def _gencov_weights(ld, w_ld, N1, N2, No, M, h1, h2, rho_g, rho):
 		the regression).
 	N1, N2 :  np.matrix of ints > 0 with shape (n_snp, 1)
 		Number of individuals sampled for each SNP for each study.
-	No : np.matrix of ints > 0 with shape (n_snp, 1)
-		Number of overlapping individuals per SNP.
+	No : int
+		Number of overlapping individuals.
 	h1, h2 : float in [0,1]
 		Heritability estimates for each study.
 	rhog : float in [0,1]
@@ -117,11 +117,11 @@ def _gencov_weights(ld, w_ld, N1, N2, No, M, h1, h2, rho_g, rho):
 	ld = np.fmax(ld, 1.0)
 	w_ld = np.fmax(w_ld, 1.0) 
 	# prevent integer division bugs with np.divide
-	N1 = N1.astype(float); N2 = N2.astype(float); No = No.astype(float)
+	N1 = N1.astype(float); N2 = N2.astype(float); No = float(No)
 	a = h1*ld / M + np.divide((1.0-h1), N1)
 	b = h2*ld / M + np.divide((1.0-h2), N2)
 	c = rho_g*ld / M + np.divide(No*rho, np.multiply(N1,N2))
-	het_w = np.multiply(a, b) + 2*np.square(c)
+	het_w = np.divide(1, np.multiply(a, b) + 2*np.square(c))
 	oc_w = np.divide(1.0, w_ld)
 	w = np.multiply(het_w, oc_w)
 	return w
@@ -219,7 +219,7 @@ class Hsq(object):
 		in the regression.
 	N :  np.matrix of ints > 0 with shape (n_snp, 1)
 		Number of individuals sampled for each SNP.
-	M : int > 0
+	M : np.matrix of ints with shape (1, n_annot) > 0
 		Number of SNPs used for estimating LD Score (need not equal number of SNPs included in
 		the regression).
 	block_size : int, default = 1000
@@ -264,6 +264,13 @@ class Hsq(object):
 		Total h2g estimate.
 	tot_hsq_se : float
 		Block jackknife estimate of standard error of the total h2g estimate. 
+	prop_hsq : np.matrix with shape (1, n_annot)
+		Proportion of h2 per annotation.
+	M_prop : np.matrix with shape (1, n_annot)
+		Proportion of SNPs (in reference panel) per annotation. 
+	enrichment : np.matrix with shape (1, n_annot)
+		Per category enrichment of h2 relative to all SNPs. Precisely, 
+		(h2 per SNP in category) / (h2 per SNP overall).
 	_jknife : LstsqJackknife
 		Jackknife object.
 		
@@ -278,33 +285,43 @@ class Hsq(object):
 	
 		self.N = N
 		self.M = M
-		self.M_tot = np.sum(M)
+		self.M_tot = float(np.sum(M))
 		self.n_annot = ref_ld.shape[1]
 		self.n_snp = ref_ld.shape[0]
 		self.mean_chisq = np.mean(chisq)
-		self.lambda_gc = np.median(chisq) / 0.4549
+		# median and matrix don't play nice?
+		self.lambda_gc = np.median(np.asarray(chisq)) / 0.4549 
 		
 		ref_ld_tot = np.sum(ref_ld, axis=1)
-		agg_hsq = self._aggregate(chisq, np.multiply(N, ref_ld_tot), M_tot)
-		weights = _hsq_weights(ref_ld_tot, N, M_tot, agg_h2) 
+		agg_hsq = self._aggregate(chisq, np.multiply(N, ref_ld_tot), self.M_tot)
+		weights = _hsq_weights(ref_ld_tot, w_ld, N, self.M_tot, agg_hsq) 
 		if np.all(weights == 0):
 			raise ValueError('Something is wrong, all regression weights are zero.')	
 
-		x = np.multiply(N, ref_ld_scores)
+		x = np.multiply(N, ref_ld)
 		x = _append_intercept(x)
 		x = _weight(x, weights)
 		y = _weight(chisq, weights)
 		
 		self._jknife = LstsqJackknife(x, y, block_size)
 		self.autocor = self._jknife.autocor(1)
-		no_intercept_cov = self._jknife.jknife_cov[0:n_annot,0:n_annot]
+		no_intercept_cov = self._jknife.jknife_cov[0:self.n_annot,0:self.n_annot]
 		self.hsq_cov = np.multiply(np.square(self.M), no_intercept_cov)
-		self.cat_hsq = np.multiply(self.M, self._jknife.est[0:self.n_annot])
-		self.cat_hsq_se = np.multiply(self.M, self._jknife.jknife_se[0:self.n_annot])
-		self.intercept = self._jknife.est[self.n_annot]
-		self.intercept_se = self._jknife.jknife_se[self.n_annot]
+		self.cat_hsq = np.multiply(self.M, self._jknife.est[0,0:self.n_annot])
+		self.cat_hsq_se = np.multiply(self.M, self._jknife.jknife_se[0,0:self.n_annot])
+		self.intercept = self._jknife.est[0,self.n_annot]
+		self.intercept_se = self._jknife.jknife_se[0,self.n_annot]
 		self.tot_hsq = np.sum(self.cat_hsq)
-		self.tot_hsq_se = 0  ### TODO
+		self.tot_hsq_se = np.sqrt(np.sum(M*self._jknife.jknife_cov[0:self.n_annot,\
+			0:self.n_annot]*self.M.T))
+		if self.mean_chisq > 1:
+			self.ratio = (self.intercept - 1) / (self.mean_chisq - 1)
+		else:
+			self.ratio = float('nan')
+		
+		self.prop_hsq = self.cat_hsq / self.tot_hsq
+		self.M_prop = self.M / self.M_tot
+		self.enrichment = np.divide(self.cat_hsq, self.M) / (self.tot_hsq/self.M_tot)
 		
 	def _aggregate(self, y, x, M_tot):
 		'''Aggregate estimator. For use in regression weights.'''
@@ -314,7 +331,7 @@ class Hsq(object):
 		return agg
 
 
-class Gencov(Hsq):
+class Gencov(object):
 	
 	'''
 	Class for estimating genetic covariance / partitioned genetic covariance from summary 
@@ -354,7 +371,6 @@ class Gencov(Hsq):
 	
 	Attributes
 	----------
-	(this list does not include attributes identical to the parent class's)
 	N1, N2 : int
 		Sample sizes. In a case/control study, this should be total sample size: number of 
 		cases + number of controls. NOT some measure of effective sample size that accounts 
@@ -376,6 +392,13 @@ class Gencov(Hsq):
 		Total h2g estimate.
 	tot_gencov_se : float
 		Block jackknife estimate of standard error of the total h2g estimate. 
+	prop_gencov : np.matrix with shape (1, n_annot)
+		Proportion of genetic covariance per annotation.
+	M_prop : np.matrix with shape (1, n_annot)
+		Proportion of SNPs (in reference panel) per annotation. 
+	enrichment : np.matrix with shape (1, n_annot)
+		Per category enrichment of h2 relative to all SNPs. Precisely, 
+		(gencov per SNP in category) / (gencov per SNP overall).
 	_jknife : LstsqJackknife
 		Jackknife object.
 		
@@ -394,8 +417,8 @@ class Gencov(Hsq):
 		
 		ref_ld_tot = np.sum(ref_ld, axis=1)
 		y = np.multiply(bhat1, bhat2)
-		agg_gencov = self._aggregate(y, ref_ld_tot, M_tot)
-		weights = _gencov_weights(ref_ld, w_ld, N1, N2, N_overlap, M, hsq1, hsq2, 
+		agg_gencov = self._aggregate(y, ref_ld_tot, self.M_tot)
+		weights = _gencov_weights(ref_ld_tot, w_ld, N1, N2, N_overlap, self.M_tot, hsq1, hsq2, 
 			agg_gencov, rho) 
 		if np.all(weights == 0):
 			raise ValueError('Something is wrong, all regression weights are zero.')	
@@ -406,14 +429,26 @@ class Gencov(Hsq):
 		
 		self._jknife = LstsqJackknife(x, y, block_size)
 		self.autocor = self._jknife.autocor(1)
-		self.gencov_cov = np.multiply(np.square(self.M), self._jknife.jknife_cov)
-		self.cat_gencov = np.multiply(self.M, self._jknife.est[0:self.n_annot])
-		self.cat_gencov_se = np.multiply(self.M, self._jknife.jknife_se[0:self.n_annot])
-		self.intercept = self._jknife.est[self.n_annot]
-		self.intercept_se = self._jknife.jknife_se[self.n_annot]
-		self.tot_gencov = np.sum(self.cat_hsq)
-		self.tot_gencov_se = 0  ### TODO
-	
+		self.cat_gencov = np.multiply(self.M, self._jknife.est[0,0:self.n_annot])
+		self.cat_gencov_se = np.multiply(self.M, self._jknife.jknife_se[0,0:self.n_annot])
+		self.intercept = self._jknife.est[0,self.n_annot]
+		self.intercept_se = self._jknife.jknife_se[0,self.n_annot]
+		self.tot_gencov = np.sum(self.cat_gencov)
+		self.tot_gencov_se = np.sqrt(np.sum(M*self._jknife.jknife_cov[0:self.n_annot,\
+			0:self.n_annot]*self.M.T))
+		
+		self.prop_gencov = self.cat_gencov / self.tot_gencov
+		self.M_prop = self.M / self.M_tot
+		self.enrichment = np.divide(self.cat_gencov, self.M) / (self.tot_gencov/self.M_tot)
+
+	def _aggregate(self, y, x, M_tot):
+		'''Aggregate estimator. For use in regression weights.'''
+		numerator = np.mean(y)
+		denominator = np.mean(x) / M_tot
+		agg = numerator / denominator
+		return agg
+
+
 
 class Gencor(object):
 
@@ -493,13 +528,12 @@ class Gencor(object):
 		self.n_snp = ref_ld.shape[0]			
 		
 		# first hsq
-		chisq1 = np.multiply(N, np.square(bhat1))
+		chisq1 = np.multiply(N1, np.square(bhat1))
 		self.hsq1 = Hsq(chisq1, ref_ld, w_ld, N1, M, block_size)
-		
 		# second hsq
-		chisq2 = np.multiply(N, np.square(bhat1))
+		chisq2 = np.multiply(N2, np.square(bhat2))
 		self.hsq2 = Hsq(chisq2, ref_ld, w_ld, N2, M, block_size)
-		
+
 		# genetic covariance
 		self.gencov = Gencov(bhat1, bhat2, ref_ld, w_ld, N1, N2, M, self.hsq1.tot_hsq,
 			self.hsq2.tot_hsq, self.N_overlap, self.rho, block_size)
@@ -507,18 +541,18 @@ class Gencor(object):
 		# total genetic correlation
 		self.tot_gencor_biased = self.gencov.tot_gencov /\
 			np.sqrt(self.hsq1.tot_hsq * self.hsq2.tot_hsq)
-		numer_delete_vals = cat_to_tot(numer_delete_vals_cat, self.M)
-		hsq1_delete_vals = cat_to_tot(hsq1.delete_values[:,0:n_annot], self.M)
-		hsq2_delete_vals = cat_to_tot(hsq2.delete_values[:,0:n_annot], self.M)
+		numer_delete_vals = self.cat_to_tot(self.gencov._jknife.delete_values[:,0:self.n_annot], self.M)
+		hsq1_delete_vals = self.cat_to_tot(self.hsq1._jknife.delete_values[:,0:self.n_annot], self.M)
+		hsq2_delete_vals = self.cat_to_tot(self.hsq2._jknife.delete_values[:,0:self.n_annot], self.M)
 		denom_delete_vals = np.sqrt(np.multiply(hsq1_delete_vals, hsq2_delete_vals))
-		self._gencor = RatioJackknife(biased_cor_tot, numer_delete_vals, denom_delete_vals)
+		self.gencor = RatioJackknife(self.tot_gencor_biased, numer_delete_vals, denom_delete_vals)
 		self.autocor = self.gencor.autocor(1)
-		self.tot_gencor = self.gencor.jknife_est
-		self.tot_gencor_se = self.gencor.jknife_se
+		self.tot_gencor = float(self.gencor.jknife_est)
+		self.tot_gencor_se = float(self.gencor.jknife_se)
 
-		def cat_to_tot(self, x, M):
-			'''Converts per-category pseudovalues to total pseudovalues.'''
-			return float(np.dot(x, np.matrix(M).T))
+	def cat_to_tot(self, x, M):
+		'''Converts per-category pseudovalues to total pseudovalues.'''
+		return np.dot(x, M.T)
 	
 	
 class LstsqJackknife(object):

@@ -1,3 +1,16 @@
+'''
+(c) 2014 Brendan Bulik-Sullivan and Hilary Finucane
+
+This is a command line application for estimating
+	1. LD Score and friends (L1, L1^2, L2 and L4)
+	2. heritability / partitioned heritability
+	3. genetic covariance
+	4. genetic correlation
+	5. block jackknife standard errors for all of the above.
+	
+	
+'''
+
 from __future__ import division
 import ldsc.ldscore as ld
 import ldsc.parse as ps
@@ -43,7 +56,57 @@ def __filter__(fname, noun, verb, merge_obj):
 			raise ValueError(f(error_msg))
 
 		return merged_list
+		
+		
+def _print_intercept(h2hat):
+	out = []
+	out.append( 'Observed scale h2: '+str(h2hat.tot_hsq)+' ('+str(h2hat.tot_hsq_se)+')')
+	out.append( 'Lambda GC: '+ str(h2hat.lambda_gc))
+	out.append( 'Mean Chi^2: '+ str(h2hat.mean_chisq))
+	out.append( 'Intercept: '+ str(h2hat.intercept)+' ('+str(h2hat.intercept_se)+')')
+	out.append( 'Ratio: '+str(h2hat.ratio))
+	out = '\n'.join(out)
+	return out
+	
+	
+def _print_hsq(h2hat, ref_ld_colnames):
+	'''Reusable code for printing output of jk.Hsq object'''
+	out = []
+	out.append('Total observed scale h2: '+str(h2hat.tot_hsq)+' ('+str(h2hat.tot_hsq_se)+')')
+	out.append( 'Categories: '+ str(' '.join(ref_ld_colnames)))
+	out.append( 'Observed scale h2: '+str(h2hat.cat_hsq))
+	out.append( 'Observed scale h2 SE: '+str(h2hat.cat_hsq_se))
+	out.append( 'Proportion of SNPs: '+str(h2hat.M_prop))
+	out.append( 'Proportion of h2g: ' +str(h2hat.prop_hsq))
+	out.append( 'Enrichment: '+str(h2hat.enrichment))		
+	out.append( 'Intercept: '+ str(h2hat.intercept)+' ('+str(h2hat.intercept_se)+')')
+	out = '\n'.join(out)
+	return out
+	
 
+def _print_gencov(gencov, ref_ld_colnames):
+	'''Reusable code for printing output of jk.Gencov object'''
+	out = []
+	out.append('Total observed scale gencov: '+str(gencov.tot_gencov)+' ('+\
+		str(gencov.tot_gencov_se)+')')
+	out.append( 'Categories: '+ str(' '.join(ref_ld_colnames)))
+	out.append( 'Observed scale gencov: '+str(gencov.cat_gencov))
+	out.append( 'Observed scale gencov SE: '+str(gencov.cat_gencov_se))
+	out.append( 'Proportion of SNPs: '+str(gencov.M_prop))
+	out.append( 'Proportion of gencov: ' +str(gencov.prop_gencov))
+	out.append( 'Enrichment: '+str(gencov.enrichment))		
+	out = '\n'.join(out)
+	return out
+
+	
+def _print_gencor(gencor):
+	'''Reusable code for printing output of jk.Gencor object'''
+	out = []
+	out.append('Genetic Correlation: '+str(gencor.tot_gencor)+' ('+\
+		str(gencor.tot_gencor_se)+')')
+	out = '\n'.join(out)
+	return out
+	
 
 def ldscore(args):
 	'''
@@ -305,7 +368,7 @@ def sumstats(args):
 					raise ValueError(err_msg.format(C=cname, F=arg, P=pred_str))
 				else:
 					log.log(log_msg.format(C=cname, F=arg, N=snp_count, P=pred_str))
-		
+
 	# LD Score regression intercept
 	if args.sumstats_intercept:
 		log.log('Estimating LD Score regression intercept')
@@ -314,52 +377,71 @@ def sumstats(args):
 		max_chisq = max(0.01*max_N, 20)
 		sumstats = sumstats[sumstats['CHISQ'] < max_chisq]
 		log_msg = 'After filtering on chi^2 < {C}, {N} SNPs remain.'
-		if len(sumstats) == 0:
+		snp_count = len(sumstats)
+		if snp_count == 0:
 			raise ValueError(log_msg.format(C=max_chisq, N='no'))
 		else:
 			log.log(log_msg.format(C=max_chisq, N=len(sumstats)))
-		
-		lambda_gc = np.median(sumstats['CHISQ']) / 0.4549
-		mean_chisq = np.mean(sumstats['CHISQ'])
-		h2hat = jk.h2g(sumstats['CHISQ'], sumstats[ref_ld_colnames], sumstats[w_ld_colname],
-			sumstats['N'], M_annot, args.block_size)
-		intercept = float(h2hat.est[:,-1])
-		intercept_se = float(h2hat.jknife_se[:,-1])
-		if mean_chisq > 1:
-			ratio = (intercept - 1) / (mean_chisq - 1)
-		else:
-			ratio = float('nan')
-		
-		log.log( 'h2: '+str(h2hat.est[:,0:len(h2hat.est) ])) # exclude intercept
-		log.log( 'Lambda GC: '+ str(lambda_gc))
-		log.log( 'Mean Chi^2: '+ str(mean_chisq))
-		log.log( 'Intercept: '+ str(intercept)+' ('+str(intercept_se)+')')
-		log.log( 'Ratio: '+str(ratio))
+
+		snp_count = len(sumstats); n_annot = len(ref_ld_colnames)
+		ref_ld = np.matrix(sumstats[ref_ld_colnames]).reshape((snp_count, n_annot))
+		w_ld = np.matrix(sumstats[w_ld_colname]).reshape((snp_count, 1))
+		M_annot = np.matrix(M_annot).reshape((1, n_annot))
+		chisq = np.matrix(sumstats.CHISQ).reshape((snp_count, 1))
+		N = np.matrix(sumstats.N).reshape((snp_count,1))
+		del sumstats
+
+		h2hat = jk.Hsq(chisq, ref_ld, w_ld, N, M_annot, args.block_size)
+				
+		log.log(_print_intercept(h2hat))
+
 
 	# LD Score regression to estimate h2
 	elif args.sumstats_h2:
 		log.log('Estimating heritability.')
-		h2hat = jk.h2g(sumstats['CHISQ'], sumstats[ref_ld_colnames], sumstats[w_ld_colname],
-			sumstats['N'], M_annot, args.block_size)
-		log.log( h2hat.est )
-		log.log( h2hat.jknife_se) 
-		log.log( h2hat.autocor(lag=1) )
-		log.log( h2hat.jknife_cov	)
-	
+		
+		snp_count = len(sumstats); n_annot = len(ref_ld_colnames)
+		ref_ld = np.matrix(sumstats[ref_ld_colnames]).reshape((snp_count, n_annot))
+		w_ld = np.matrix(sumstats[w_ld_colname]).reshape((snp_count, 1))
+		M_annot = np.matrix(M_annot).reshape((1, n_annot))
+		chisq = np.matrix(sumstats.CHISQ).reshape((snp_count, 1))
+		N = np.matrix(sumstats.N).reshape((snp_count,1))
+		del sumstats
+		
+		h2hat = jk.Hsq(chisq, ref_ld, w_ld, N, M_annot, args.block_size)
+		log.log(_print_hsq(h2hat, ref_ld_colnames))
+
+
 	# LD Score regression to estimate genetic correlation
 	elif args.sumstats_gencor:
-		log.log('Estimating genetic correlation')
-		print sumstats.columns
-		gencorhat = jk.gencor(sumstats['BETAHAT1'], sumstats['BETAHAT2'], 
-			sumstats[ref_ld_colnames], sumstats[w_ld_colname], sumstats['N1'],
-			sumstats['N2'], M_annot, args.overlap, args.rho, args.block_size)
-		#log.log( gencorhat )
-		# 	return (hsq1.est, hsq2.est, cov.est, cor_cat.est, cor_tot.est)
-		print np.multiply(np.matrix(M_annot), gencorhat[0][:,0:5]), gencorhat[0][:,5]
-		print np.multiply(np.matrix(M_annot), gencorhat[1][:,0:5]), gencorhat[1][:,5]
-		print np.multiply(np.matrix(M_annot), gencorhat[2][:,0:5]), gencorhat[2][:,5]
-		print np.multiply(np.matrix(M_annot), gencorhat[3][:,0:5])
-		print gencorhat[4]
+		log.log('Estimating genetic correlation.')
+		
+		snp_count = len(sumstats); n_annot = len(ref_ld_colnames)
+		ref_ld = np.matrix(sumstats[ref_ld_colnames]).reshape((snp_count, n_annot))
+		w_ld = np.matrix(sumstats[w_ld_colname]).reshape((snp_count, 1))
+		M_annot = np.matrix(M_annot).reshape((1, n_annot))
+		betahat1 = np.matrix(sumstats.BETAHAT1).reshape((snp_count, 1))
+		betahat2 = np.matrix(sumstats.BETAHAT2).reshape((snp_count, 1))
+		N1 = np.matrix(sumstats.N1).reshape((snp_count,1))
+		N2 = np.matrix(sumstats.N2).reshape((snp_count,1))
+		del sumstats
+		
+		gchat = jk.Gencor(betahat1, betahat2, ref_ld, w_ld, N1, N2, M_annot, args.overlap,
+			args.rho, args.block_size)
+
+		log.log( '\n' )
+		log.log( 'Heritability of first phenotype' )
+		log.log( _print_hsq(gchat.hsq1, ref_ld_colnames) )
+		log.log( '\n' )
+		log.log( 'Heritability of second phenotype' )
+		log.log( _print_hsq(gchat.hsq2, ref_ld_colnames) )
+		log.log( '\n' )
+		log.log( 'Genetic Covariance' )
+		log.log( _print_gencov(gchat.gencov, ref_ld_colnames) )
+		log.log( '\n' )
+		log.log( 'Genetic Correlation' )
+		log.log( _print_gencor(gchat) )
+		
 		
 if __name__ == '__main__':
 	parser = argparse.ArgumentParser()

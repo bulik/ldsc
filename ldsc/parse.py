@@ -3,6 +3,7 @@ import numpy as np
 import pandas as pd
 from scipy.special import chdtri
 
+
 def filter_df(df, colname, pred):
 	'''
 	Filters df down to those rows where pred applied to colname returns True
@@ -244,7 +245,7 @@ def ldscore(fh, num=None):
 		x = parsefunc(fh + '.l2.ldscore')
 	
 	ii = x['SNP'] != '.'
-	x = x[ii]
+	x = x[ii]	
 	check_rsid(x['SNP']) 
 	x.ix[:,1:len(x.columns)] = x.ix[:,1:len(x.columns)].astype(float)
 
