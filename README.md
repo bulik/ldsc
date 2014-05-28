@@ -29,5 +29,5 @@ Installation
 
 Prerequisites -- git, python 2.7, virtualenv.
 
-1. Clone repository '''git clone https://github.com/bulik/ldsc.git'''
+1. Clone repository `git clone https://github.com/bulik/ldsc.git`
 2. Create virtualenv
