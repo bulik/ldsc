@@ -1,4 +1,4 @@
-LDSC (LD SCore) v 0.00001
+LDSC (LD SCore) v 1e-4
 ======================
 
 Copyright (c) 2014 Brendan Bulik-Sullivan & Hilary Finucane
