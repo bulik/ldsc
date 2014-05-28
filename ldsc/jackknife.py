@@ -49,7 +49,7 @@ def _weight(x, w):
 	if np.any(w <= 0):
 		raise ValueError('Weights must be > 0')
 
-	w = np.sqrt(w) / float(np.sum(w))
+	w = np.sqrt(w/ float(np.sum(w)))
 	x_new = np.multiply(x, w)
 	return x_new
 	
@@ -222,8 +222,8 @@ class Hsq(object):
 	M : np.matrix of ints with shape (1, n_annot) > 0
 		Number of SNPs used for estimating LD Score (need not equal number of SNPs included in
 		the regression).
-	block_size : int, default = 1000
-		Block jackknife block size (in units of SNPs)
+	num_blocks : int, default = 1000
+		Number of block jackknife blocks.
 	
 	Attributes
 	----------
@@ -281,7 +281,7 @@ class Hsq(object):
 		
 	'''
 	
-	def __init__(self, chisq, ref_ld, w_ld, N, M, block_size=1000):
+	def __init__(self, chisq, ref_ld, w_ld, N, M, num_blocks=200):
 	
 		self.N = N
 		self.M = M
@@ -303,7 +303,7 @@ class Hsq(object):
 		x = _weight(x, weights)
 		y = _weight(chisq, weights)
 		
-		self._jknife = LstsqJackknife(x, y, block_size)
+		self._jknife = LstsqJackknife(x, y, num_blocks)
 		self.autocor = self._jknife.autocor(1)
 		no_intercept_cov = self._jknife.jknife_cov[0:self.n_annot,0:self.n_annot]
 		self.hsq_cov = np.multiply(np.square(self.M), no_intercept_cov)
@@ -366,8 +366,8 @@ class Gencov(object):
 	rho : float in [-1,1]
 		Estimate of total phenotypic correlation between trait 1 and trait 2. Only used for 
 		regression weights, and then only when N_overlap > 0. 	
-	block_size : int, default = 1000
-		Block jackknife block size (in units of SNPs)
+	num_blocks : int, default = 1000
+		Number of block jackknife blocks.
 	
 	Attributes
 	----------
@@ -405,7 +405,7 @@ class Gencov(object):
 	'''
 	
 	def __init__(self, bhat1, bhat2, ref_ld, w_ld, N1, N2, M, hsq1, hsq2, N_overlap=None,
-		rho=None, block_size=1000):
+		rho=None, num_blocks=200):
 		
 		self.N1 = N1
 		self.N2 = N2
@@ -427,7 +427,7 @@ class Gencov(object):
 		x = _weight(x, weights)
 		y = _weight(y, weights)
 		
-		self._jknife = LstsqJackknife(x, y, block_size)
+		self._jknife = LstsqJackknife(x, y, num_blocks)
 		self.autocor = self._jknife.autocor(1)
 		self.cat_gencov = np.multiply(self.M, self._jknife.est[0,0:self.n_annot])
 		self.cat_gencov_se = np.multiply(self.M, self._jknife.jknife_se[0,0:self.n_annot])
@@ -447,7 +447,6 @@ class Gencov(object):
 		denominator = np.mean(x) / M_tot
 		agg = numerator / denominator
 		return agg
-
 
 
 class Gencor(object):
@@ -480,8 +479,8 @@ class Gencor(object):
 	rho : float in [-1,1]
 		Estimate of total phenotypic correlation between trait 1 and trait 2. Only used for 
 		regression weights, and then only when N_overlap > 0. 	
-	block_size : int, default = 1000
-		Block jackknife block size (in units of SNPs)
+	num_blocks : int, default = 1000
+		Number of block jackknife blocks.
 	
 	Attributes
 	----------
@@ -516,7 +515,7 @@ class Gencor(object):
 	'''
 	
 	def __init__(self, bhat1, bhat2, ref_ld, w_ld, N1, N2, M, N_overlap=None,	rho=None, 
-		block_size=1000):
+		num_blocks=200):
 
 		self.N1 = N1
 		self.N2 = N2
@@ -529,14 +528,14 @@ class Gencor(object):
 		
 		# first hsq
 		chisq1 = np.multiply(N1, np.square(bhat1))
-		self.hsq1 = Hsq(chisq1, ref_ld, w_ld, N1, M, block_size)
+		self.hsq1 = Hsq(chisq1, ref_ld, w_ld, N1, M, num_blocks)
 		# second hsq
 		chisq2 = np.multiply(N2, np.square(bhat2))
-		self.hsq2 = Hsq(chisq2, ref_ld, w_ld, N2, M, block_size)
+		self.hsq2 = Hsq(chisq2, ref_ld, w_ld, N2, M, num_blocks)
 
 		# genetic covariance
 		self.gencov = Gencov(bhat1, bhat2, ref_ld, w_ld, N1, N2, M, self.hsq1.tot_hsq,
-			self.hsq2.tot_hsq, self.N_overlap, self.rho, block_size)
+			self.hsq2.tot_hsq, self.N_overlap, self.rho, num_blocks)
 		
 		# total genetic correlation
 		self.tot_gencor_biased = self.gencov.tot_gencov /\
@@ -587,15 +586,13 @@ class LstsqJackknife(object):
 		Predictors.
 	y : np.matrix with shape (n_snp, 1)
 		Response variable.
-	block_size: int, > 0
-		Size of jackknife blocks.
+	num_blocks: int, > 0
+		Number of jackknife blocks.
 
 	Attributes
 	----------
 	num_blocks : int 
 		Number of jackknife blocks
-	block_size : int
-		Size of each jackknife block (measures in # of SNPs).
 	est : np.matrix with shape (1, n_annot)
 		Value of estimator applied to full data set.
 	pseudovalues : np.matrix with shape (n_blocks, n_annot)
@@ -629,7 +626,7 @@ class LstsqJackknife(object):
 	
 	'''
 
-	def __init__(self, x, y, block_size):
+	def __init__(self, x, y, num_blocks):
 		if len(x.shape) <= 1:
 			x = np.atleast_2d(x).T
 		if len(y.shape) <= 1:
@@ -639,16 +636,12 @@ class LstsqJackknife(object):
 		if self.N != x.shape[0]:
 			raise ValueError('Number of data points in y != number of data points in x.')
 		
-		self.output_dim = x.shape[1] 
-		if block_size > self.N / 2:
-			raise ValueError('Block size must be < N/2')
-
-		self.block_size = block_size		
-		self.num_blocks = int(np.ceil(self.N / self.block_size))
+		self.output_dim = x.shape[1]
+		self.num_blocks = num_blocks		
 		if self.num_blocks > self.N:
 			raise ValueError('Number of blocks > number of data points.')
-		
-		self.block_vals = self.__compute_block_vals__(x, y, block_size)
+
+		self.block_vals = self.__compute_block_vals__(x, y, num_blocks)
 		self.est = self.__block_vals_to_est__(self.block_vals)
 		(self.pseudovalues, self.delete_values) =\
 			self.__block_vals_to_pseudovals__(self.block_vals, self.est)
@@ -664,12 +657,23 @@ class LstsqJackknife(object):
 		jknife_cov = np.cov(pseudovalues.T) / (num_blocks )
 		return (jknife_est, jknife_var, jknife_se, jknife_cov)
 
-	def __compute_block_vals__(self, x, y, block_size):
-		'''Computes block values'''
+	def __compute_block_vals__(self, x, y, num_blocks):
+		N = self.N
+		block_size = int(N/num_blocks)
+		separators = np.arange(0,N,block_size)
+		remainder = N - separators[-1]
+		
+		if len(separators) == num_blocks:
+			separators = np.hstack([separators,N])
+		else:
+			for r in range(remainder):
+				separators[-(r+1)] += remainder - r
+
 		xty_block_vals = []; xtx_block_vals = []
-		for s in xrange(0, self.N, block_size):	
+		for i in range(len(separators)-1):	
 			# s = block start SNP index; e = block end SNP index
-			e = min(self.N, s+block_size)
+			s = separators[i]
+			e = separators[i+1]
 			xty = np.dot( x[s:e,...].T, y[s:e,...] )
 			xtx = np.dot( x[s:e,...].T, x[s:e,...] )
 			xty_block_vals.append(xty)
@@ -769,7 +773,7 @@ class RatioJackknife(LstsqJackknife):
 	def __init__(self, est, numer_delete_vals, denom_delete_vals):
 		if numer_delete_vals.shape != denom_delete_vals.shape:
 			raise ValueError('numer_delete_vals.shape != denom_delete_vals.shape.')
-	
+
 		self.est = est
 		self.numer_delete_vals = numer_delete_vals 
 		self.denom_delete_vals = denom_delete_vals 

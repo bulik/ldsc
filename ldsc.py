@@ -391,7 +391,7 @@ def sumstats(args):
 		N = np.matrix(sumstats.N).reshape((snp_count,1))
 		del sumstats
 
-		h2hat = jk.Hsq(chisq, ref_ld, w_ld, N, M_annot, args.block_size)
+		h2hat = jk.Hsq(chisq, ref_ld, w_ld, N, M_annot, args.num_blocks)
 				
 		log.log(_print_intercept(h2hat))
 
@@ -408,7 +408,7 @@ def sumstats(args):
 		N = np.matrix(sumstats.N).reshape((snp_count,1))
 		del sumstats
 		
-		h2hat = jk.Hsq(chisq, ref_ld, w_ld, N, M_annot, args.block_size)
+		h2hat = jk.Hsq(chisq, ref_ld, w_ld, N, M_annot, args.num_blocks)
 		log.log(_print_hsq(h2hat, ref_ld_colnames))
 
 
@@ -427,19 +427,23 @@ def sumstats(args):
 		del sumstats
 		
 		gchat = jk.Gencor(betahat1, betahat2, ref_ld, w_ld, N1, N2, M_annot, args.overlap,
-			args.rho, args.block_size)
+			args.rho, args.num_blocks)
 
 		log.log( '\n' )
 		log.log( 'Heritability of first phenotype' )
+		log.log( '-------------------------------' )
 		log.log( _print_hsq(gchat.hsq1, ref_ld_colnames) )
 		log.log( '\n' )
 		log.log( 'Heritability of second phenotype' )
+		log.log( '--------------------------------' )
 		log.log( _print_hsq(gchat.hsq2, ref_ld_colnames) )
 		log.log( '\n' )
 		log.log( 'Genetic Covariance' )
+		log.log( '------------------' )
 		log.log( _print_gencov(gchat.gencov, ref_ld_colnames) )
 		log.log( '\n' )
 		log.log( 'Genetic Correlation' )
+		log.log( '-------------------' )
 		log.log( _print_gencor(gchat) )
 		
 		
@@ -515,6 +519,8 @@ if __name__ == '__main__':
 		help='Number of overlapping samples. Used only for weights in genetic covariance regression.')
 	parser.add_argument('--rho', default=0, type=float,
 		help='Population correlation between phenotypes. Used only for weights in genetic covariance regression.')
+	parser.add_argument('--num-blocks', default=200, type=int,
+		help='Number of block jackknife blocks.')
 
 	# Flags for both LD Score estimation and h2/gencor estimation
 	parser.add_argument('--out', default='ldsc', type=str,
