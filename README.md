@@ -30,4 +30,7 @@ Installation
 Prerequisites -- git, python 2.7, virtualenv.
 
 1. Clone repository `git clone https://github.com/bulik/ldsc.git`
-2. Create virtualenv
+2. Create virtualenv `virtualenv ENV`
+3. Activate virtualenv `source bin/activate`
+4. Install requirements `pip install requirements.txt`
+5. Now you should be able to call `python ldsc.py <flags>`
