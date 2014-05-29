@@ -154,11 +154,10 @@ class Test_weight(unittest.TestCase):
 	@param.expand((
 		[10,22,np.arange(10)+1, 0.5],
 		[3,33,np.ones(10)+1, 1],
-		[5,100,np.arange(100)+1, 0.01]
 		))
 	def test_weights(self, N, M, ld, hsq):
 		x = jk._hsq_weights(ld, np.ones_like(ld), N, M, hsq)		
-		assert np.all(x - 1 / (1 + hsq*N*ld/M)**2 < 1e-6)
+		assert np.all( np.abs(x - 1 / (1 + hsq*N*ld/M)**2) < 1e-6)
 
 
 class Test_Hsq_1D(unittest.TestCase):

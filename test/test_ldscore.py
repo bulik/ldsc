@@ -65,18 +65,19 @@ class test_bed(unittest.TestCase):
  			keep_snps=keep_snps)
  		assert bed.m == 1
  		assert bed.n == 5
- 		assert bed.geno == ba.bitarray('0001011111000000')
+  	# pad bits are initialized with random memory --> can't test them
+ 		assert bed.geno[0:10] == ba.bitarray('0001011111')
  		
  	def test_filter_indivs(self):
  		keep_indivs = [0,1]
  		bed = ld.PlinkBEDFile('test/plink_test/plink.bed', self.N, self.bim, 
  			keep_indivs=keep_indivs)
- 		print bed.m, bed.n
- 		print bed.geno
  		assert bed.m == 2
  		assert bed.n == 2
- 		assert bed.geno == ba.bitarray('0001000000010000')
- 		
+ 		# pad bits are initialized with random memory --> can't test them
+ 		assert bed.geno[0:4] == ba.bitarray('0001')
+ 		assert bed.geno[8:12] == ba.bitarray('0001')
+	
 	def test_filter_indivs_and_snps(self):
 		keep_indivs = [0,1]
 		keep_snps = [1,5]
@@ -85,7 +86,7 @@ class test_bed(unittest.TestCase):
 		assert bed.m == 1
 		assert bed.n == 2
 		print bed.geno
-		assert bed.geno == ba.bitarray('00010000')
+		assert bed.geno[0:4] == ba.bitarray('0001')
 	
 	@nose.tools.raises(ValueError)
 	def test_bad_filename(self):

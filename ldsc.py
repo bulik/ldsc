@@ -59,6 +59,12 @@ def __filter__(fname, noun, verb, merge_obj):
 		
 		
 def _print_intercept(h2hat):
+	'''
+	Reusable code for printing information about LD Score regression intercept 
+	from a jk.Hsq object
+	
+	'''
+	
 	out = []
 	out.append( 'Observed scale h2: '+str(h2hat.tot_hsq)+' ('+str(h2hat.tot_hsq_se)+')')
 	out.append( 'Lambda GC: '+ str(h2hat.lambda_gc))
@@ -134,15 +140,21 @@ def ldscore(args):
 	log.log('Read list of {m} SNPs from {f}'.format(m=m, f=snp_file))
 	
 	# read annot
-	if args.annot:
+	if args.annot and args.keep:
+		raise ValueError('--annot and --keep are currently incompatible.')
+	elif args.annot:
 		annot = ps.AnnotFile(args.annot)
 		num_annots,ma = len(annot.df.columns) - 4, len(annot.df)
 		log.log("Read {A} annotations for {M} SNPs from {f}".format(f=args.annot,A=num_annots,
 			M=ma))
 		annot_matrix = np.array(annot.df.iloc[:,4:])
 		annot_colnames = annot.df.columns[4:]
+		keep_snps = None
+	elif args.keep:
+		keep_snps = __filter__(args.keep, 'SNPs', 'include', array_snps)
+		annot_matrix, annot_colnames, num_annots = None, None, 1
 	else:
-		array_keep, annot_matrix, annot_colnames = None, None, None
+		annot_matrix, annot_colnames, keep_snps = None, None, None, 
 		num_annots = 1
 	
 	# read fam/ind
@@ -154,11 +166,11 @@ def ldscore(args):
 		keep_indivs = __filter__(args.extract, 'individuals', 'include', array_indivs)
 	else:
 		keep_indivs = None
-		
+	
 	# read genotype array
 	log.log('Reading genotypes from {fname}'.format(fname=array_file))
-	geno_array = array_obj(array_file,n,array_snps, keep_indivs=keep_indivs, 
-		mafMin=args.maf)
+	geno_array = array_obj(array_file, n, array_snps, keep_snps=keep_snps,
+		keep_indivs=keep_indivs, mafMin=args.maf)
 		
 	# filter annot_matrix down to only SNPs passing MAF cutoffs
 	if annot_matrix is not None:
@@ -462,7 +474,9 @@ if __name__ == '__main__':
 
 	# Filtering / Data Management for LD Score
 	parser.add_argument('--extract', default=None, type=str, 
-		help='File with individuals to include in LD Score analysis')
+		help='File with individuals to include in LD Score analysis, one ID per row.')
+	parser.add_argument('--keep', default=None, type=str, 
+		help='File with SNPs to include in LD Score analysis, one ID per row.')
 	parser.add_argument('--ld-wind-snps', default=None, type=int,
 		help='LD Window in units of SNPs. Can only specify one --ld-wind-* option')
 	parser.add_argument('--ld-wind-kb', default=None, type=float,

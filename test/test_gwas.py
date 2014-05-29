@@ -347,7 +347,7 @@ class test_CC_CC_GWAS(unittest.TestCase):
 		self.mafs = [0.5, 0.5, 0.5]
 		self.betas = np.matrix((1,0,-1,1,0,1)).reshape((3,2))
 		self.hsqs = np.array((0.99,0.95))
-		self.P = np.array((0.3,0.2))
+		self.P = np.array((0.4,0.3))
 		self.chunk_size = 40
 		self.e_var = np.matrix((0.01,0,0,0.05)).reshape((2,2))
 		

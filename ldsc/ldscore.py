@@ -71,7 +71,6 @@ class __GenotypeArrayInMemory__(object):
 		self.mafMin = mafMin if mafMin is not None else 0
 		self._currentSNP = 0
 		(self.nru, self.geno) = self.__read__(fname, self.m, n)
-		
 		# filter individuals
 		if keep_indivs is not None:
 			keep_indivs = np.array(keep_indivs, dtype='int')
@@ -80,7 +79,7 @@ class __GenotypeArrayInMemory__(object):
 			
 			(self.geno, self.m, self.n) = self.__filter_indivs__(self.geno, keep_indivs, self.m,
 				self.n)
-			
+		
 			if self.n > 0:
 				print 'After filtering, {n} individuals remain'.format(n=self.n)
 			else:
@@ -91,7 +90,7 @@ class __GenotypeArrayInMemory__(object):
 			keep_snps = np.array(keep_snps, dtype='int')
 			if np.any(keep_snps > self.m): # if keep_snps is None, this returns False
 				raise ValueError('keep_snps indices out of bounds')
-	
+
 		(self.geno, self.m, self.n, self.kept_snps, self.freq) = self.__filter_snps_maf__(
 			self.geno, self.m, self.n, self.mafMin, keep_snps)
 		
@@ -683,7 +682,6 @@ class VcfBINFile(__GenotypeArrayInMemory__):
 		if minorRef is not None:
 			flip_ref = np.ones(b)
 			flip_ref[np.nonzero(np.array(self.freq[c:(c+b)]) > 0.5)] = -1
-			print flip_ref
 			denom = self.sqrtpq[c:c+b] * flip_ref
 			X = (X - self.freq[c:c+b] ) / denom
 		else:
