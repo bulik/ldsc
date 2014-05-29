@@ -52,3 +52,17 @@ coverage.xml
 # Sphinx documentation
 docs/_build/
 
+# plink
+*.bed
+*.bim
+*.fam
+
+# LD Score
+*.ldscore
+*.M
+*.annot
+*.chisq
+*.betaprod
+*.keep
+*.extract
+*.simfreq
