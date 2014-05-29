@@ -1,7 +1,7 @@
 from __future__ import division
 import numpy as np
 import bitarray as ba
-import progressbar as pb
+#import progressbar as pb
 import pandas as pd
 
 
@@ -113,7 +113,7 @@ class __GenotypeArrayInMemory__(object):
 
 	def __filter_maf_(geno, m, n, maf):
 		raise NotImplementedError
-
+	'''
 	def __ldscore_pbar__(self,m):
 		widgets = ['Computed LD for ', pb.Counter(), ' / {m} SNPs ('.format(m=m),
 			pb.Timer(), ')']
@@ -131,7 +131,7 @@ class __GenotypeArrayInMemory__(object):
 			pb.Timer(), ')']
 		pbar = pb.ProgressBar(widgets=widgets,maxval=m).start()
 		return pbar
-	
+	'''
 	
 	### L1 w.r.t. minor allele
 	def l1VarBlocks(self, block_left, c, annot=None):
@@ -446,6 +446,7 @@ class __GenotypeArrayInMemory__(object):
 # 		pbar.finish()
 # 		print 
 # 		return (cor_sum_jn, cor_sum_se)			
+
 
 class PlinkBEDFile(__GenotypeArrayInMemory__):
 	'''
