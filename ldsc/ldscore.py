@@ -280,10 +280,10 @@ class __GenotypeArrayInMemory__(object):
 		rfuncAB = np.zeros((b,c))
 		rfuncBB = np.zeros((c,c))
 		# chunk inside of block
-		pbar = self.__ldscore_pbar__(m)
+		#pbar = self.__ldscore_pbar__(m)
 
 		for l_B in xrange(0,b,c): # l_B := index of leftmost SNP in matrix B
-			pbar.update(l_B)
+			#pbar.update(l_B)
 			B = A[:,l_B:l_B+c]
 			np.dot(A.T, B / n, out=rfuncAB)
 			rfuncAB = func(rfuncAB)
@@ -294,7 +294,7 @@ class __GenotypeArrayInMemory__(object):
 		md = int(c*np.floor(m/c))
 		end = md + 1 if md !=m else md
 		for l_B in xrange(b0,end,c):
-			pbar.update(l_B)
+			#pbar.update(l_B)
 			# update the block
 			old_b = b
 			b = block_sizes[l_B]
@@ -326,7 +326,7 @@ class __GenotypeArrayInMemory__(object):
 			rfuncBB = func(rfuncBB)
 			cor_sum[l_B:l_B+c,:] += np.dot(rfuncBB, annot[l_B:l_B+c,:])
 		
-		pbar.finish()
+		#pbar.finish()
 		return cor_sum
 	
 # 	def __corSumBlockJackknife__(self, block_left, c, func1, snp_getter, annot=None, jN=10,
@@ -502,13 +502,13 @@ class PlinkBEDFile(__GenotypeArrayInMemory__):
 		nru_new = n_new + e
 		nru = self.nru
 		z = ba.bitarray(m*2*nru_new, endian="little")
-		pbar = self.__filter_indivs_pbar__(len(keep_indivs))
+		#pbar = self.__filter_indivs_pbar__(len(keep_indivs))
 		for e, i in enumerate(keep_indivs):
-			pbar.update(e)
+			#pbar.update(e)
 			z[2*e::2*nru_new] = geno[2*i::2*nru]
 			z[2*e+1::2*nru_new] = geno[2*i+1::2*nru]
 
-		pbar.finish()
+		#pbar.finish()
 		self.nru = nru_new
 		return (z, m, n_new)
 	
@@ -547,9 +547,9 @@ class PlinkBEDFile(__GenotypeArrayInMemory__):
  		y = ba.bitarray()
  		if keep_snps is None: keep_snps = xrange(m)
  		kept_snps = []; freq = []
- 		pbar = self.__filter_snps_pbar__(len(keep_snps))
+ 		#pbar = self.__filter_snps_pbar__(len(keep_snps))
 		for e,j in enumerate(keep_snps):
-			pbar.update(e)
+			#pbar.update(e)
 			z = geno[2*nru*j:2*nru*(j+1)]
 			A = z[0::2]; a = A.count()
 			B = z[1::2]; b = B.count()
@@ -564,7 +564,7 @@ class PlinkBEDFile(__GenotypeArrayInMemory__):
 				m_poly += 1			
 				kept_snps.append(j)	
 		
-		pbar.finish()	
+		#pbar.finish()	
  		return (y, m_poly, n, kept_snps, freq)
 		
 	def nextSNPs(self, b, minorRef=None):
@@ -637,12 +637,12 @@ class VcfBINFile(__GenotypeArrayInMemory__):
 	def __filter_indivs__(self, geno, keep_indivs, m, n):
 		n_new = len(keep_indivs)
 		z = ba.bitarray(m*n_new, endian="big")
-		pbar = self.__filter_indivs_pbar__(len(keep_indivs))
+		#pbar = self.__filter_indivs_pbar__(len(keep_indivs))
 		for e, i in enumerate(keep_indivs):
-			pbar.update(e)
+			#pbar.update(e)
 			z[e::n_new] = geno[i:m*n:n]
 
-		pbar.finish()
+		#pbar.finish()
 		return (z, m, n_new)
 
 	def __filter_snps_maf__(self, geno, m, n, mafMin, keep_snps):
@@ -650,9 +650,9 @@ class VcfBINFile(__GenotypeArrayInMemory__):
 		m_poly = 0; freq =  []
 		if keep_snps is None: keep_snps = xrange(m)
 		kept_snps = []
- 		pbar = self.__filter_snps_pbar__(len(keep_snps))
+ 		#pbar = self.__filter_snps_pbar__(len(keep_snps))
 		for e,j in enumerate(keep_snps):
-			pbar.update(e)
+			#pbar.update(e)
 			z = geno[j*n:(j+1)*n]
 			c = z.count()
 			if c < n and np.minimum(c/n,1-c/n) > mafMin:
@@ -661,7 +661,7 @@ class VcfBINFile(__GenotypeArrayInMemory__):
 				freq.append(c/n)
 				kept_snps.append(j)
 				
-		pbar.finish()
+		#pbar.finish()
 		return (y[0:m_poly*n], m_poly, n, kept_snps, freq)
 		
 	def nextSNPs(self, b, minorRef=None):
