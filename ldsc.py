@@ -101,6 +101,7 @@ def _print_gencov(gencov, ref_ld_colnames):
 	out.append( 'Proportion of SNPs: '+str(gencov.M_prop))
 	out.append( 'Proportion of gencov: ' +str(gencov.prop_gencov))
 	out.append( 'Enrichment: '+str(gencov.enrichment))		
+	out.append( 'Intercept: '+ str(gencov.intercept)+' ('+str(gencov.intercept_se)+')')
 	out = '\n'.join(out)
 	return out
 

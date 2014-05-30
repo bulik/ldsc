@@ -691,6 +691,7 @@ class VcfBINFile(__GenotypeArrayInMemory__):
 		self._currentSNP += b
 		return X		
 
+
 class AnnotFile():
 
 	def __init__(self, fname):

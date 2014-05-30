@@ -143,11 +143,19 @@ def chisq(fh):
 		x = pd.read_csv(fh, header=0, delim_whitespace=True, usecols=usecols, 
 			dtype=dtype_dict)
 	except AttributeError as e:
-		raise AttributeError('Improperly formatted chisq file: '+ e)
+		raise AttributeError('Improperly formatted chisq file: '+e.args)
 
-	check_N(x['N'])	
+	try:
+		check_N(x['N'])	
+	except KeyError as e:
+		raise KeyError('No column named N in .betaprod: '+str(e.args))
+
 	x['N'] = x['N'].astype(float)
-	check_rsid(x['SNP']) 
+	
+	try:
+		check_rsid(x['SNP'])
+	except KeyError as e:
+		raise KeyError('No column named SNP in .betaprod: '+str(e.args))
 	
 	if 'MAF' in x.columns:
 		check_maf(x['MAF'])
@@ -177,11 +185,11 @@ def betaprod(fh):
 		'BP': int,
 		'P1': float,
 		'CHISQ1': float,
-		'DIR1': int,
+		'DIR1': float,
 		'N1': int, # cast to int for typechecking, then switch to float later for division
 		'P2': float,
 		'CHISQ2': float,
-		'DIR2': int,
+		'DIR2': float,
 		'N2': int,
 		'INFO1': float,
 		'INFO2': float,
@@ -196,16 +204,26 @@ def betaprod(fh):
 		x = pd.read_csv(fh, header=0, delim_whitespace=True, usecols=usecols, 
 			dtype=dtype_dict)
 	except AttributeError as e:
-		raise AttributeError('Improperly formatted betaprod file: '+ e)
+		raise AttributeError('Improperly formatted betaprod file: '+str(e.args))
 		
-	check_rsid(x['SNP'])
+	try:
+		check_rsid(x['SNP'])
+	except KeyError as e:
+		raise KeyError('No column named SNP in .betaprod: '+str(e.args))
 	
 	for i in ['1','2']:
 		N='N'+i; P='P'+i; CHISQ='CHISQ'+i; DIR='DIR'+i; MAF='MAF'+i; INFO='INFO'+i
 		BETAHAT='BETAHAT'+i
-		check_N(x[N])
-		x[N] = x[N].astype(float)
-		check_dir(x[DIR])
+		try:
+			check_N(x[N])
+		except KeyError as e:
+			raise KeyError('No column named {N} in .betaprod: '.format(N=N)+str(e.args))
+		x[N] = x[N].astype(float)	
+		try:
+			check_dir(x[DIR])
+		except KeyError as e:
+			raise KeyError('No column named {D} in .betaprod: '.format(D=DIR)+str(e.args))
+	
 		if CHISQ in x.columns:
 			check_chisq(x[CHISQ])
 			betahat = np.sqrt(x[CHISQ]/x[N]) * x[DIR]
