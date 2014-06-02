@@ -126,10 +126,10 @@ def chisq(fh):
 	
 	'''
 	dtype_dict = {
-		'CHR': str,
+#		'CHR': str,
 		'SNP': str,
-		'CM': float,
-		'BP': int,
+#		'CM': float,
+#		'BP': int,
 		'P': float,
 		'CHISQ': float,
 		'N': int, # cast to int for typechecking, then switch to float for division
@@ -179,10 +179,10 @@ def betaprod(fh):
 	
 	'''
 	dtype_dict = {
-		'CHR': str,
+#		'CHR': str,
 		'SNP': str,
-		'CM': float,
-		'BP': int,
+#		'CM': float,
+#		'BP': int,
 		'P1': float,
 		'CHISQ1': float,
 		'DIR1': float,
