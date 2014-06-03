@@ -114,6 +114,7 @@ def _gencov_weights(ld, w_ld, N1, N2, No, M, h1, h2, rho_g, rho):
 	
 	'''
 
+	h1 = max(h1,0); h2=np.max(h2,0)
 	ld = np.fmax(ld, 1.0)
 	w_ld = np.fmax(w_ld, 1.0) 
 	# prevent integer division bugs with np.divide
