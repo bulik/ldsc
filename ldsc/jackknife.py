@@ -113,8 +113,9 @@ def _gencov_weights(ld, w_ld, N1, N2, No, M, h1, h2, rho_g, rho):
 		Regression weights. Approx equal to reciprocal of conditional variance function.
 	
 	'''
-
-	h1 = max(h1,0); h2=np.max(h2,0)
+	
+	h1 = max(h1,0); h2=max(h2,0)
+	h1 = min(h1,1); h1=min(h2,1)
 	ld = np.fmax(ld, 1.0)
 	w_ld = np.fmax(w_ld, 1.0) 
 	# prevent integer division bugs with np.divide
@@ -157,7 +158,7 @@ def _hsq_weights(ld, w_ld, N, M, hsq):
 		Regression weights. Approx equal to reciprocal of conditional variance function.
 	
 	'''
-	
+	hsq = max(hsq,0); hsq = min(hsq,1)
 	ld = np.fmax(ld, 1.0)
 	w_ld = np.fmax(w_ld, 1.0) 
 	c = hsq * N / M
