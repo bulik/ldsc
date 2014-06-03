@@ -335,7 +335,7 @@ def sumstats(args):
 		if args.regression_snp_ld:
 			w_ldscores = ps.ldscore(args.regression_snp_ld)
 		elif args.regression_snp_ld_chr:
-			w_ldscores = ps.ldscore22(args.regression_snp_ld)
+			w_ldscores = ps.ldscore(args.regression_snp_ld, 22)
 	except ValueError as e:
 		log.log('Error parsing regression SNP LD')
 		raise e
