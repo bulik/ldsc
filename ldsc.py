@@ -12,9 +12,9 @@ This is a command line application for estimating
 '''
 
 from __future__ import division
-import ldsc.ldscore as ld
-import ldsc.parse as ps
-import ldsc.jackknife as jk
+import ldscore.ldscore as ld
+import ldscore.parse as ps
+import ldscore.jackknife as jk
 import argparse
 import numpy as np
 import pandas as pd

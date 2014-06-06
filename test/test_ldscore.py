@@ -1,10 +1,10 @@
-import ldsc.ldscore as ld
+import ldscore.ldscore as ld
 import unittest
 import bitarray as ba
 import numpy as np
 import nose
 import pandas as pd
-import ldsc.parse as ps
+import ldscore.parse as ps
 from nose_parameterized import parameterized as param
 
 

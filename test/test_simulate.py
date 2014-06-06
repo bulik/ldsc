@@ -1,5 +1,5 @@
 from __future__ import division
-import ldsc.simulate as sim
+import ldscore.simulate as sim
 import unittest
 import numpy as np
 import nose
