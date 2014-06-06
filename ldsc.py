@@ -336,10 +336,13 @@ def sumstats(args):
 			w_ldscores = ps.ldscore(args.regression_snp_ld)
 		elif args.regression_snp_ld_chr:
 			w_ldscores = ps.ldscore(args.regression_snp_ld, 22)
+
 	except ValueError as e:
 		log.log('Error parsing regression SNP LD')
 		raise e
-	
+		
+	w_ldscores.columns = ['SNP','LD_weights'] #to keep the column names from being the same
+
 	log_msg = 'Read LD Scores for {N} SNPs to be retained for regression.'
 	log.log(log_msg.format(N=len(w_ldscores)))
 	
@@ -423,6 +426,7 @@ def sumstats(args):
 		
 		h2hat = jk.Hsq(chisq, ref_ld, w_ld, N, M_annot, args.num_blocks)
 		log.log(_print_hsq(h2hat, ref_ld_colnames))
+		return [M_annot,h2hat]
 
 
 	# LD Score regression to estimate genetic correlation
@@ -459,6 +463,7 @@ def sumstats(args):
 		log.log( '-------------------' )
 		log.log( _print_gencor(gchat) )
 		
+		return [M_annot,h2hat]
 		
 if __name__ == '__main__':
 	parser = argparse.ArgumentParser()
