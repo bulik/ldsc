@@ -265,8 +265,9 @@ def ldscore(fh, num=None):
 	ii = x['SNP'] != '.'
 	x = x[ii]	
 	check_rsid(x['SNP']) 
-	x.ix[:,1:len(x.columns)] = x.ix[:,1:len(x.columns)].astype(float)
-
+	for col in x.columns[1:]:
+		x[col] = x[col].astype(float)
+	
 	return x
 	
 	
