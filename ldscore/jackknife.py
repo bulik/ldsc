@@ -25,6 +25,7 @@ also estimate an intercept term).
 from __future__ import division
 import numpy as np
 from scipy.stats import norm
+from scipy.optimize import nnls
 
 
 def _weight(x, w):
@@ -283,7 +284,7 @@ class Hsq(object):
 		
 	'''
 	
-	def __init__(self, chisq, ref_ld, w_ld, N, M, num_blocks=200):
+	def __init__(self, chisq, ref_ld, w_ld, N, M, num_blocks=200, non_negative=False):
 	
 		self.N = N
 		self.M = M
@@ -305,7 +306,10 @@ class Hsq(object):
 		x = _weight(x, weights)
 		y = _weight(chisq, weights)
 		
-		self._jknife = LstsqJackknife(x, y, num_blocks)
+		if non_negative:
+			self._jknife = LstsqJackknifeNN(x, y, num_blocks)
+		else:
+			self._jknife = LstsqJackknife(x, y, num_blocks)
 		self.autocor = self._jknife.autocor(1)
 		no_intercept_cov = self._jknife.jknife_cov[0:self.n_annot,0:self.n_annot]
 		self.hsq_cov = np.multiply(np.dot(self.M.T,self.M), no_intercept_cov)
@@ -320,6 +324,58 @@ class Hsq(object):
 			self.ratio = (self.intercept - 1) / (self.mean_chisq - 1)
 		else:
 			self.ratio = float('nan')
+		
+		self.prop_hsq = self.cat_hsq / self.tot_hsq
+		self.M_prop = self.M / self.M_tot
+		self.enrichment = np.divide(self.cat_hsq, self.M) / (self.tot_hsq/self.M_tot)
+		
+	def _aggregate(self, y, x, M_tot):
+		'''Aggregate estimator. For use in regression weights.'''
+		numerator = np.mean(y) - 1.0
+		denominator = np.mean(x) / M_tot
+		agg = numerator / denominator
+		return agg
+
+
+class Hsq_nointercept(object):
+
+	'''
+	same as Hsq but wo intercept
+	'''
+	
+	def __init__(self, chisq, ref_ld, w_ld, N, M, num_blocks=200, non_negative=False):
+	
+		self.N = N
+		self.M = M
+		self.M_tot = float(np.sum(M))
+		self.n_annot = ref_ld.shape[1]
+		self.n_snp = ref_ld.shape[0]
+		self.mean_chisq = np.mean(chisq)
+		# median and matrix don't play nice?
+		self.lambda_gc = np.median(np.asarray(chisq)) / 0.4549 
+		
+		ref_ld_tot = np.sum(ref_ld, axis=1)
+		agg_hsq = self._aggregate(chisq, np.multiply(N, ref_ld_tot), self.M_tot)
+		weights = _hsq_weights(ref_ld_tot, w_ld, N, self.M_tot, agg_hsq) 
+		if np.all(weights == 0):
+			raise ValueError('Something is wrong, all regression weights are zero.')	
+
+		x = np.multiply(N, ref_ld)
+		x = _weight(x, weights)
+		y = _weight(chisq-1, weights)
+		
+		if non_negative:
+			self._jknife = LstsqJackknifeNN(x, y, num_blocks)
+		else:
+			self._jknife = LstsqJackknife(x, y, num_blocks)
+		self.autocor = self._jknife.autocor(1)
+		no_intercept_cov = self._jknife.jknife_cov[0:self.n_annot,0:self.n_annot]
+		self.hsq_cov = np.multiply(np.dot(self.M.T,self.M), no_intercept_cov)
+		self.cat_hsq = np.multiply(self.M, self._jknife.est[0,0:self.n_annot])
+		self.cat_hsq_se = np.multiply(self.M, self._jknife.jknife_se[0,0:self.n_annot])
+		self.tot_hsq = np.sum(self.cat_hsq)
+		self.tot_hsq_se = np.sqrt(np.sum(M*self._jknife.jknife_cov[0:self.n_annot,\
+			0:self.n_annot]*self.M.T))
 		
 		self.prop_hsq = self.cat_hsq / self.tot_hsq
 		self.M_prop = self.M / self.M_tot
@@ -745,6 +801,95 @@ class LstsqJackknife(object):
 		
 		return self.autocov(lag) / np.var(self.pseudovalues, axis=0)
 		
+class LstsqJackknifeNN(object):
+
+
+	def __init__(self, x, y, num_blocks):
+		if len(x.shape) <= 1:
+			x = np.atleast_2d(x).T
+		if len(y.shape) <= 1:
+			y = np.atleast_2d(y).T
+	
+		self.N = y.shape[0]
+		if self.N != x.shape[0]:
+			raise ValueError('Number of data points in y != number of data points in x.')
+		
+		self.output_dim = x.shape[1]
+		self.num_blocks = num_blocks		
+		if self.num_blocks > self.N:
+			raise ValueError('Number of blocks > number of data points.')
+
+		self.est = np.matrix(nnls(x,np.array(y).T[0])[0])
+		self.delete_vals = self.__compute_delete_vals__(x,y,num_blocks)
+
+		self.pseudovalues = self.__delete_vals_to_pseudovals__(self.delete_vals,self.est)
+		(self.jknife_est, self.jknife_var, self.jknife_se, self.jknife_cov) =\
+			self.__jknife__(self.pseudovalues, self.num_blocks)
+			
+	def __jknife__(self, pseudovalues, num_blocks):
+		'''Converts pseudovalues to jackknife estimates'''
+		jknife_est = np.mean(pseudovalues, axis=0) 
+		jknife_var = np.var(pseudovalues, axis=0) / (num_blocks - 1) 
+		jknife_se = np.std(pseudovalues, axis=0) / np.sqrt(num_blocks - 1)
+		jknife_cov = np.cov(pseudovalues.T) / (num_blocks )
+		return (jknife_est, jknife_var, jknife_se, jknife_cov)
+
+	def __compute_delete_vals__(self, x, y, num_blocks):
+		N = self.N
+		block_size = int(N/num_blocks)
+		separators = np.arange(0,N,block_size)
+		remainder = N - separators[-1]
+		
+		if len(separators) == num_blocks:
+			separators = np.hstack([separators,N])
+		else:
+			for r in range(remainder):
+				separators[-(r+1)] += remainder - r
+
+		delete_values = np.matrix(np.zeros((self.num_blocks, self.output_dim)))
+		for i in range(num_blocks):	
+			# s = block start SNP index; e = block end SNP index
+			s = separators[i]
+			e = separators[i+1]
+			x_delete = np.vstack([x[0:s,...],x[e:,...]])
+			y_delete = np.array(np.vstack([y[0:s,...],y[e:,...]])).T[0]
+			delete_values[i,...] = nnls(x_delete,y_delete)[0]
+
+		return delete_values
+
+	def __delete_vals_to_pseudovals__(self, delete_values, est):
+		'''Converts block values to pseudovalues'''
+		pseudovalues = np.matrix(np.zeros((self.num_blocks, self.output_dim)))
+		for j in xrange(0,self.num_blocks):
+			pseudovalues[j,...] = self.num_blocks*est - (self.num_blocks-1)*delete_values[j,...]
+			
+		return pseudovalues
+
+
+	def autocov(self, lag):
+		'''Computes lag [lag] pseudovalue autocovariance'''
+		pseudoerrors = self.pseudovalues - np.mean(self.pseudovalues, axis=0)
+		if lag <= 0 or lag >= self.num_blocks:
+			error_msg = 'Lag >= number of blocks ({L} vs {N})'
+			raise ValueError(error_msg.format(L=lag, N=self.num_blocks))
+
+		v = pseudoerrors[lag:len(pseudoerrors),...]
+		w = pseudoerrors[0:len(pseudoerrors) - lag,...]
+		autocov = np.diag(np.dot(v.T, w)) / (self.num_blocks - lag)
+		return autocov
+
+	def autocor(self, lag):
+	
+		'''
+		Computes lag [lag] pseudovalue autocorrelation. Note that this assumes that the 
+		psuedovalues are generated by a stationary process, which is not quite right. 
+		Nevertheless, if the lag-one autocorrelation is substantially higher than zero, it is 
+		a good sign that you should consider using a larger block size in order to estimate
+		the regression standard error.
+		
+		'''
+		
+		return self.autocov(lag) / np.var(self.pseudovalues, axis=0)
 
 class RatioJackknife(LstsqJackknife):
 
