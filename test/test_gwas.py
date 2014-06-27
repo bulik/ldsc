@@ -1,5 +1,5 @@
 from __future__ import division
-import ldsc.gwas as gw
+import ldscore.gwas as gw
 import unittest
 import numpy as np
 import scipy.stats as spstats

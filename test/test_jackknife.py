@@ -1,5 +1,5 @@
 from __future__ import division
-import ldsc.jackknife as jk
+import ldscore.jackknife as jk
 import unittest
 import numpy as np
 import nose

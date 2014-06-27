@@ -12,13 +12,13 @@ This is a command line application for estimating
 '''
 
 from __future__ import division
-import ldsc.ldscore as ld
-import ldsc.parse as ps
-import ldsc.jackknife as jk
+import ldscore.ldscore as ld
+import ldscore.parse as ps
+import ldscore.jackknife as jk
 import argparse
 import numpy as np
 import pandas as pd
-
+from subprocess import call
 
 class logger(object):
 	'''
@@ -268,9 +268,9 @@ def ldscore(args):
 	new_colnames = geno_array.colnames + ldscore_colnames
 	df = pd.DataFrame(np.c_[geno_array.df, lN])
 	df.columns = new_colnames
-	log.log("Writing results to {f}".format(f=out_fname))
+	log.log("Writing results to {f}.gz".format(f=out_fname))
 	df.to_csv(out_fname, sep="\t", header=True, index=False)	
-	
+	call(['gzip',out_fname])
 	# print .M
 	fout_M = open(args.out + '.'+ file_suffix +'.M','wb')
 	if num_annots == 1:
@@ -335,11 +335,14 @@ def sumstats(args):
 		if args.regression_snp_ld:
 			w_ldscores = ps.ldscore(args.regression_snp_ld)
 		elif args.regression_snp_ld_chr:
-			w_ldscores = ps.ldscore(args.regression_snp_ld, 22)
+			w_ldscores = ps.ldscore(args.regression_snp_ld_chr, 22)
+
 	except ValueError as e:
 		log.log('Error parsing regression SNP LD')
 		raise e
-	
+		
+	w_ldscores.columns = ['SNP','LD_weights'] #to keep the column names from being the same
+
 	log_msg = 'Read LD Scores for {N} SNPs to be retained for regression.'
 	log.log(log_msg.format(N=len(w_ldscores)))
 	
@@ -423,6 +426,7 @@ def sumstats(args):
 		
 		h2hat = jk.Hsq(chisq, ref_ld, w_ld, N, M_annot, args.num_blocks)
 		log.log(_print_hsq(h2hat, ref_ld_colnames))
+		return [M_annot,h2hat]
 
 
 	# LD Score regression to estimate genetic correlation
@@ -459,6 +463,7 @@ def sumstats(args):
 		log.log( '-------------------' )
 		log.log( _print_gencor(gchat) )
 		
+		return [M_annot,h2hat]
 		
 if __name__ == '__main__':
 	parser = argparse.ArgumentParser()
