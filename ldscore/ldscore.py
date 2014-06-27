@@ -203,7 +203,7 @@ class __GenotypeArrayInMemory__(object):
 	def __l2_unbiased__(self, x, n): 
 		denom = n-2 if n>2 else n # allow n<2 for testing purposes
 		sq = np.square(x)
-		return sq - (1-sq) / denom**2
+		return sq - (1-sq) / denom
 		
 		
 	### L4
