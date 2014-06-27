@@ -159,9 +159,7 @@ def ldscore(args):
 	
 	# read --cts-bin plus --cts-breaks
 	elif args.cts_bin is not None and args.cts_breaks is not None:
-		
-		### TODO -- print out some log messages
-		
+			
 		# read breaks
 		args.cts_breaks = args.cts_breaks.replace('N','-')
 		try:
@@ -170,6 +168,7 @@ def ldscore(args):
 			raise ValueError('--cts-breaks must be a comma-separated list of numbers: '+str(e.args))
 					
 		# read cts variable
+		log.log('Reading numbers with which to bin SNPs from {F}'.format(F=args.cts_bin))
 		cts = pd.read_csv(args.cts_bin, header=None, delim_whitespace=True)
 		cts.rename( columns={0: 'SNP', 1: 'ANNOT'}, inplace=True)
 		ps.check_rsid(cts.SNP)
@@ -194,6 +193,8 @@ def ldscore(args):
 			name_breaks.append(min_cts)
 			breaks.append(min_cts-1)
 
+		log.log('Binning SNPs based on {F} with breakpoints {B}'.format(F=args.cts_bin,
+			B=name_breaks))
 		name_breaks.sort()
 		breaks.sort()
 		num_annots = len(breaks) - 1
@@ -213,10 +214,10 @@ def ldscore(args):
 			raise ValueError('Some SNPs have no annotation in --cts-bin. This is a bug!')
 						
 		# get rid of empty columns in annot_matrix	
-		ii = np.squeeze(np.asarray(np.sum(annot_matrix, axis=0) != 0))
+		#ii = np.squeeze(np.asarray(np.sum(annot_matrix, axis=0) != 0))
 		if np.sum(ii) == 0:
 			raise ValueError('Something is wrong with --cts-bin. All annotations are empty!')
-		annot_matrix = annot_matrix[:,ii]
+		#annot_matrix = annot_matrix[:,ii]
 		keep_snps = None
 			
 	else:
