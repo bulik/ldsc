@@ -149,7 +149,7 @@ def ldscore(args):
 		annot_matrix = np.array(annot.df.iloc[:,4:])
 		annot_colnames = annot.df.columns[4:]
 		keep_snps = None
-		if not np.all(annot.df.SNP != array_snps.IDList):
+		if np.any(annot.df.SNP.values != array_snps.df.SNP.values):
 			raise ValueError('The .annot file must contain the same SNPs in the same'+\
 				' order as the .bim or .snp file')
 	# read --keep	
@@ -157,55 +157,65 @@ def ldscore(args):
 		keep_snps = __filter__(args.keep, 'SNPs', 'include', array_snps)
 		annot_matrix, annot_colnames, num_annots = None, None, 1
 	
-	# read --cts-bin plus --cts-bin-breaks
-	elif args.cts_bin is not None and args.cts_bin_breaks is not None:
+	# read --cts-bin plus --cts-breaks
+	elif args.cts_bin is not None and args.cts_breaks is not None:
 		
 		### TODO -- print out some log messages
 		
 		# read breaks
-		breaks = [float(x) for x in args.cts_bin_breaks.split(',')]
-		if len(breaks) < 1:
-			raise ValueError('Must specify at least two one with --cts-bin-breaks.')
-		
+		args.cts_breaks = args.cts_breaks.replace('N','-')
+		try:
+			breaks = [float(x) for x in args.cts_breaks.split(',')]
+		except ValueError as e:
+			raise ValueError('--cts-breaks must be a comma-separated list of numbers: '+str(e.args))
+					
 		# read cts variable
 		cts = pd.read_csv(args.cts_bin, header=None, delim_whitespace=True)
-		cs.rename(columns={'1': 'SNP', '2': 'ANNOT'}, inplace=True)
-		pd.check_rsid(cts.SNP)
-		if cts.SNP != array_snps.IDList:
+		cts.rename( columns={0: 'SNP', 1: 'ANNOT'}, inplace=True)
+		ps.check_rsid(cts.SNP)
+		# en(cts.SNP) != len(array_snps.IDList) or\
+		
+		if np.any(cts.SNP.values != array_snps.df.SNP.values):
+			ii = cts.SNP != array_snps.IDList
 			raise ValueError('The --cts-bin file must contain the same SNPs in the same'+\
 				' order as the .bim or .snp file')
 		
 		max_cts = max(cts.ANNOT)
 		min_cts = min(cts.ANNOT)
-		name_breaks = breaks
+		name_breaks = list(breaks)
+		if np.all(breaks >= max_cts) or np.all(breaks <= min_cts):
+			raise ValueError('All breaks lie outside the range of the cts variable.')
+			
 		if np.all(breaks < max_cts):
 			name_breaks.append(max_cts)
 			breaks.append(max_cts+1)
-		elif np.all(breaks > min_cts):	
+		
+		if np.all(breaks > min_cts):	
 			name_breaks.append(min_cts)
 			breaks.append(min_cts-1)
 
 		name_breaks.sort()
 		breaks.sort()
 		num_annots = len(breaks) - 1
-
-		annot_colnames = [str(name_breaks[i]+'_'+str(name_breaks[i+1]) 
+		annot_colnames = ['bin_'+str(name_breaks[i])+'_'+str(name_breaks[i+1]) 
 			for i in xrange(num_annots) ] 
-
+		
 		# bin and produce annot matrix
 		annot_matrix = np.matrix(np.zeros((m, num_annots)))
 		for i in xrange(num_annots):
 			# this works because we have added a little padding to the first and last 
 			# entries in breaks
-			ii = breaks[i] =< cts.ANNOT < breaks[i+1] 
+			ii = np.logical_and(cts.ANNOT >= breaks[i], cts.ANNOT < breaks[i+1] ).values
 			annot_matrix[ii, i] = 1
 			
-		if np.any(np.sum(x, axis=1) == 0):
+		if np.any(np.sum(annot_matrix, axis=1) == 0):
 			# This exception should never be raised. For debugging only.
 			raise ValueError('Some SNPs have no annotation in --cts-bin. This is a bug!')
 						
 		# get rid of empty columns in annot_matrix	
-		ii = np.sum(annot_matrix, axis=0) == 0 
+		ii = np.squeeze(np.asarray(np.sum(annot_matrix, axis=0) != 0))
+		if np.sum(ii) == 0:
+			raise ValueError('Something is wrong with --cts-bin. All annotations are empty!')
 		annot_matrix = annot_matrix[:,ii]
 		keep_snps = None
 			
@@ -325,7 +335,8 @@ def ldscore(args):
 	df.columns = new_colnames
 	log.log("Writing results to {f}.gz".format(f=out_fname))
 	df.to_csv(out_fname, sep="\t", header=True, index=False)	
-	call(['gzip',out_fname])
+	call(['gzip', '-f', out_fname])
+
 	# print .M
 	fout_M = open(args.out + '.'+ file_suffix +'.M','wb')
 	if num_annots == 1:
@@ -534,8 +545,8 @@ if __name__ == '__main__':
 		help='Filename prefix for annotation file for partitioned LD Score estimation')
 	parser.add_argument('--cts-bin', default=None, type=str, 
 		help='Filename prefix for cts binned LD Score estimation')
-	parser.add_argument('--cts-bin-breaks', default=None, type=str, 
-		help='Comma separated list of breaks for --cts-bin')
+	parser.add_argument('--cts-breaks', default=None, type=str, 
+		help='Comma separated list of breaks for --cts-bin. Specify negative numbers with an N instead of a -')
 		
 	# Filtering / Data Management for LD Score
 	parser.add_argument('--extract', default=None, type=str, 
@@ -630,8 +641,8 @@ if __name__ == '__main__':
 		if args.annot is not None and args.cts_bin is not None:
 			raise ValueError('--annot and --cts-bin are currently incompatible.')
 		
-		if (args.cts_bin is not None) != (args.cts_bin_breaks):
-			raise ValueError('Must set both or neither of --cts-bin and --cts-bin-breaks.')
+		if (args.cts_bin is not None) != (args.cts_breaks is not None):
+			raise ValueError('Must set both or neither of --cts-bin and --cts-breaks.')
 		
 		ldscore(args)
 	

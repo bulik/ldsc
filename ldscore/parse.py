@@ -261,12 +261,14 @@ def ldscore(fh, num=None):
 		try:
 			suffix = '.l2.ldscore.gz'
 			full_fh = fh + '1' + suffix
-			open(full_fh, 'rb')
+			x = open(full_fh, 'rb')
+			x.close()
 			compression = 'gzip'
 		except IOError:
 			suffix = '.l2.ldscore'
 			full_fh = fh + '1.' + suffix
-			open(full_fh, 'rb')
+			x = open(full_fh, 'rb')
+			x.close()
 			compression = None			
 		
 		chr_ld = [parsefunc(fh + str(i) + suffix, compression) for i in xrange(1,num+1)]
