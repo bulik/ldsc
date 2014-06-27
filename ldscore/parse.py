@@ -269,7 +269,7 @@ def ldscore(fh, num=None):
 			open(full_fh, 'rb')
 			compression = None			
 		
-		chr_ld = [parsefunc(full_fh + str(i) + suffix) for i in xrange(1,num+1)]
+		chr_ld = [parsefunc(fh + str(i) + suffix, compression) for i in xrange(1,num+1)]
 		x = pd.concat(chr_ld)
 	
 	else:
