@@ -140,20 +140,75 @@ def ldscore(args):
 	m = len(array_snps.IDList)
 	log.log('Read list of {m} SNPs from {f}'.format(m=m, f=snp_file))
 	
-	# read annot
-	if args.annot and args.keep:
-		raise ValueError('--annot and --keep are currently incompatible.')
-	elif args.annot:
+	# read --annot
+	if args.annot is not None:
 		annot = ps.AnnotFile(args.annot)
-		num_annots,ma = len(annot.df.columns) - 4, len(annot.df)
-		log.log("Read {A} annotations for {M} SNPs from {f}".format(f=args.annot,A=num_annots,
-			M=ma))
+		num_annots, ma = len(annot.df.columns) - 4, len(annot.df)
+		log.log("Read {A} annotations for {M} SNPs from {f}".format(f=args.annot,
+			A=num_annots, M=ma))
 		annot_matrix = np.array(annot.df.iloc[:,4:])
 		annot_colnames = annot.df.columns[4:]
 		keep_snps = None
-	elif args.keep:
+		if not np.all(annot.df.SNP != array_snps.IDList):
+			raise ValueError('The .annot file must contain the same SNPs in the same'+\
+				' order as the .bim or .snp file')
+	# read --keep	
+	elif args.keep is not None:
 		keep_snps = __filter__(args.keep, 'SNPs', 'include', array_snps)
 		annot_matrix, annot_colnames, num_annots = None, None, 1
+	
+	# read --cts-bin plus --cts-bin-breaks
+	elif args.cts_bin is not None and args.cts_bin_breaks is not None:
+		
+		### TODO -- print out some log messages
+		
+		# read breaks
+		breaks = [float(x) for x in args.cts_bin_breaks.split(',')]
+		if len(breaks) < 1:
+			raise ValueError('Must specify at least two one with --cts-bin-breaks.')
+		
+		# read cts variable
+		cts = pd.read_csv(args.cts_bin, header=None, delim_whitespace=True)
+		cs.rename(columns={'1': 'SNP', '2': 'ANNOT'}, inplace=True)
+		pd.check_rsid(cts.SNP)
+		if cts.SNP != array_snps.IDList:
+			raise ValueError('The --cts-bin file must contain the same SNPs in the same'+\
+				' order as the .bim or .snp file')
+		
+		max_cts = max(cts.ANNOT)
+		min_cts = min(cts.ANNOT)
+		name_breaks = breaks
+		if np.all(breaks < max_cts):
+			name_breaks.append(max_cts)
+			breaks.append(max_cts+1)
+		elif np.all(breaks > min_cts):	
+			name_breaks.append(min_cts)
+			breaks.append(min_cts-1)
+
+		name_breaks.sort()
+		breaks.sort()
+		num_annots = len(breaks) - 1
+
+		annot_colnames = [str(name_breaks[i]+'_'+str(name_breaks[i+1]) 
+			for i in xrange(num_annots) ] 
+
+		# bin and produce annot matrix
+		annot_matrix = np.matrix(np.zeros((m, num_annots)))
+		for i in xrange(num_annots):
+			# this works because we have added a little padding to the first and last 
+			# entries in breaks
+			ii = breaks[i] =< cts.ANNOT < breaks[i+1] 
+			annot_matrix[ii, i] = 1
+			
+		if np.any(np.sum(x, axis=1) == 0):
+			# This exception should never be raised. For debugging only.
+			raise ValueError('Some SNPs have no annotation in --cts-bin. This is a bug!')
+						
+		# get rid of empty columns in annot_matrix	
+		ii = np.sum(annot_matrix, axis=0) == 0 
+		annot_matrix = annot_matrix[:,ii]
+		keep_snps = None
+			
 	else:
 		annot_matrix, annot_colnames, keep_snps = None, None, None, 
 		num_annots = 1
@@ -477,7 +532,11 @@ if __name__ == '__main__':
 		help='Prefix for Plink .bed/.bim/.fam file')
 	parser.add_argument('--annot', default=None, type=str, 
 		help='Filename prefix for annotation file for partitioned LD Score estimation')
-
+	parser.add_argument('--cts-bin', default=None, type=str, 
+		help='Filename prefix for cts binned LD Score estimation')
+	parser.add_argument('--cts-bin-breaks', default=None, type=str, 
+		help='Comma separated list of breaks for --cts-bin')
+		
 	# Filtering / Data Management for LD Score
 	parser.add_argument('--extract', default=None, type=str, 
 		help='File with individuals to include in LD Score analysis, one ID per row.')
@@ -551,6 +610,7 @@ if __name__ == '__main__':
 		help='Minor allele frequency lower bound. Default is 0')
 	args = parser.parse_args()
 	
+	
 	# LD Score estimation
 	if (args.bin or args.bfile) and (args.l1 or args.l1sq or args.l2 or args.l4):
 		if np.sum((args.l1, args.l2, args.l1sq, args.l4)) != 1:
@@ -560,6 +620,18 @@ if __name__ == '__main__':
 		
 		if args.block_size is None: # default jackknife block size for LD Score regression
 			args.block_size = 100
+		
+		if args.annot is not None and args.keep is not None:
+			raise ValueError('--annot and --keep are currently incompatible.')
+		
+		if args.cts_bin is not None and args.keep is not None:
+			raise ValueError('--cts-bin and --keep are currently incompatible.')
+		
+		if args.annot is not None and args.cts_bin is not None:
+			raise ValueError('--annot and --cts-bin are currently incompatible.')
+		
+		if (args.cts_bin is not None) != (args.cts_bin_breaks):
+			raise ValueError('Must set both or neither of --cts-bin and --cts-bin-breaks.')
 		
 		ldscore(args)
 	
