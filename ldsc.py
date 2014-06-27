@@ -18,7 +18,7 @@ import ldscore.jackknife as jk
 import argparse
 import numpy as np
 import pandas as pd
-
+from subprocess import call
 
 class logger(object):
 	'''
@@ -268,9 +268,9 @@ def ldscore(args):
 	new_colnames = geno_array.colnames + ldscore_colnames
 	df = pd.DataFrame(np.c_[geno_array.df, lN])
 	df.columns = new_colnames
-	log.log("Writing results to {f}".format(f=out_fname))
+	log.log("Writing results to {f}.gz".format(f=out_fname))
 	df.to_csv(out_fname, sep="\t", header=True, index=False)	
-	
+	call(['gzip',out_fname])
 	# print .M
 	fout_M = open(args.out + '.'+ file_suffix +'.M','wb')
 	if num_annots == 1:
