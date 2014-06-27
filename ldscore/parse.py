@@ -321,7 +321,7 @@ def __ID_List_Factory__(colnames, keepcol, fname_end, header=None, usecols=None)
 			self.__fname_end__ = fname_end
 			self.__header__ = header
 			self.__read__(fname)
-			if 'SNP' in self.__colnames__:
+			if 'SNP' in self.df.columns:
 				check_rsid(self.df['SNP'])
 				
 			self.n = len(self.IDList)
