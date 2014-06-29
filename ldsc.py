@@ -147,6 +147,7 @@ def ldscore(args):
 		log.log("Read {A} annotations for {M} SNPs from {f}".format(f=args.annot,
 			A=num_annots, M=ma))
 		annot_matrix = np.array(annot.df.iloc[:,4:])
+		print annot_matrix
 		annot_colnames = annot.df.columns[4:]
 		keep_snps = None
 		if np.any(annot.df.SNP.values != array_snps.df.SNP.values):
@@ -213,11 +214,6 @@ def ldscore(args):
 			# This exception should never be raised. For debugging only.
 			raise ValueError('Some SNPs have no annotation in --cts-bin. This is a bug!')
 						
-		# get rid of empty columns in annot_matrix	
-		#ii = np.squeeze(np.asarray(np.sum(annot_matrix, axis=0) != 0))
-		if np.sum(ii) == 0:
-			raise ValueError('Something is wrong with --cts-bin. All annotations are empty!')
-		#annot_matrix = annot_matrix[:,ii]
 		keep_snps = None
 			
 	else:
@@ -317,6 +313,17 @@ def ldscore(args):
 			log.log("Estimating LD Score (L2).")
 			lN = geno_array.ldScoreVarBlocks(block_left, args.chunk_size, annot=annot_matrix)
 			col_prefix = "L2"; file_suffix = "l2"
+			
+		elif args.l2_per_allele:
+			log.log("Estimating Per-Allele LD Score (L2PA).")
+			pq = np.matrix(geno_array.maf*(1-geno_array.maf)).reshape((geno_array.m,1))
+			if annot_matrix is not None:
+				annot_matrix = np.multiply(annot_matrix, pq)
+			else:
+				annot_matrix = pq
+			
+			lN = geno_array.ldScoreVarBlocks(block_left, args.chunk_size, annot=annot_matrix)
+			col_prefix = "L2PA"; file_suffix = "l2"
 	
 		elif args.l4:
 			col_prefix = "L4"; file_suffix = "l4"
@@ -340,11 +347,8 @@ def ldscore(args):
 
 	# print .M
 	fout_M = open(args.out + '.'+ file_suffix +'.M','wb')
-	if num_annots == 1:
-		print >> fout_M, geno_array.m
-	else:
-		M = np.squeeze(np.sum(annot_matrix, axis=0))
-		print >> fout_M, '\t'.join(map(str,M))
+	M = np.atleast_1d(np.squeeze(np.asarray(np.sum(annot_matrix, axis=0))))
+	print >>fout_M, '\t'.join(map(str,M))
 
 	fout_M.close()
 
@@ -570,6 +574,8 @@ if __name__ == '__main__':
 		help='Estimate l1 ^ 2 w.r.t. sample minor allele.')
 	parser.add_argument('--l2', default=False, action='store_true',
 		help='Estimate l2. Compatible with both jackknife and non-jackknife.')
+	parser.add_argument('--l2-per-allele', default=False, action='store_true',
+		help='Estimate per-allele l2.')
 	parser.add_argument('--l4', default=False, action='store_true',
 		help='Estimate l4. Only compatible with jackknife.')
 	
@@ -624,9 +630,9 @@ if __name__ == '__main__':
 	
 	
 	# LD Score estimation
-	if (args.bin or args.bfile) and (args.l1 or args.l1sq or args.l2 or args.l4):
-		if np.sum((args.l1, args.l2, args.l1sq, args.l4)) != 1:
-			raise ValueError('Must specify exactly one of --l1, --l1sq, --l2, --l4 for LN estimation.')
+	if (args.bin or args.bfile) and (args.l1 or args.l1sq or args.l2 or args.l2_per_allele or args.l4):
+		if np.sum((args.l1, args.l2, args.l2_per_allele, args.l1sq, args.l4)) != 1:
+			raise ValueError('Must specify exactly one of --l1, --l1sq, --l2, --l2-per-allele, --l4 for LD estimation.')
 		if args.bfile and args.bin:
 			raise ValueError('Cannot specify both --bin and --bfile.')
 		
@@ -654,10 +660,13 @@ if __name__ == '__main__':
 	
 		if np.sum(np.array((args.sumstats_intercept, args.sumstats_h2, args.sumstats_gencor)).astype(bool)) > 1:	
 			raise ValueError('Cannot specify more than one of --sumstats-h2, --sumstats-gencor, --sumstats-intercept.')
+		
 		if args.ref_ld and args.ref_ld_chr:
 			raise ValueError('Cannot specify both --ref-ld and --ref-ld-chr.')
+		
 		if args.regression_snp_ld and args.regression_snp_ld_chr:
 			raise ValueError('Cannot specify both --regression-snp-ld and --regression-snp-ld-chr.')
+		
 		if args.rho or args.overlap:
 			if not args.sumstats_gencor:
 				raise ValueError('--rho and --overlap can only be used with --sumstats-gencor.')
