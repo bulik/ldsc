@@ -67,3 +67,5 @@ docs/_build/
 *.extract
 *.simfreq
 *.gz
+*.cts
+*.frq
