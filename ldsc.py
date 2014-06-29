@@ -152,9 +152,9 @@ def ldscore(args):
 		if np.any(annot.df.SNP.values != array_snps.df.SNP.values):
 			raise ValueError('The .annot file must contain the same SNPs in the same'+\
 				' order as the .bim or .snp file')
-	# read --keep	
-	elif args.keep is not None:
-		keep_snps = __filter__(args.keep, 'SNPs', 'include', array_snps)
+	# read --extract
+	elif args.extract is not None:
+		keep_snps = __filter__(args.extract, 'SNPs', 'include', array_snps)
 		annot_matrix, annot_colnames, num_annots = None, None, 1
 	
 	# read --cts-bin plus --cts-breaks
@@ -223,8 +223,8 @@ def ldscore(args):
 	n = len(array_indivs.IDList)	 
 	log.log('Read list of {n} individuals from {f}'.format(n=n, f=ind_file))
 	# read keep_indivs
-	if args.extract:
-		keep_indivs = __filter__(args.extract, 'individuals', 'include', array_indivs)
+	if args.keep:
+		keep_indivs = __filter__(args.keep, 'individuals', 'include', array_indivs)
 	else:
 		keep_indivs = None
 	
@@ -568,9 +568,9 @@ if __name__ == '__main__':
 		
 	# Filtering / Data Management for LD Score
 	parser.add_argument('--extract', default=None, type=str, 
-		help='File with individuals to include in LD Score analysis, one ID per row.')
-	parser.add_argument('--keep', default=None, type=str, 
 		help='File with SNPs to include in LD Score analysis, one ID per row.')
+	parser.add_argument('--keep', default=None, type=str, 
+		help='File with individuals to include in LD Score analysis, one ID per row.')
 	parser.add_argument('--ld-wind-snps', default=None, type=int,
 		help='LD Window in units of SNPs. Can only specify one --ld-wind-* option')
 	parser.add_argument('--ld-wind-kb', default=None, type=float,
