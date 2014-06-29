@@ -53,7 +53,7 @@ def __filter__(fname, noun, verb, merge_obj):
 			print f(c, len_merged_list)
 		else:
 			error_msg = 'No {noun} retained for analysis'
-			raise ValueError(f(error_msg))
+			raise ValueError(f(error_msg, 0))
 
 		return merged_list
 		
