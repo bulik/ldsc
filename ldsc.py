@@ -352,12 +352,19 @@ def ldscore(args):
 	print >>fout_M, '\t'.join(map(str,M))
 	fout_M.close()
 	pd.set_option('display.max_rows', 200)
-	# LD Score summary
+
+	# print LD Score summary
 	log.log('')
 	log.log('Summary of {F}:'.format(F=out_fname))
-	log.log('')
 	t = df.ix[:,4:].describe(percentiles=[0.25,0.5,0.75])
 	log.log( t.ix[1:,:] )
+	
+	# print correlation matrix including all LD Scores and sample MAF
+	log.log('')
+	log.log('MAF/LD Correlation Matrix')
+	log.log( df.ix[:,4:].corr() )
+		
+
 	
 def sumstats(args):
 	'''
