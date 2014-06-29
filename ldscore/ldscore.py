@@ -209,8 +209,7 @@ class __GenotypeArrayInMemory__(object):
 		denom = n-2 if n>2 else n # allow n<2 for testing purposes
 		sq = np.square(x)
 		return sq - (1-sq) / denom
-		
-		
+				
 	### L4
 	def l4VarBlocks(self, block_left, c, annot=None, jN=10):
 		'''

@@ -259,6 +259,19 @@ def ldscore(args):
 		error_msg += '--yes-really flag (warning: it will use a lot of time / memory)'
 		raise ValueError(error_msg)
 
+	scale_suffix = ''
+	if args.scale_factor is not None:
+		log.log('Using scale factor {S}.'.format(S=args.scale_factor))
+		scale_suffix = '_S{S}'.format(S=args.scale_factor)
+		pq = np.matrix(geno_array.maf*(1-geno_array.maf)).reshape((geno_array.m,1))
+		pq = np.power(pq, args.scale_factor)
+
+		if annot_matrix is not None:
+			annot_matrix = np.multiply(annot_matrix, pq)
+		else:
+			annot_matrix = pq
+	
+
 	if args.se: # block jackknife
 
 		# block size
@@ -291,10 +304,10 @@ def ldscore(args):
 			annot=annot_matrix)
 		lN = np.c_[lN_est, lN_se]
 		if num_annots == 1:
-			ldscore_colnames = [col_prefix, 'SE('+col_prefix+')']
+			ldscore_colnames = [col_prefix+scale_suffix, 'SE('+col_prefix+scale_suffix+')']
 		else:
-			ldscore_colnames =  [x+col_prefix for x in annot_colnames]
-			ldscore_colnames += ['SE('+x+')' for x in ldscore_colnames]
+			ldscore_colnames =  [x+col_prefix+scale_suffix for x in annot_colnames]
+			ldscore_colnames += ['SE('+x+scale_suffix+')' for x in ldscore_colnames]
 
 	else: # not block jackknife
 		if args.l1:
@@ -311,27 +324,16 @@ def ldscore(args):
 			log.log("Estimating LD Score (L2).")
 			lN = geno_array.ldScoreVarBlocks(block_left, args.chunk_size, annot=annot_matrix)
 			col_prefix = "L2"; file_suffix = "l2"
-			
-		elif args.l2_per_allele:
-			log.log("Estimating Per-Allele LD Score (L2PA).")
-			pq = np.matrix(geno_array.maf*(1-geno_array.maf)).reshape((geno_array.m,1))
-			if annot_matrix is not None:
-				annot_matrix = np.multiply(annot_matrix, pq)
-			else:
-				annot_matrix = pq
-			
-			lN = geno_array.ldScoreVarBlocks(block_left, args.chunk_size, annot=annot_matrix)
-			col_prefix = "L2PA"; file_suffix = "l2"
-	
+				
 		elif args.l4:
 			col_prefix = "L4"; file_suffix = "l4"
 			raise NotImplementedError('Sorry, havent implemented L4 yet. Try the jackknife.')
 			lN = geno_array.l4VarBlocks(block_left, c, annot)
 		
 		if num_annots == 1:
-			ldscore_colnames = [col_prefix]
+			ldscore_colnames = [col_prefix+scale_suffix]
 		else:
-			ldscore_colnames =  [x+col_prefix for x in annot_colnames]
+			ldscore_colnames =  [x+col_prefix+scale_suffix for x in annot_colnames]
 			
 	# print .ldscore
 	# output columns: CHR, BP, CM, RS, MAF, [LD Scores and optionally SEs]
@@ -347,7 +349,8 @@ def ldscore(args):
 	fout_M = open(args.out + '.'+ file_suffix +'.M','wb')
 	M = np.atleast_1d(np.squeeze(np.asarray(np.sum(annot_matrix, axis=0))))
 	print >>fout_M, '\t'.join(map(str,M))
-
+	
+	print np.mean(df.L2, axis=1)
 	fout_M.close()
 
 	
@@ -572,8 +575,10 @@ if __name__ == '__main__':
 		help='Estimate l1 ^ 2 w.r.t. sample minor allele.')
 	parser.add_argument('--l2', default=False, action='store_true',
 		help='Estimate l2. Compatible with both jackknife and non-jackknife.')
-	parser.add_argument('--l2-per-allele', default=False, action='store_true',
-		help='Estimate per-allele l2.')
+	parser.add_argument('--per-allele', default=False, action='store_true',
+		help='Estimate per-allele l{N}. Same as --scale-factor 0. ')
+	parser.add_argument('--scale-factor', default=None, type=float,
+		help='Estimate l{N} with given scale factor. Default -1. Per-allele is equivalent to --scale-factor 1.')
 	parser.add_argument('--l4', default=False, action='store_true',
 		help='Estimate l4. Only compatible with jackknife.')
 	
@@ -628,9 +633,9 @@ if __name__ == '__main__':
 	
 	
 	# LD Score estimation
-	if (args.bin or args.bfile) and (args.l1 or args.l1sq or args.l2 or args.l2_per_allele or args.l4):
-		if np.sum((args.l1, args.l2, args.l2_per_allele, args.l1sq, args.l4)) != 1:
-			raise ValueError('Must specify exactly one of --l1, --l1sq, --l2, --l2-per-allele, --l4 for LD estimation.')
+	if (args.bin or args.bfile) and (args.l1 or args.l1sq or args.l2 or args.l4):
+		if np.sum((args.l1, args.l2, args.l1sq, args.l4)) != 1:
+			raise ValueError('Must specify exactly one of --l1, --l1sq, --l2, --l4 for LD estimation.')
 		if args.bfile and args.bin:
 			raise ValueError('Cannot specify both --bin and --bfile.')
 		
@@ -648,6 +653,12 @@ if __name__ == '__main__':
 		
 		if (args.cts_bin is not None) != (args.cts_breaks is not None):
 			raise ValueError('Must set both or neither of --cts-bin and --cts-breaks.')
+		
+		if args.per_allele and args.scale_factor is not None:
+			raise ValueError('Cannot set both --per-allele and --scale factor (--per-allele is equivalent to --scale-factor 1).')
+			
+		if args.per_allele:
+			args.scale_factor = 1
 		
 		ldscore(args)
 	

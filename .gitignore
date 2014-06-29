@@ -56,6 +56,9 @@ docs/_build/
 *.bed
 *.bim
 *.fam
+*.par
+*.frq
+*.simfreq
 
 # LD Score
 *.ldscore
@@ -65,7 +68,5 @@ docs/_build/
 *.betaprod
 *.keep
 *.extract
-*.simfreq
 *.gz
 *.cts
-*.frq
