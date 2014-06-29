@@ -348,7 +348,11 @@ def ldscore(args):
 
 	# print .M
 	fout_M = open(args.out + '.'+ file_suffix +'.M','wb')
-	M = np.atleast_1d(np.squeeze(np.asarray(np.sum(annot_matrix, axis=0))))
+	if annot_matrix is not None:
+		M = np.atleast_1d(np.squeeze(np.asarray(np.sum(annot_matrix, axis=0))))
+	else:
+		M = geno_array.m
+	
 	print >>fout_M, '\t'.join(map(str,M))
 	fout_M.close()
 	pd.set_option('display.max_rows', 200)
@@ -356,7 +360,7 @@ def ldscore(args):
 	# print LD Score summary
 	log.log('')
 	log.log('Summary of {F}:'.format(F=out_fname))
-	t = df.ix[:,4:].describe(percentiles=[0.25,0.5,0.75])
+	t = df.ix[:,4:].describe()
 	log.log( t.ix[1:,:] )
 	
 	# print correlation matrix including all LD Scores and sample MAF
