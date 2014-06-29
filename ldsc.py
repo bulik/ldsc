@@ -139,7 +139,7 @@ def ldscore(args):
 	array_snps = snp_obj(snp_file)
 	m = len(array_snps.IDList)
 	log.log('Read list of {m} SNPs from {f}'.format(m=m, f=snp_file))
-	
+
 	# read --annot
 	if args.annot is not None:
 		annot = ps.AnnotFile(args.annot)
@@ -340,7 +340,7 @@ def ldscore(args):
 	# output columns: CHR, BP, CM, RS, MAF, [LD Scores and optionally SEs]
 	out_fname = args.out + '.' + file_suffix + '.ldscore'
 	new_colnames = geno_array.colnames + ldscore_colnames
-	df = pd.DataFrame(np.c_[geno_array.df, lN])
+	df = pd.DataFrame.from_records(np.c_[geno_array.df, lN])
 	df.columns = new_colnames
 	log.log("Writing results to {f}.gz".format(f=out_fname))
 	df.to_csv(out_fname, sep="\t", header=True, index=False)	
@@ -351,7 +351,13 @@ def ldscore(args):
 	M = np.atleast_1d(np.squeeze(np.asarray(np.sum(annot_matrix, axis=0))))
 	print >>fout_M, '\t'.join(map(str,M))
 	fout_M.close()
-
+	pd.set_option('display.max_rows', 200)
+	# LD Score summary
+	log.log('')
+	log.log('Summary of {F}:'.format(F=out_fname))
+	log.log('')
+	t = df.ix[:,4:].describe(percentiles=[0.25,0.5,0.75])
+	log.log( t.ix[1:,:] )
 	
 def sumstats(args):
 	'''
