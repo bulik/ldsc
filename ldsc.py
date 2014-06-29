@@ -147,7 +147,6 @@ def ldscore(args):
 		log.log("Read {A} annotations for {M} SNPs from {f}".format(f=args.annot,
 			A=num_annots, M=ma))
 		annot_matrix = np.array(annot.df.iloc[:,4:])
-		print annot_matrix
 		annot_colnames = annot.df.columns[4:]
 		keep_snps = None
 		if np.any(annot.df.SNP.values != array_snps.df.SNP.values):
@@ -173,9 +172,8 @@ def ldscore(args):
 		cts = pd.read_csv(args.cts_bin, header=None, delim_whitespace=True)
 		cts.rename( columns={0: 'SNP', 1: 'ANNOT'}, inplace=True)
 		ps.check_rsid(cts.SNP)
-		# en(cts.SNP) != len(array_snps.IDList) or\
-		
-		if np.any(cts.SNP.values != array_snps.df.SNP.values):
+		if len(cts.SNP.values) != len(array_snps.SNP.values) or\
+			np.any(cts.SNP.values != array_snps.df.SNP.values):
 			ii = cts.SNP != array_snps.IDList
 			raise ValueError('The --cts-bin file must contain the same SNPs in the same'+\
 				' order as the .bim or .snp file')
