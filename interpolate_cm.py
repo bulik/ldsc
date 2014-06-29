@@ -11,6 +11,7 @@ if __name__ == "__main__":
 		help='SHAPEIT map file')
 	parser.add_argument('--out', default=None, type=str, 
 		help='Output file prefix (.bim is appended)')
+	args = parser.parse_args()
 	
 	if args.bim is None or args.map is None or args.out is None:
 		raise ValueError('Must set all of --bim, --map, --out.')
