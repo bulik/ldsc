@@ -260,11 +260,12 @@ def ldscore(args):
 		raise ValueError(error_msg)
 
 	scale_suffix = ''
-	if args.scale_factor is not None:
-		log.log('Using scale factor {S}.'.format(S=args.scale_factor))
-		scale_suffix = '_S{S}'.format(S=args.scale_factor)
+	if args.pq_exp is not None:
+		log.log('Computing LD with pq ^ {S}.'.format(S=args.pq_exp))
+		log.log('Note that LD Scores with pq raised to a nonzero power are not directly comparable to normal LD Scores')
+		scale_suffix = '_S{S}'.format(S=args.pq_exp)
 		pq = np.matrix(geno_array.maf*(1-geno_array.maf)).reshape((geno_array.m,1))
-		pq = np.power(pq, args.scale_factor)
+		pq = np.power(pq, args.pq_exp)
 
 		if annot_matrix is not None:
 			annot_matrix = np.multiply(annot_matrix, pq)
@@ -349,8 +350,6 @@ def ldscore(args):
 	fout_M = open(args.out + '.'+ file_suffix +'.M','wb')
 	M = np.atleast_1d(np.squeeze(np.asarray(np.sum(annot_matrix, axis=0))))
 	print >>fout_M, '\t'.join(map(str,M))
-	
-	print np.mean(df.L2, axis=1)
 	fout_M.close()
 
 	
@@ -576,9 +575,9 @@ if __name__ == '__main__':
 	parser.add_argument('--l2', default=False, action='store_true',
 		help='Estimate l2. Compatible with both jackknife and non-jackknife.')
 	parser.add_argument('--per-allele', default=False, action='store_true',
-		help='Estimate per-allele l{N}. Same as --scale-factor 0. ')
-	parser.add_argument('--scale-factor', default=None, type=float,
-		help='Estimate l{N} with given scale factor. Default -1. Per-allele is equivalent to --scale-factor 1.')
+		help='Estimate per-allele l{N}. Same as --pq-exp 0. ')
+	parser.add_argument('--pq-exp', default=None, type=float,
+		help='Estimate l{N} with given scale factor. Default -1. Per-allele is equivalent to --pq-exp 1.')
 	parser.add_argument('--l4', default=False, action='store_true',
 		help='Estimate l4. Only compatible with jackknife.')
 	
@@ -654,11 +653,11 @@ if __name__ == '__main__':
 		if (args.cts_bin is not None) != (args.cts_breaks is not None):
 			raise ValueError('Must set both or neither of --cts-bin and --cts-breaks.')
 		
-		if args.per_allele and args.scale_factor is not None:
-			raise ValueError('Cannot set both --per-allele and --scale factor (--per-allele is equivalent to --scale-factor 1).')
+		if args.per_allele and args.pq_exp is not None:
+			raise ValueError('Cannot set both --per-allele and --pq-exp (--per-allele is equivalent to --pq-exp 1).')
 			
 		if args.per_allele:
-			args.scale_factor = 1
+			args.pq_exp = 1
 		
 		ldscore(args)
 	
@@ -671,7 +670,7 @@ if __name__ == '__main__':
 			raise ValueError('Cannot specify more than one of --sumstats-h2, --sumstats-gencor, --sumstats-intercept.')
 		
 		if args.ref_ld and args.ref_ld_chr:
-			raise ValueError('Cannot specify both --ref-ld and --ref-ld-chr.')
+			raise ValueError('Cannot specify both --ref-ld and --ref-ld-chr.')--pq-exp
 		
 		if args.regression_snp_ld and args.regression_snp_ld_chr:
 			raise ValueError('Cannot specify both --regression-snp-ld and --regression-snp-ld-chr.')
