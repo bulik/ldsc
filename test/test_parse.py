@@ -1,5 +1,5 @@
 from __future__ import division
-from ldsc import parse as ps
+from ldscore import parse as ps
 import unittest
 import numpy as np
 import pandas as pd

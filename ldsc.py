@@ -12,9 +12,9 @@ This is a command line application for estimating
 '''
 
 from __future__ import division
-import ldsc.ldscore as ld
-import ldsc.parse as ps
-import ldsc.jackknife as jk
+import ldscore.ldscore as ld
+import ldscore.parse as ps
+import ldscore.jackknife as jk
 import argparse
 import numpy as np
 import pandas as pd
@@ -335,7 +335,7 @@ def sumstats(args):
 		if args.regression_snp_ld:
 			w_ldscores = ps.ldscore(args.regression_snp_ld)
 		elif args.regression_snp_ld_chr:
-			w_ldscores = ps.ldscore(args.regression_snp_ld, 22)
+			w_ldscores = ps.ldscore(args.regression_snp_ld_chr, 22)
 	except ValueError as e:
 		log.log('Error parsing regression SNP LD')
 		raise e
@@ -423,7 +423,7 @@ def sumstats(args):
 		
 		h2hat = jk.Hsq(chisq, ref_ld, w_ld, N, M_annot, args.num_blocks)
 		log.log(_print_hsq(h2hat, ref_ld_colnames))
-
+		return [M_annot,h2hat]
 
 	# LD Score regression to estimate genetic correlation
 	elif args.sumstats_gencor:

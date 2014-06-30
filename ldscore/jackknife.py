@@ -308,7 +308,7 @@ class Hsq(object):
 		self._jknife = LstsqJackknife(x, y, num_blocks)
 		self.autocor = self._jknife.autocor(1)
 		no_intercept_cov = self._jknife.jknife_cov[0:self.n_annot,0:self.n_annot]
-		self.hsq_cov = np.multiply(np.square(self.M), no_intercept_cov)
+		self.hsq_cov = np.multiply(np.dot(self.M.T,self.M), no_intercept_cov)
 		self.cat_hsq = np.multiply(self.M, self._jknife.est[0,0:self.n_annot])
 		self.cat_hsq_se = np.multiply(self.M, self._jknife.jknife_se[0,0:self.n_annot])
 		self.intercept = self._jknife.est[0,self.n_annot]
