@@ -261,7 +261,7 @@ def ldscore(fh, num=None):
 		try:
 			suffix = '.l2.ldscore.gz'
 			if '@' in fh:
-				full_fh = fh.replace('@', 1) + suffix
+				full_fh = fh.replace('@', '1') + suffix
 			else:
 				full_fh = fh + '1' + suffix
 	
@@ -271,7 +271,7 @@ def ldscore(fh, num=None):
 		except IOError:
 			suffix = '.l2.ldscore'
 			if '@' in fh:
-				full_fh = fh.replace('@', 1) + suffix
+				full_fh = fh.replace('@', '1') + suffix
 			else:
 				full_fh = fh + '1' + suffix
 			x = open(full_fh, 'rb')
