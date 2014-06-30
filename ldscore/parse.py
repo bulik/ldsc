@@ -143,7 +143,7 @@ def chisq(fh):
 		x = pd.read_csv(fh, header=0, delim_whitespace=True, usecols=usecols, 
 			dtype=dtype_dict)
 	except AttributeError as e:
-		raise AttributeError('Improperly formatted chisq file: '+e.args)
+		raise AttributeError('Improperly formatted chisq file: '+str(e.args))
 
 	try:
 		check_N(x['N'])	
