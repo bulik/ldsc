@@ -440,6 +440,17 @@ def sumstats(args):
 			h2hat = jk.Hsq_nointercept(chisq, ref_ld, w_ld, N, M_annot, args.num_blocks,
 				args.non_negative)
 			log.log(_print_hsq_nointercept(h2hat, ref_ld_colnames))
+		elif args.aggregate:
+			if args.annot:
+				annot = ps.AnnotFile(args.annot)
+				num_annots,ma = len(annot.df.columns) - 4, len(annot.df)
+				log.log("Read {A} annotations for {M} SNPs from {f}".format(f=args.annot,A=num_annots,
+			M=ma))
+				annot_matrix = np.matrix(annot.df.iloc[:,4:])
+			else:
+				raise ValueError("No annot file specified.")
+			h2hat = jk.Hsq_aggregate(chisq, ref_ld, N, M_annot, annot_matrix, args.num_blocks)
+			log.log(_print_hsq_nointercept(h2hat, ref_ld_colnames))
 		else:
 			h2hat = jk.Hsq(chisq, ref_ld, w_ld, N, M_annot, args.num_blocks,
 				args.non_negative)
@@ -528,7 +539,9 @@ if __name__ == '__main__':
 		help = 'Constrain the regression intercept to be 1.')
 	parser.add_argument('--non-negative', action='store_true',
 		help = 'Constrain the regression intercept to be 1.')
-	
+	parser.add_argument('--aggregate', action='store_true',
+		help = 'Use the aggregate estimator.')
+
 	# Summary Statistic Estimation Flags
 	
 	# Input for sumstats
