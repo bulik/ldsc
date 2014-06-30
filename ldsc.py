@@ -336,10 +336,6 @@ def sumstats(args):
 			w_ldscores = ps.ldscore(args.regression_snp_ld)
 		elif args.regression_snp_ld_chr:
 			w_ldscores = ps.ldscore(args.regression_snp_ld_chr, 22)
-<<<<<<< HEAD
-=======
-
->>>>>>> FETCH_HEAD
 	except ValueError as e:
 		log.log('Error parsing regression SNP LD')
 		raise e
@@ -411,8 +407,8 @@ def sumstats(args):
 		del sumstats
 
 		h2hat = jk.Hsq(chisq, ref_ld, w_ld, N, M_annot, args.num_blocks)
-				
 		log.log(_print_intercept(h2hat))
+		return h2hat
 
 
 	# LD Score regression to estimate h2

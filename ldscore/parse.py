@@ -265,7 +265,7 @@ def ldscore(fh, num=None):
 			compression = 'gzip'
 		except IOError:
 			suffix = '.l2.ldscore'
-			full_fh = fh + '1.' + suffix
+			full_fh = fh + '1' + suffix
 			open(full_fh, 'rb')
 			compression = None			
 		
