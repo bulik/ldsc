@@ -271,7 +271,11 @@ def ldscore(fh, num=None):
 			x.close()
 			compression = None			
 		
-		chr_ld = [parsefunc(fh + str(i) + suffix, compression) for i in xrange(1,num+1)]
+		if '@' in fh:
+			x = np.sum([parsefunc(fh.replace('@',str(i)+suffix, compression) for i in xrange(1,num+1)], axis=0)
+		else:
+			chr_ld = [parsefunc(fh + str(i) + suffix, compression) for i in xrange(1,num+1)]
+
 		x = pd.concat(chr_ld)
 	
 	else:
@@ -305,7 +309,10 @@ def M(fh, num=None):
 	'''
 	parsefunc = lambda y : [float(z) for z in open(y, 'r').readline().split()]
 	if num is not None:
-		x = np.sum([parsefunc(fh+str(i)+'.l2.M') for i in xrange(1,num+1)], axis=0)
+		if '@' in fh:
+			x = np.sum([parsefunc(fh.replace('@',str(i)+'.l2.M') for i in xrange(1,num+1)], axis=0)
+		else:
+			x = np.sum([parsefunc(fh+str(i)+'.l2.M') for i in xrange(1,num+1)], axis=0)
 	else:
 		x = parsefunc(fh + '.l2.M')
 		
