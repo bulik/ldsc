@@ -132,7 +132,7 @@ def chisq(fh):
 #		'BP': int,
 		'P': float,
 		'CHISQ': float,
-		'N': int, # cast to int for typechecking, then switch to float for division
+		'N': float,
 		'MAF': float,
 		'INFO': float,
 	}
