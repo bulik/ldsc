@@ -279,7 +279,7 @@ def ldscore(fh, num=None):
 			compression = None			
 		
 		if '@' in fh:
-			chr_ld = np.sum([parsefunc(fh.replace('@',str(i))+suffix, compression) for i in xrange(1,num+1)], axis=0)
+			chr_ld = [parsefunc(fh.replace('@',str(i))+suffix, compression) for i in xrange(1,num+1)]
 		else:
 			chr_ld = [parsefunc(fh + str(i) + suffix, compression) for i in xrange(1,num+1)]
 
