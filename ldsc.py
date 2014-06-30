@@ -408,9 +408,8 @@ def sumstats(args):
 		del sumstats
 
 		h2hat = jk.Hsq(chisq, ref_ld, w_ld, N, M_annot, args.num_blocks)
-				
 		log.log(_print_intercept(h2hat))
-
+		return h2hat
 
 	# LD Score regression to estimate h2
 	elif args.sumstats_h2:

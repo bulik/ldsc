@@ -137,67 +137,35 @@ def pointNormal(p, size=1, loc=0, scale=1):
 	return output + loc
 
 
-def bpnorm_cov_to_cor(p1, p2, p12, var1, var2, cov):
-	'''
-	Convenience function that converts the parameters of a bivariate point-normal to
-	correlation
-	'''
-	if p1<=0 or p1-p12<=0 or p2-p12<=0 or 1-p1-p2+p12<=0:
-		raise ValueError('Non-positive probability')
-	if abs(cov)>min(var1, var2):
-		raise ValueError("cov must be in the range [-min(var1,var2),min(var1,var2)]")
+def bivariatePointNormal(p1,p2,p12,var1,var2,corr,size=1):
+    '''
+    Returns a mean-0 bivariate point normal.
+    '''
 
-	cor = p12*cov / np.sqrt(p1*var1*p2*var2)
-	return cor
-	
+    cov = corr*np.sqrt(p1*p2)/p12
+    if cov > 1:
+        raise ValueError("Correlation is too high for p12.")
 
-def bpnorm_cor_to_cov(p1, p2, p12, var1, var2, cor):
-	'''
-	Convenience function that converts the parameters of a bivariate point-normal and a 
-	correlation into the covariance that gives the desired correlation
-	'''
-	if p1<=0 or p1-p12<=0 or p2-p12<=0 or 1-p1-p2+p12<=0:
-		raise ValueError('Non-positive probability')
-	
-	max_cor = p12*np.sqrt(var1*var2)/(p1*var1*p2*var2)
-	if abs(cor) > max_cor:
-			raise ValueError("abs(cor) must be less than or equal to p12*sqrt(var1*var2)/(p1*var1+p2*var2")
+    probs = [p12,p1-p12,p2-p12,1-p1-p2+p12]
+    branches = np.random.choice([0,1,2,3], size=size, replace=True, p=probs)
+    xynull = branches == 3
+    xnull_ynorm = branches == 2
+    xnorm_ynull = branches == 1
+    xynorm = branches == 0
+    output = np.zeros((size, 2), dtype="float64")
+    output[xnorm_ynull, 0] = np.random.normal(0,1,np.sum(xnorm_ynull))
+    output[xnull_ynorm, 1] = np.random.normal(0,1,np.sum(xnull_ynorm))
 
-	cov = cor*np.sqrt(p1*var1*p2*var2)/p12
-	return cov
-	
+    cov = corr*np.sqrt(p1*p2)/p12
+    cov_matrix = [[1,cov],[cov,1]]
+    r = np.random.multivariate_normal([0,0],cov_matrix,sum(xynorm))
+    output[xynorm, 0] = r[:,0]
+    output[xynorm, 1] = r[:,1]
 
-def bivariatePointNormal(p1,p2,p12,var1,var2,cov,size=1,loc=(0,0)):
-	'''
-	Samples from a bivariate point-normal distribution
-	TODO: input checking
-	
-	Output shape is (size, 2)
-	'''
-	sd1 = np.sqrt(var1)
-	sd2 = np.sqrt(var2)
-	probs = [p12,p1-p12,p2-p12,1-p1-p2+p12]
-	branches = np.random.choice([0,1,2,3], size=size, replace=True, p=probs)
-	xynull = branches == 3
-	xnull_ynorm = branches == 2
-	xnorm_ynull = branches == 1
-	xynorm = branches == 0
-	output = np.zeros((size, 2), dtype="float64")
-	output[xnorm_ynull, 0] = np.random.normal(size=np.sum(xnorm_ynull), scale=sd1)
-	output[xnull_ynorm, 1] = np.random.normal(size=np.sum(xnull_ynorm), scale=sd2)
-	if cov == 0:
-		output[xynorm, 0] = np.random.normal(size=np.sum(xynorm), scale=sd1)
-		output[xynorm, 1] = np.random.normal(size=np.sum(xynorm), scale=sd2)
-	else: 
-		sgn = np.sign(cov)
-		cov = abs(cov)
-		rx = np.random.normal(size=np.sum(xynorm), loc=0, scale=sd1)
-		w = var1**2*var2/cov**2 - var1
-		ry = sgn*(rx + np.random.normal(size=sum(xynorm),scale=np.sqrt(w)))*np.sqrt(var2/(var1+w))
-		output[xynorm, 0] = rx
-		output[xynorm, 1] = ry
+    output[:,0] = var1**.5*(output[:,0])/np.mean(output[:,0]**2)**.5
+    output[:,1] = var2**.5*(output[:,1])/np.mean(output[:,1]**2)**.5
 
-	return output + loc
+    return output
  
 
 def aggregateBeta(beta, ldScore):

@@ -111,36 +111,21 @@ class test_bivariatePointNormal(unittest.TestCase):
 		var2 = 3
 		cov1 =  0.4
 
-		# check that cov_to_cor and cor_to_cov are inverse functions
-		cor1 = sim.bpnorm_cov_to_cor(p1, p2, p12, var1, var2, cov1)
-		cov2 = sim.bpnorm_cor_to_cov(p1, p2, p12, var1, var2, cor1)
-		assert cov1 == cov2
-
-		cor1 = 0.2
-		cov2 = sim.bpnorm_cor_to_cov(p1, p2, p12, var1, var2, cor1)
-		cor2 = sim.bpnorm_cov_to_cor(p1, p2, p12, var1, var2, cov2)
-		assert cor1 == cor2
-		
 	def test_basic(self):
 		x = sim.bivariatePointNormal(0.5,0.6,0.3,0.9,3,0.5,size=10)
 		assert x.shape == (10,2)
 
 	def test_var(self):
-		x = sim.bivariatePointNormal(0.5,0.6,0.3,0.9,3,0.2,size=10000)
+		x = sim.bivariatePointNormal(0.5,0.6,0.3,0.45,1.8,0.2,size=10000)
 		assert np.abs(np.var(x[:,0]) - 0.45) < 0.2	
 		assert np.abs(np.var(x[:,1]) - 1.8) < 0.2
-		exp_cor = sim.bpnorm_cov_to_cor(0.5,0.6,0.3,0.9,3,0.2)
-		assert np.abs(np.corrcoef(x.T)[0,1] - exp_cor) < 0.1
+		assert np.abs(np.corrcoef(x.T)[0,1] - 0.2) < 0.2
 		assert np.abs(np.sum(x[:,0]==0) - 5000) < 1000
 		assert np.abs(np.sum(x[:,1]==0) - 4000) < 1000
 		assert np.abs(np.sum(np.logical_and(x[:,1]!=0,x[:,0]!=0)) - 3000) < 1000
-		
-	def test_mean(self):
-		x = sim.bivariatePointNormal(0.1,0.1,0.05,0.01,0.01,0.005,size=10000, loc=(100,100))
-		assert np.abs(np.mean(x) - 100) < 1
 
 	def test_cov_zero(self):
-		x = sim.bivariatePointNormal(0.5,0.6,0.3,0.9,3,0,size=10000)
+		x = sim.bivariatePointNormal(0.5,0.6,0.3,0.45,1.8,0,size=10000)
 		assert np.abs(np.corrcoef(x.T)[0,1]**2 < 0.01)
 		assert np.abs(np.var(x[:,0]) - 0.45) < 0.2	
-		assert np.abs(np.var(x[:,1]) - 1.8) < 0.2 	
+		assert np.abs(np.var(x[:,1]) - 1.8) < 0.2 
