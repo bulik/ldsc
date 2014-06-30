@@ -18,7 +18,7 @@ import ldscore.jackknife as jk
 import argparse
 import numpy as np
 import pandas as pd
-
+from subprocess import call
 
 class logger(object):
 	'''
@@ -268,9 +268,9 @@ def ldscore(args):
 	new_colnames = geno_array.colnames + ldscore_colnames
 	df = pd.DataFrame(np.c_[geno_array.df, lN])
 	df.columns = new_colnames
-	log.log("Writing results to {f}".format(f=out_fname))
+	log.log("Writing results to {f}.gz".format(f=out_fname))
 	df.to_csv(out_fname, sep="\t", header=True, index=False)	
-	
+	call(['gzip',out_fname])
 	# print .M
 	fout_M = open(args.out + '.'+ file_suffix +'.M','wb')
 	if num_annots == 1:
@@ -336,10 +336,16 @@ def sumstats(args):
 			w_ldscores = ps.ldscore(args.regression_snp_ld)
 		elif args.regression_snp_ld_chr:
 			w_ldscores = ps.ldscore(args.regression_snp_ld_chr, 22)
+<<<<<<< HEAD
+=======
+
+>>>>>>> FETCH_HEAD
 	except ValueError as e:
 		log.log('Error parsing regression SNP LD')
 		raise e
-	
+		
+	w_ldscores.columns = ['SNP','LD_weights'] #to keep the column names from being the same
+
 	log_msg = 'Read LD Scores for {N} SNPs to be retained for regression.'
 	log.log(log_msg.format(N=len(w_ldscores)))
 	
@@ -425,6 +431,7 @@ def sumstats(args):
 		log.log(_print_hsq(h2hat, ref_ld_colnames))
 		return [M_annot,h2hat]
 
+
 	# LD Score regression to estimate genetic correlation
 	elif args.sumstats_gencor:
 		log.log('Estimating genetic correlation.')
@@ -459,6 +466,7 @@ def sumstats(args):
 		log.log( '-------------------' )
 		log.log( _print_gencor(gchat) )
 		
+		return [M_annot,h2hat]
 		
 if __name__ == '__main__':
 	parser = argparse.ArgumentParser()

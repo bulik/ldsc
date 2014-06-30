@@ -113,7 +113,7 @@ def _gencov_weights(ld, w_ld, N1, N2, No, M, h1, h2, rho_g, rho):
 		Regression weights. Approx equal to reciprocal of conditional variance function.
 	
 	'''
-	
+
 	h1 = max(h1,0); h2=max(h2,0)
 	h1 = min(h1,1); h2=min(h2,1)
 	ld = np.fmax(ld, 1.0)

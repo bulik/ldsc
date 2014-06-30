@@ -253,20 +253,43 @@ def ldscore(fh, num=None):
 	output of parallelizing ldsc.py --l2 across chromosomes).
 
 	'''
-	parsefunc = lambda y : pd.read_csv(y, header=0, delim_whitespace=True).\
-		drop(['CHR','BP','CM','MAF'],axis=1)
+						
+	parsefunc = lambda y, compression : pd.read_csv(y, header=0, delim_whitespace=True,
+		compression=compression).drop(['CHR','BP','CM','MAF'], axis=1)
 	
 	if num is not None:
-		chr_ld = [parsefunc(fh + str(i) + '.l2.ldscore') for i in xrange(1,num+1)]
+		try:
+			suffix = '.l2.ldscore.gz'
+			full_fh = fh + '1' + suffix
+			open(full_fh, 'rb')
+			compression = 'gzip'
+		except IOError:
+			suffix = '.l2.ldscore'
+			full_fh = fh + '1.' + suffix
+			open(full_fh, 'rb')
+			compression = None			
+		
+		chr_ld = [parsefunc(fh + str(i) + suffix, compression) for i in xrange(1,num+1)]
 		x = pd.concat(chr_ld)
+	
 	else:
-		x = parsefunc(fh + '.l2.ldscore')
+		try:
+			full_fh = fh + '.l2.ldscore.gz'
+			open(full_fh, 'rb')
+			compression = 'gzip'
+		except IOError:
+			full_fh = fh + '.l2.ldscore'
+			open(full_fh, 'rb')
+			compression = None			
+		
+		x = parsefunc(full_fh, compression)
 	
 	ii = x['SNP'] != '.'
 	x = x[ii]	
 	check_rsid(x['SNP']) 
-	x.ix[:,1:len(x.columns)] = x.ix[:,1:len(x.columns)].astype(float)
-
+	for col in x.columns[1:]:
+		x[col] = x[col].astype(float)
+	
 	return x
 	
 	
