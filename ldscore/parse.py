@@ -51,12 +51,12 @@ def check_rsid(rsids):
 	
 	'''
 	# check for rsid = .
-	if np.any(rsids == '.'):
-		raise ValueError('Some SNP identifiers are set to . (a dot).')
+	#if np.any(rsids == '.'):
+	#	raise ValueError('Some SNP identifiers are set to . (a dot).')
 	
 	# check for duplicate rsids
-	if np.any(rsids.duplicated('SNP')):
-		raise ValueError('Duplicated SNP identifiers.')
+	#if np.any(rsids.duplicated('SNP')):
+	#	raise ValueError('Duplicated SNP identifiers.')
 
 	
 def check_pvalue(P):
@@ -321,8 +321,10 @@ def __ID_List_Factory__(colnames, keepcol, fname_end, header=None, usecols=None)
 			self.__fname_end__ = fname_end
 			self.__header__ = header
 			self.__read__(fname)
-			if 'SNP' in self.df.columns:
-				check_rsid(self.df['SNP'])
+
+			if self.__colnames__:
+				if 'SNP' in self.__colnames__:
+					check_rsid(self.df['SNP'])
 				
 			self.n = len(self.IDList)
 
@@ -334,8 +336,8 @@ def __ID_List_Factory__(colnames, keepcol, fname_end, header=None, usecols=None)
 			self.df = pd.read_csv(fname, header=self.__header__, usecols=self.__usecols__, 
 				delim_whitespace=True)
 			
-			if np.any(self.df.duplicated(self.df.columns[self.__keepcol__])):
-				raise ValueError('Duplicate Entries in Filter File')
+			#if np.any(self.df.duplicated(self.df.columns[self.__keepcol__])):
+			#	raise ValueError('Duplicate Entries in Filter File')
 
 			if self.__colnames__: self.df.columns = self.__colnames__
 			self.IDList = self.df.iloc[:,[self.__keepcol__]]

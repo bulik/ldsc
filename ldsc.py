@@ -88,6 +88,19 @@ def _print_hsq(h2hat, ref_ld_colnames):
 	out.append( 'Intercept: '+ str(h2hat.intercept)+' ('+str(h2hat.intercept_se)+')')
 	out = '\n'.join(out)
 	return out
+
+def _print_hsq_nointercept(h2hat, ref_ld_colnames):
+	'''Reusable code for printing output of jk.Hsq object'''
+	out = []
+	out.append('Total observed scale h2: '+str(h2hat.tot_hsq)+' ('+str(h2hat.tot_hsq_se)+')')
+	out.append( 'Categories: '+ str(' '.join(ref_ld_colnames)))
+	out.append( 'Observed scale h2: '+str(h2hat.cat_hsq))
+	out.append( 'Observed scale h2 SE: '+str(h2hat.cat_hsq_se))
+	out.append( 'Proportion of SNPs: '+str(h2hat.M_prop))
+	out.append( 'Proportion of h2g: ' +str(h2hat.prop_hsq))
+	out.append( 'Enrichment: '+str(h2hat.enrichment))		
+	out = '\n'.join(out)
+	return out
 	
 
 def _print_gencov(gencov, ref_ld_colnames):
@@ -423,8 +436,14 @@ def sumstats(args):
 		N = np.matrix(sumstats.N).reshape((snp_count,1))
 		del sumstats
 		
-		h2hat = jk.Hsq(chisq, ref_ld, w_ld, N, M_annot, args.num_blocks)
-		log.log(_print_hsq(h2hat, ref_ld_colnames))
+		if args.no_intercept:
+			h2hat = jk.Hsq_nointercept(chisq, ref_ld, w_ld, N, M_annot, args.num_blocks,
+				args.non_negative)
+			log.log(_print_hsq_nointercept(h2hat, ref_ld_colnames))
+		else:
+			h2hat = jk.Hsq(chisq, ref_ld, w_ld, N, M_annot, args.num_blocks,
+				args.non_negative)
+			log.log(_print_hsq(h2hat, ref_ld_colnames))
 		return [M_annot,h2hat]
 
 
@@ -505,7 +524,10 @@ if __name__ == '__main__':
 		help='Block jackknife SE? (Warning: somewhat slower)')
 	parser.add_argument('--yes-really', default=False, action='store_true',
 		help='Yes, I really want to compute whole-chromosome LD Score')
-	
+	parser.add_argument('--no-intercept', action='store_true',
+		help = 'Constrain the regression intercept to be 1.')
+	parser.add_argument('--non-negative', action='store_true',
+		help = 'Constrain the regression intercept to be 1.')
 	
 	# Summary Statistic Estimation Flags
 	
