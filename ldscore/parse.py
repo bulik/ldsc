@@ -358,7 +358,7 @@ def __ID_List_Factory__(colnames, keepcol, fname_end, header=None, usecols=None)
 	return IDContainer
 
 
-PlinkBIMFile = __ID_List_Factory__(['CHR', 'SNP','CM','BP'],1,'.bim',usecols=[0,1,2,3])
+PlinkBIMFile = __ID_List_Factory__(['CHR', 'SNP','CM','BP','A1','A2'],1,'.bim',usecols=[0,1,2,3,4,5])
 VcfSNPFile = __ID_List_Factory__(['CHR','BP','SNP','CM'],2,'.snp',usecols=[0,1,2,3])
 PlinkFAMFile = __ID_List_Factory__(['IID'],0,'.fam',usecols=[1])
 VcfINDFile = __ID_List_Factory__(['IID'],0,'.ind',usecols=[0])

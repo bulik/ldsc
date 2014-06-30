@@ -127,7 +127,7 @@ def ldscore(args):
 	log = logger(args.out+'.log')
 	
 	if args.bin:
-		snp_file, snp_obj = args.bin+'.snp', ps.VcfSNPFile
+		snp_file, snp_obj = args.bin+'.bim', ps.PlinkBIMFile
 		ind_file, ind_obj = args.bin+'.ind', ps.VcfINDFile
 		array_file, array_obj = args.bin+'.bin', ld.VcfBINFile
 	elif args.bfile:
@@ -552,7 +552,66 @@ def sumstats(args):
 		log.log( _print_gencor(gchat) )
 		
 		return [M_annot,h2hat]
-		
+
+
+def freq(args):
+	'''
+	Computes and prints reference allele frequencies. Identical to plink --freq. In fact,
+	use plink --freq instead with .bed files; it's faster. This is useful for .bin files,
+	which are a custom LDSC format.
+	
+	TODO: the MAF computation is inefficient, because it also filters the genotype matrix
+	on MAF. It isn't so slow that it really matters, but fix this eventually. 
+	
+	'''
+	log = logger(args.out+'.log')
+	
+	if args.bin:
+		snp_file, snp_obj = args.bin+'.snp', ps.VcfSNPFile
+		ind_file, ind_obj = args.bin+'.ind', ps.VcfINDFile
+		array_file, array_obj = args.bin+'.bin', ld.VcfBINFile
+	elif args.bfile:
+		snp_file, snp_obj = args.bfile+'.bim', ps.PlinkBIMFile
+		ind_file, ind_obj = args.bfile+'.fam', ps.PlinkFAMFile
+		array_file, array_obj = args.bfile+'.bed', ld.PlinkBEDFile
+
+	# read bim/snp
+	array_snps = snp_obj(snp_file)
+	m = len(array_snps.IDList)
+	log.log('Read list of {m} SNPs from {f}'.format(m=m, f=snp_file))
+	
+	# read fam/ind
+	array_indivs = ind_obj(ind_file)
+	n = len(array_indivs.IDList)	 
+	log.log('Read list of {n} individuals from {f}'.format(n=n, f=ind_file))
+	
+	# read --extract
+	if args.extract is not None:
+		keep_snps = __filter__(args.extract, 'SNPs', 'include', array_snps)
+	else:
+		keep_snps = None
+	
+	# read keep_indivs
+	if args.keep:
+		keep_indivs = __filter__(args.keep, 'individuals', 'include', array_indivs)
+	else:
+		keep_indivs = None
+	
+	# read genotype array
+	log.log('Reading genotypes from {fname}'.format(fname=array_file))
+	geno_array = array_obj(array_file, n, array_snps, keep_snps=keep_snps,
+		keep_indivs=keep_indivs)
+	
+	frq_df = array_snps.df.ix[:,['CHR', 'SNP', 'A1', 'A2']]
+	frq_array = np.zeros(len(frq_df))
+	frq_array[geno_array.kept_snps] = geno_array.freq
+	frq_df['FRQ'] = frq_array
+	out_fname = args.out + '.frq'
+	log.log('Writing reference allele frequencies to {O}.gz'.format(O=out_fname))
+	frq_df.to_csv(out_fname, sep="\t", header=True, index=False)	
+	call(['gzip', '-f', out_fname])
+
+
 if __name__ == '__main__':
 	parser = argparse.ArgumentParser()
 		
@@ -603,7 +662,6 @@ if __name__ == '__main__':
 	parser.add_argument('--yes-really', default=False, action='store_true',
 		help='Yes, I really want to compute whole-chromosome LD Score')
 	
-	
 	# Summary Statistic Estimation Flags
 	
 	# Input for sumstats
@@ -645,11 +703,27 @@ if __name__ == '__main__':
 		help='Block size for block jackknife')
 	parser.add_argument('--maf', default=None, type=float,
 		help='Minor allele frequency lower bound. Default is 0')
+	
+	# frequency (useful for .bin files)
+	parser.add_argument('--freq', default=False, action='store_true',
+		help='Compute reference allele frequencies (useful for .bin files).')
+		
+
+	
 	args = parser.parse_args()
+		
 	
 	
+	if args.freq:
+		
+		if (args.bfile is not None) == (args.bin is not None):
+			raise ValueError('Must set exactly one of --bin or --bfile for use with --freq') 
+	
+		freq(args)
+
 	# LD Score estimation
-	if (args.bin or args.bfile) and (args.l1 or args.l1sq or args.l2 or args.l4):
+	elif (args.bin is not None or args.bfile is not None) and (args.l1 or args.l1sq or args.l2 or args.l4):
+		
 		if np.sum((args.l1, args.l2, args.l1sq, args.l4)) != 1:
 			raise ValueError('Must specify exactly one of --l1, --l1sq, --l2, --l4 for LD estimation.')
 		if args.bfile and args.bin:
@@ -702,7 +776,7 @@ if __name__ == '__main__':
 			args.block_size = 2000
 			
 		sumstats(args)
-	
+		
 	# bad flags
 	else:
 		raise ValueError('No analysis selected.')
