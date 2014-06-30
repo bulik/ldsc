@@ -172,7 +172,7 @@ def ldscore(args):
 		cts = pd.read_csv(args.cts_bin, header=None, delim_whitespace=True)
 		cts.rename( columns={0: 'SNP', 1: 'ANNOT'}, inplace=True)
 		ps.check_rsid(cts.SNP)
-		if len(cts.SNP.values) != len(array_snps.SNP.values) or\
+		if len(cts.SNP.values) != len(array_snps.df.SNP.values) or\
 			np.any(cts.SNP.values != array_snps.df.SNP.values):
 			ii = cts.SNP != array_snps.IDList
 			raise ValueError('The --cts-bin file must contain the same SNPs in the same'+\
@@ -567,7 +567,7 @@ def freq(args):
 	log = logger(args.out+'.log')
 	
 	if args.bin:
-		snp_file, snp_obj = args.bin+'.snp', ps.VcfSNPFile
+		snp_file, snp_obj = args.bin+'.bim', ps.PlinkBIMFile
 		ind_file, ind_obj = args.bin+'.ind', ps.VcfINDFile
 		array_file, array_obj = args.bin+'.bin', ld.VcfBINFile
 	elif args.bfile:

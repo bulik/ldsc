@@ -339,7 +339,9 @@ def __ID_List_Factory__(colnames, keepcol, fname_end, header=None, usecols=None)
 			if np.any(self.df.duplicated(self.df.columns[self.__keepcol__])):
 				raise ValueError('Duplicate Entries in Filter File')
 
-			if self.__colnames__: self.df.columns = self.__colnames__
+			if self.__colnames__: 
+				self.df.columns = self.__colnames__
+
 			self.IDList = self.df.iloc[:,[self.__keepcol__]].astype('object')
 		
 		def loj(self, externalDf):
