@@ -191,11 +191,11 @@ def ldscore(args):
 		if np.all(breaks > min_cts):	
 			name_breaks.append(min_cts)
 			breaks.append(min_cts-1)
-
-		log.log('Binning SNPs based on {F} with breakpoints {B}'.format(F=args.cts_bin,
-			B=name_breaks))
+		
 		name_breaks.sort()
 		breaks.sort()
+		log.log('Binning SNPs based on {F} with breakpoints {B}'.format(F=args.cts_bin,
+			B=name_breaks))
 		num_annots = len(breaks) - 1
 		annot_colnames = ['bin_'+str(name_breaks[i])+'_'+str(name_breaks[i+1]) 
 			for i in xrange(num_annots) ] 
@@ -732,11 +732,11 @@ if __name__ == '__main__':
 		if args.block_size is None: # default jackknife block size for LD Score regression
 			args.block_size = 100
 		
-		if args.annot is not None and args.keep is not None:
-			raise ValueError('--annot and --keep are currently incompatible.')
+		if args.annot is not None and args.extract is not None:
+			raise ValueError('--annot and --extract are currently incompatible.')
 		
-		if args.cts_bin is not None and args.keep is not None:
-			raise ValueError('--cts-bin and --keep are currently incompatible.')
+		if args.cts_bin is not None and args.extract is not None:
+			raise ValueError('--cts-bin and --extract are currently incompatible.')
 		
 		if args.annot is not None and args.cts_bin is not None:
 			raise ValueError('--annot and --cts-bin are currently incompatible.')
