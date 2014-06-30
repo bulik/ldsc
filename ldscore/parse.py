@@ -260,13 +260,20 @@ def ldscore(fh, num=None):
 	if num is not None:
 		try:
 			suffix = '.l2.ldscore.gz'
-			full_fh = fh + '1' + suffix
+			if '@' in fh:
+				full_fh = fh.replace('@', 1) + suffix
+			else:
+				full_fh = fh + '1' + suffix
+	
 			x = open(full_fh, 'rb')
 			x.close()
 			compression = 'gzip'
 		except IOError:
 			suffix = '.l2.ldscore'
-			full_fh = fh + '1.' + suffix
+			if '@' in fh:
+				full_fh = fh.replace('@', 1) + suffix
+			else:
+				full_fh = fh + '1' + suffix
 			x = open(full_fh, 'rb')
 			x.close()
 			compression = None			

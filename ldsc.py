@@ -387,10 +387,13 @@ def sumstats(args):
 	# read .chisq or betaprod
 	try:
 		if args.sumstats_h2:
+			log.log('Reading summary statistics from {S}.'.format(S=args.sumstats_h2))
 			sumstats = ps.chisq(args.sumstats_h2)
 		elif args.sumstats_intercept:
+			log.log('Reading summary statistics from {S}.'.format(S=args.sumstats_intercept))
 			sumstats = ps.chisq(args.sumstats_intercept)
 		elif args.sumstats_gencor:
+			log.log('Reading summary statistics from {S}.'.format(S=args.sumstats_gencor))
 			sumstats = ps.betaprod(args.sumstats_gencor)
 	except ValueError as e:
 		log.log('Error parsing summary statistics.')
