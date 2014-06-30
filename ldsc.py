@@ -351,7 +351,7 @@ def ldscore(args):
 	if annot_matrix is not None:
 		M = np.atleast_1d(np.squeeze(np.asarray(np.sum(annot_matrix, axis=0))))
 	else:
-		M = geno_array.m
+		M = [geno_array.m]
 	
 	print >>fout_M, '\t'.join(map(str,M))
 	fout_M.close()
