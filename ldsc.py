@@ -169,7 +169,12 @@ def ldscore(args):
 					
 		# read cts variable
 		log.log('Reading numbers with which to bin SNPs from {F}'.format(F=args.cts_bin))
-		cts = pd.read_csv(args.cts_bin, header=None, delim_whitespace=True)
+		if args.cts_bin.endswith('gz'):
+			comp = 'gzip'
+		else:
+			comp = None
+			
+		cts = pd.read_csv(args.cts_bin, header=None, delim_whitespace=True, compression=comp)
 		cts.rename( columns={0: 'SNP', 1: 'ANNOT'}, inplace=True)
 		ps.check_rsid(cts.SNP)
 		if len(cts.SNP.values) != len(array_snps.df.SNP.values) or\
@@ -497,10 +502,9 @@ def sumstats(args):
 		chisq = np.matrix(sumstats.CHISQ).reshape((snp_count, 1))
 		N = np.matrix(sumstats.N).reshape((snp_count,1))
 		del sumstats
-
-		h2hat = jk.Hsq(chisq, ref_ld, w_ld, N, M_annot, args.num_blocks)
-				
+		h2hat = jk.Hsq(chisq, ref_ld, w_ld, N, M_annot, args.num_blocks)				
 		log.log(_print_intercept(h2hat))
+		return h2hat
 
 
 	# LD Score regression to estimate h2
@@ -514,7 +518,6 @@ def sumstats(args):
 		chisq = np.matrix(sumstats.CHISQ).reshape((snp_count, 1))
 		N = np.matrix(sumstats.N).reshape((snp_count,1))
 		del sumstats
-		
 		h2hat = jk.Hsq(chisq, ref_ld, w_ld, N, M_annot, args.num_blocks)
 		log.log(_print_hsq(h2hat, ref_ld_colnames))
 		return [M_annot,h2hat]
@@ -554,7 +557,7 @@ def sumstats(args):
 		log.log( '-------------------' )
 		log.log( _print_gencor(gchat) )
 		
-		return [M_annot,h2hat]
+		return [M_annot,gchat]
 
 
 def freq(args):
