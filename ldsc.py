@@ -189,11 +189,11 @@ def ldscore(args):
 		if np.all(breaks >= max_cts) or np.all(breaks <= min_cts):
 			raise ValueError('All breaks lie outside the range of the cts variable.')
 			
-		if np.all(breaks < max_cts):
+		if np.all(breaks <= max_cts):
 			name_breaks.append(max_cts)
 			breaks.append(max_cts+1)
 		
-		if np.all(breaks > min_cts):	
+		if np.all(breaks >= min_cts):	
 			name_breaks.append(min_cts)
 			breaks.append(min_cts-1)
 		
