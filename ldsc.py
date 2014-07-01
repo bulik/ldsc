@@ -462,7 +462,7 @@ def sumstats(args):
 		log.log( '-------------------' )
 		log.log( _print_gencor(gchat) )
 		
-		return [M_annot,h2hat]
+		return [M_annot,gchat]
 		
 if __name__ == '__main__':
 	parser = argparse.ArgumentParser()
