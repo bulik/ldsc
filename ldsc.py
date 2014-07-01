@@ -407,22 +407,37 @@ def sumstats(args):
 	log_msg = 'Read summary statistics for {N} SNPs.'
 	log.log(log_msg.format(N=len(sumstats)))
 	
-	# read reference panel LD Scores and .M 
+	# read reference panel LD Scores
 	try:
 		if args.ref_ld:
 			ref_ldscores = ps.ldscore(args.ref_ld)
-			M_annot = ps.M(args.ref_ld)
-	
 		elif args.ref_ld_chr:
 			ref_ldscores = ps.ldscore(args.ref_ld_chr,22)
-			M_annot = ps.M(args.ref_ld_chr, 22)
+
 	except ValueError as e:
 		log.log('Error parsing reference LD.')
 		raise e
 		
+	# read .M or --M
+	if args.M is None:
+		if args.ref_ld:
+			M_annot = ps.M(args.ref_ld)	
+		elif args.ref_ld_chr:
+			M_annot = ps.M(args.ref_ld_chr, 22)
+
+	elif args.M is not None:
+		try:
+			M_annot = [float(x) for x in args.M.split(',')]
+		except TypeError as e:
+			raise TypeError('Count not case --M to float: ' + str(e.args))
+		
+		if len(M_annot) != len(ref_ldscores.columns) - 1:
+			raise ValueError('Number of comma-separated terms in --M must match the number of partitioned LD Scores in --ref-ld')
+					
+	log.log('Using M = '+str(M_annot))
 	if np.any(ref_ldscores.iloc[:,1:len(ref_ldscores.columns)].var(axis=0) == 0):
 		raise ValueError('Zero-variance LD Score. Possibly an empty column?')
-
+	
 	log_msg = 'Read reference panel LD Scores for {N} SNPs.'
 	log.log(log_msg.format(N=len(ref_ldscores)))
 
@@ -687,7 +702,9 @@ if __name__ == '__main__':
 		help='Filename prefix for file with LD Scores with sum r^2 taken over SNPs included in the regression.')
 	parser.add_argument('--regression-snp-ld-chr', default=None, type=str,
 		help='Filename prefix for file with LD Scores with sum r^2 taken over SNPs included in the regression, split across 22 chromosomes.')
-	
+	parser.add_argument('--M', default=None, type=str,
+		help='# of SNPs (if you don\'t want to use the .l2.M files that came with your .l2.ldscore.gz files)')
+
 	# Filtering for sumstats
 	parser.add_argument('--info-min', default=None, type=float,
 		help='Minimum INFO score for SNPs included in the regression.')
