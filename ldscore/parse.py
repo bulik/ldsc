@@ -2,6 +2,7 @@ from __future__ import division
 import numpy as np
 import pandas as pd
 from scipy.special import chdtri
+import gzip
 
 
 def filter_df(df, colname, pred):
@@ -136,12 +137,19 @@ def chisq(fh):
 		'MAF': float,
 		'INFO': float,
 	}
-	colnames = open(fh,'rb').readline().split()
+	if fh.endswith('gz'):
+		openfunc = gzip.open
+		compression='gzip'
+	else:
+		openfunc = open
+		compression=None
+		
+	colnames = openfunc(fh,'rb').readline().split()
 	usecols = ['SNP','P','CHISQ','N','MAF','INFO']	
 	usecols = [x for x in usecols if x in colnames]
 	try:
 		x = pd.read_csv(fh, header=0, delim_whitespace=True, usecols=usecols, 
-			dtype=dtype_dict)
+			dtype=dtype_dict, compression=compression)
 	except AttributeError as e:
 		raise AttributeError('Improperly formatted chisq file: '+str(e.args))
 
@@ -196,13 +204,20 @@ def betaprod(fh):
 		'MAF1': float,
 		'MAF2': float
 	}
-	colnames = open(fh,'rb').readline().split()
+	if fh.endswith('gz'):
+		openfunc = gzip.open
+		compression='gzip'
+	else:
+		openfunc = open
+		compression=None
+
+	colnames = openfunc(fh,'rb').readline().split()
 	usecols = [x+str(i) for i in xrange(1,3) for x in ['DIR','P','CHISQ','N','MAF','INFO']]
 	usecols.append('SNP')
 	usecols = [x for x in usecols if x in colnames]
 	try:
 		x = pd.read_csv(fh, header=0, delim_whitespace=True, usecols=usecols, 
-			dtype=dtype_dict)
+			dtype=dtype_dict, compression=compression)
 	except AttributeError as e:
 		raise AttributeError('Improperly formatted betaprod file: '+str(e.args))
 		

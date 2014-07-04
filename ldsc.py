@@ -20,6 +20,11 @@ import numpy as np
 import pandas as pd
 from subprocess import call
 
+pd.set_option('display.height', 1000)
+pd.set_option('display.max_rows', 500)
+pd.set_option('display.max_columns', 500)
+pd.set_option('display.width', 1000)
+
 class logger(object):
 	'''
 	Lightweight logging.
@@ -200,7 +205,7 @@ def ldscore(args):
 		name_breaks.sort()
 		breaks.sort()
 		log.log('Binning SNPs based on {F} with breakpoints {B}'.format(F=args.cts_bin,
-			B=name_breaks))
+			B=breaks))	
 		num_annots = len(breaks) - 1
 		annot_colnames = ['bin_'+str(name_breaks[i])+'_'+str(name_breaks[i+1]) 
 			for i in xrange(num_annots) ] 
