@@ -20,7 +20,6 @@ import numpy as np
 import pandas as pd
 from subprocess import call
 
-pd.set_option('display.height', 1000)
 pd.set_option('display.max_rows', 500)
 pd.set_option('display.max_columns', 500)
 pd.set_option('display.width', 1000)
@@ -423,6 +422,23 @@ def sumstats(args):
 		log.log('Error parsing reference LD.')
 		raise e
 		
+	# filter ref LD down to those columns specified by --keep-ld
+	if args.keep_ld is not None:
+		try:
+			keep_ld_colnums = [int(x)+1 for x in args.keep_ld.split(',')]
+		except ValueError as e:
+			raise ValueError('--keep-ld must be a comma-separate list of column numbers: '+str(e.args))
+	
+		if len(keep_ld_colnums) == 0:
+			raise ValueError('No reference LD columns retained by --keep-ld')
+	
+		keep_ld_colnums = [0] + keep_ld_colnums
+		try:
+			ref_ldscores = ref_ldscores.ix[:,keep_ld_colnums]
+		except IndexError as e:
+			raise IndexError('--keep-ld column numbers are out of bounds: '+str(e.args))
+		
+		
 	# read .M or --M
 	if args.M is None:
 		if args.ref_ld:
@@ -456,8 +472,9 @@ def sumstats(args):
 	except ValueError as e:
 		log.log('Error parsing regression SNP LD')
 		raise e
-		
-	w_ldscores.columns = ['SNP','LD_weights'] #to keep the column names from being the same
+	
+	# to keep the column names from being the same
+	w_ldscores.columns = ['SNP','LD_weights'] 
 
 	log_msg = 'Read LD Scores for {N} SNPs to be retained for regression.'
 	log.log(log_msg.format(N=len(w_ldscores)))
@@ -472,10 +489,6 @@ def sumstats(args):
 	log_msg = 'After merging with regression SNP LD, {N} SNPs remain.'
 	log.log(log_msg.format(N=len(sumstats)))
 	
-	# this has to be here, because pandas will modify duplicate column names on merge
-	### TODO still not quite satisfactory -- what if user accidentally submits
-	# the same file for ref_ld and w_ld? 
-	# maybe don't merge, but just get the row numbers to prevent modification of colnames??
 	ref_ld_colnames = ref_ldscores.columns[1:len(ref_ldscores.columns)]	
 	w_ld_colname = sumstats.columns[-1]
 	del(ref_ldscores); del(w_ldscores)
@@ -715,6 +728,8 @@ if __name__ == '__main__':
 		help='Minimum INFO score for SNPs included in the regression.')
 	parser.add_argument('--info-max', default=None, type=float,
 		help='Maximum INFO score for SNPs included in the regression.')
+	parser.add_argument('--keep-ld', default=None, type=str,
+		help='Zero-indexed column numbers of LD Scores to keep for LD Score regression.')
 		
 	# Optional flags for genetic correlation
 	parser.add_argument('--overlap', default=0, type=int,
