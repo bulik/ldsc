@@ -255,7 +255,7 @@ def betaprod(fh):
 		del x[DIR]
 		if MAF in x.columns:
 			check_maf(x[MAF])
-			x[MAF]  = np.min(x[MAF], 1-x[MAF])
+			x[MAF]  = np.minimum(x[MAF], 1-x[MAF])
 		
 	return x
 
