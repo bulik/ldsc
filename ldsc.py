@@ -317,6 +317,8 @@ def sumstats(args):
 			sumstats = ps.chisq(args.sumstats_intercept)
 		elif args.sumstats_gencor:
 			sumstats = ps.betaprod(args.sumstats_gencor)
+		elif args.sumstats_gencor_fromchisq:
+			sumstats = ps.betaprod_fromchisq(args.chisq1, args.chisq2, args.allele1, args.allele2)
 	except ValueError as e:
 		log.log('Error parsing summary statistics.')
 		raise e
@@ -459,7 +461,7 @@ def sumstats(args):
 
 
 	# LD Score regression to estimate genetic correlation
-	elif args.sumstats_gencor:
+	elif args.sumstats_gencor or args.sumstats_gencor_fromchisq:
 		log.log('Estimating genetic correlation.')
 		
 		snp_count = len(sumstats); n_annot = len(ref_ld_colnames)
@@ -492,7 +494,7 @@ def sumstats(args):
 		log.log( '-------------------' )
 		log.log( _print_gencor(gchat) )
 		
-		return [M_annot,h2hat]
+		return [M_annot,gchat]
 		
 if __name__ == '__main__':
 	parser = argparse.ArgumentParser()
@@ -535,12 +537,6 @@ if __name__ == '__main__':
 		help='Block jackknife SE? (Warning: somewhat slower)')
 	parser.add_argument('--yes-really', default=False, action='store_true',
 		help='Yes, I really want to compute whole-chromosome LD Score')
-	parser.add_argument('--no-intercept', action='store_true',
-		help = 'Constrain the regression intercept to be 1.')
-	parser.add_argument('--non-negative', action='store_true',
-		help = 'Constrain the regression intercept to be 1.')
-	parser.add_argument('--aggregate', action='store_true',
-		help = 'Use the aggregate estimator.')
 
 	# Summary Statistic Estimation Flags
 	
@@ -551,6 +547,16 @@ if __name__ == '__main__':
 		help='Path to file with summary statistics for h2 estimation.')
 	parser.add_argument('--sumstats-gencor', default=None, type=str,
 		help='Path to file with summary statistics for genetic correlation estimation.')
+	parser.add_argument('--sumstats-gencor-fromchisq',default=False,action='store_true',
+		help='Make a betaprod dataframe from chisq1, chisq2, allele1, allele2.')
+	parser.add_argument('--chisq1',default=None,type=str,
+		help='For use with --sumstats-gencor-fromchisq.')
+	parser.add_argument('--chisq2',default=None,type=str,
+		help='For use with --sumstats-gencor-fromchisq.')
+	parser.add_argument('--allele1',default=None,type=str,
+		help='For use with --sumstats-gencor-fromchisq.')
+	parser.add_argument('--allele2',default=None,type=str,
+		help='For use with --sumstats-gencor-fromchisq.')
 	parser.add_argument('--intercept', default=False, action='store_true',
 		help='For use with --sumstats-h2. Performs the same analysis as --sumstats-h2, but the output is focused on the LD Score regression intercept.')
 	parser.add_argument('--ref-ld', default=None, type=str,
@@ -562,6 +568,14 @@ if __name__ == '__main__':
 	parser.add_argument('--regression-snp-ld-chr', default=None, type=str,
 		help='Filename prefix for file with LD Scores with sum r^2 taken over SNPs included in the regression, split across 22 chromosomes.')
 	
+
+	parser.add_argument('--no-intercept', action='store_true',
+		help = 'Constrain the regression intercept to be 1.')
+	parser.add_argument('--non-negative', action='store_true',
+		help = 'Constrain the regression intercept to be 1.')
+	parser.add_argument('--aggregate', action='store_true',
+		help = 'Use the aggregate estimator.')
+
 	# Filtering for sumstats
 	parser.add_argument('--info-min', default=None, type=float,
 		help='Minimum INFO score for SNPs included in the regression.')
@@ -598,7 +612,7 @@ if __name__ == '__main__':
 		ldscore(args)
 	
 	# Summary statistics
-	elif (args.sumstats_h2 or args.sumstats_gencor or args.sumstats_intercept) and\
+	elif (args.sumstats_h2 or args.sumstats_gencor or args.sumstats_intercept or args.sumstats_gencor_fromchisq) and\
 		(args.ref_ld or args.ref_ld_chr) and\
 		(args.regression_snp_ld or args.regression_snp_ld_chr):
 	
