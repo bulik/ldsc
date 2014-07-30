@@ -189,6 +189,8 @@ def ldscore(args):
 		log.log('Reading numbers with which to bin SNPs from {F}'.format(F=args.cts_bin))
 		if args.cts_bin.endswith('gz'):
 			comp = 'gzip'
+		elif args.cts_bin.endswith('bz2'):
+			comp = 'bz2'
 		else:
 			comp = None
 			
@@ -197,7 +199,6 @@ def ldscore(args):
 		ps.check_rsid(cts.SNP)
 		if len(cts.SNP.values) != len(array_snps.df.SNP.values) or\
 			np.any(cts.SNP.values != array_snps.df.SNP.values):
-			ii = cts.SNP != array_snps.IDList
 			raise ValueError('The --cts-bin file must contain the same SNPs in the same'+\
 				' order as the .bim or .snp file')
 		
