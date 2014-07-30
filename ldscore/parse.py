@@ -351,22 +351,85 @@ def ldscore(fh, num=None):
 	return x
 	
 	
-def M(fh, num=None):
+def l1(fh, num=None):
 	'''
-	Parses .l2.M files. See docs/file_formats_ld.txt.
+	Parses .l1.ldscore files. See docs/file_formats_ld.txt
+
+	If num is not None, parses .l1.ldscore files split across [num] chromosomes (e.g., the 
+	output of parallelizing ldsc.py --l1 across chromosomes).
+
+	'''
+						
+	parsefunc = lambda y, compression : pd.read_csv(y, header=0, delim_whitespace=True,
+		compression=compression).drop(['CHR','BP','CM','MAF'], axis=1)
+	
+	if num is not None:
+		try:
+			suffix = '.l1.ldscore.gz'
+			if '@' in fh:
+				full_fh = fh.replace('@', '1') + suffix
+			else:
+				full_fh = fh + '1' + suffix
+	
+			x = open(full_fh, 'rb')
+			x.close()
+			compression = 'gzip'
+		except IOError:
+			suffix = '.l1.ldscore'
+
+			if '@' in fh:
+				full_fh = fh.replace('@', '1') + suffix
+			else:
+				full_fh = fh + '1' + suffix
+			x = open(full_fh, 'rb')
+			x.close()
+			compression = None			
+		
+		if '@' in fh:
+			chr_ld = [parsefunc(fh.replace('@',str(i))+suffix, compression) for i in xrange(1,num+1)]
+		else:
+			chr_ld = [parsefunc(fh + str(i) + suffix, compression) for i in xrange(1,num+1)]
+
+		x = pd.concat(chr_ld)
+	
+	else:
+		try:
+			full_fh = fh + '.l1.ldscore.gz'
+			open(full_fh, 'rb')
+			compression = 'gzip'
+		except IOError:
+			full_fh = fh + '.l1.ldscore'
+			open(full_fh, 'rb')
+			compression = None			
+		
+		x = parsefunc(full_fh, compression)
+	
+	ii = x['SNP'] != '.'
+	x = x[ii]	
+	check_rsid(x['SNP']) 
+	for col in x.columns[1:]:
+		x[col] = x[col].astype(float)
+	
+	return x
+
+
+def M(fh, num=None, N=2):
+	'''
+	Parses .l{N}.M files. See docs/file_formats_ld.txt.
 	
 	If num is not none, parses .l2.M files split across [num] chromosomes (e.g., the output 
 	of parallelizing ldsc.py --l2 across chromosomes).
 
 	'''
 	parsefunc = lambda y : [float(z) for z in open(y, 'r').readline().split()]
+	suffix = '.l'+str(N)+'.M'
 	if num is not None:
 		if '@' in fh:
-			x = np.sum([parsefunc(fh.replace('@',str(i))+'.l2.M') for i in xrange(1,num+1)], axis=0)
+			x = np.sum([parsefunc(fh.replace('@',str(i))+suffix) for i in xrange(1,num+1)], axis=0)
 		else:
-			x = np.sum([parsefunc(fh+str(i)+'.l2.M') for i in xrange(1,num+1)], axis=0)
+			x = np.sum([parsefunc(fh+str(i)+suffix) for i in xrange(1,num+1)], axis=0)
 	else:
-		x = parsefunc(fh + '.l2.M')
+		x = parsefunc(fh + suffix)
 		
 	return x
 	
@@ -393,9 +456,17 @@ def __ID_List_Factory__(colnames, keepcol, fname_end, header=None, usecols=None)
 			end = self.__fname_end__
 			if end and not fname.endswith(end):
 				raise ValueError('{f} filename must end in {f}'.format(f=end))
-
-			self.df = pd.read_csv(fname, header=self.__header__, usecols=self.__usecols__, 
-				delim_whitespace=True)
+			
+			if fname.endswith('gz'):
+				self.df = pd.read_csv(fname, header=self.__header__, usecols=self.__usecols__, 
+					delim_whitespace=True, compression='gzip')
+			elif fname.endswith('bz2'):
+				self.df = pd.read_csv(fname, header=self.__header__, usecols=self.__usecols__, 
+					delim_whitespace=True, compression='bz2')
+			else:
+				self.df = pd.read_csv(fname, header=self.__header__, usecols=self.__usecols__, 
+					delim_whitespace=True)
+			
 			
 			#if np.any(self.df.duplicated(self.df.columns[self.__keepcol__])):
 			#	raise ValueError('Duplicate Entries in Filter File')

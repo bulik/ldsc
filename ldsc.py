@@ -23,6 +23,7 @@ from subprocess import call
 pd.set_option('display.max_rows', 500)
 pd.set_option('display.max_columns', 500)
 pd.set_option('display.width', 1000)
+np.set_printoptions(linewidth=1000)
 
 class logger(object):
 	'''
@@ -215,7 +216,10 @@ def ldscore(args):
 			breaks.append(min_cts-1)
 		
 		name_breaks.sort()
-		breaks.sort()
+		# so that col names are consistent across chromosomes with different max vals
+		name_breaks[0] = 'min'
+		name_breaks[-1] = 'max'
+		breaks.sort()		
 		log.log('Binning SNPs based on {F} with breakpoints {B}'.format(F=args.cts_bin,
 			B=breaks))	
 		num_annots = len(breaks) - 1
@@ -364,7 +368,28 @@ def ldscore(args):
 	new_colnames = geno_array.colnames + ldscore_colnames
 	df = pd.DataFrame.from_records(np.c_[geno_array.df, lN])
 	df.columns = new_colnames
-	log.log("Writing results to {f}.gz".format(f=out_fname))
+	if args.print_snps:
+		if args.print_snps.endswith('gz'):
+			print_snps = pd.read_csv(args.print_snps, header=None, compression='gzip')
+		elif args.print_snps.endswith('bz2'):
+			print_snps = pd.read_csv(args.print_snps, header=None, compression='bz2')
+		else:
+			print_snps = pd.read_csv(args.print_snps, header=None)
+		if len(print_snps.columns) > 1:
+			raise ValueError('--print-snps must refer to a file with a one column of SNP IDs.')
+		log.log('Reading list of {N} SNPs for which to print LD Scores from {F}'.format(\
+						F=args.print_snps, N=len(print_snps)))
+
+		print_snps.columns=['SNP']
+		df = df.ix[df.SNP.isin(print_snps.SNP),:]
+		if len(df) == 0:
+			raise ValueError('After merging with --print-snps, no SNPs remain.')
+		else:
+			msg = 'After merging with --print-snps, LD Scores for {N} SNPs will be printed.'
+			log.log(msg.format(N=len(df)))
+		
+	
+	log.log("Writing LD Scores for {N} SNPs to {f}.gz".format(f=out_fname, N=len(df)))
 	df.to_csv(out_fname, sep="\t", header=True, index=False)	
 	call(['gzip', '-f', out_fname])
 
@@ -436,30 +461,31 @@ def sumstats(args):
 	except ValueError as e:
 		log.log('Error parsing reference LD.')
 		raise e
-		
-	# filter ref LD down to those columns specified by --keep-ld
-	if args.keep_ld is not None:
-		try:
-			keep_ld_colnums = [int(x)+1 for x in args.keep_ld.split(',')]
-		except ValueError as e:
-			raise ValueError('--keep-ld must be a comma-separate list of column numbers: '+str(e.args))
-	
-		if len(keep_ld_colnums) == 0:
-			raise ValueError('No reference LD columns retained by --keep-ld')
-	
-		keep_ld_colnums = [0] + keep_ld_colnums
-		try:
-			ref_ldscores = ref_ldscores.ix[:,keep_ld_colnums]
-		except IndexError as e:
-			raise IndexError('--keep-ld column numbers are out of bounds: '+str(e.args))
-		
-		
+				
 	# read .M or --M
 	if args.M is None:
 		if args.ref_ld:
 			M_annot = ps.M(args.ref_ld)	
 		elif args.ref_ld_chr:
 			M_annot = ps.M(args.ref_ld_chr, 22)
+
+		# filter ref LD down to those columns specified by --keep-ld
+		if args.keep_ld is not None:
+			try:
+				keep_M_indices = [int(x) for x in args.keep_ld.split(',')]
+				keep_ld_colnums = [int(x)+1 for x in args.keep_ld.split(',')]
+			except ValueError as e:
+				raise ValueError('--keep-ld must be a comma-separate list of column numbers: '+str(e.args))
+	
+			if len(keep_ld_colnums) == 0:
+				raise ValueError('No reference LD columns retained by --keep-ld')
+	
+			keep_ld_colnums = [0] + keep_ld_colnums
+			try:
+				M_annot = [M_annot[i] for i in keep_M_indices]
+				ref_ldscores = ref_ldscores.ix[:,keep_ld_colnums]
+			except IndexError as e:
+				raise IndexError('--keep-ld column numbers are out of bounds: '+str(e.args))
 
 	elif args.M is not None:
 		try:
@@ -557,7 +583,7 @@ def sumstats(args):
 
 	# LD Score regression to estimate h2
 	elif args.sumstats_h2:
-		log.log('Estimating heritability.')
+		log.log('Estimating heritability')
 		
 		snp_count = len(sumstats); n_annot = len(ref_ld_colnames)
 		ref_ld = np.matrix(sumstats[ref_ld_colnames]).reshape((snp_count, n_annot))
@@ -568,6 +594,7 @@ def sumstats(args):
 		del sumstats
 
 		if args.no_intercept:
+			log.log('Constraining LD Score regression intercept = 1' )
 			h2hat = jk.Hsq_nointercept(chisq, ref_ld, w_ld, N, M_annot, args.num_blocks,
 				args.non_negative)
 			log.log(_print_hsq_nointercept(h2hat, ref_ld_colnames))
@@ -728,6 +755,9 @@ if __name__ == '__main__':
 		help='Estimate l{N} with given scale factor. Default -1. Per-allele is equivalent to --pq-exp 1.')
 	parser.add_argument('--l4', default=False, action='store_true',
 		help='Estimate l4. Only compatible with jackknife.')
+	parser.add_argument('--print-snps', default=None, type=str,
+		help='Only print LD Scores for these SNPs.')
+		
 	
 	parser.add_argument('--se', action='store_true', 
 		help='Block jackknife SE? (Warning: somewhat slower)')

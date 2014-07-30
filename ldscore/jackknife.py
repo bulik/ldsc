@@ -201,10 +201,70 @@ def obs_to_liab(h2_obs, P, K):
 	conversion_factor = K**2 * (1-K)**2 / (P * (1-P) * z**2)
 	h2_liab = h2_obs * conversion_factor
 	return h2_liab
+
+
+def _mu_weights(ref_l2, w_l2, N, M, hsq):
+	hsq = max(hsq,0); hsq = min(hsq,1)
+	ref_l2 = np.fmax(ref_l2, 1.0)
+	w_l2 = np.fmax(w_l2, 1.0) 
+	c = hsq * N / M
+	het_w = np.divide(1.0, 1.0+np.multiply(c, ref_l2))
+	oc_w = np.divide(1.0, w_l2)
+	w = np.multiply(het_w, oc_w)
+	return w
+
+
+class Mu(object):
+	'''
 	
+	'''	
+	def __init__(self, Z, ref_l1, ref_l2bar, w_l2, N, M, num_blocks=200, intercept=True):
+		self.N = N
+		self.M = M
+		self.M_tot = float(np.sum(M))
+		self.n_annot = ref_l1.shape[1]
+		self.n_snp = ref_l1.shape[0]
+		chisq = np.square(Z)
+		self.agg_hsq = self._aggregate(chisq, np.mean(w_l2), len(w_l2))
+		#weights = _mu_weights(w_l2, w_l2, N, self.M_tot, self.agg_hsq) 
+		#self.weights=weights
+		weights = np.ones_like(w_l2)
+		print weights.shape
+		if np.all(weights == 0):
+			raise ValueError('Something is wrong, all regression weights are zero.')	
+
+		x = np.multiply(np.sqrt(N), ref_l1)
+		if intercept:
+			x = _append_intercept(x)
+	
+		x = _weight(x, weights)
+		y = _weight(Z, weights)
+		self._jknife = LstsqJackknife(x, y, num_blocks)
+		self.autocor = self._jknife.autocor(1)
+		no_intercept_cov = self._jknife.jknife_cov[0:self.n_annot,0:self.n_annot]
+		self.mu_cov = no_intercept_cov
+		self.cat_mu = self._jknife.est[0,0:self.n_annot]
+		self.cat_mu_se = self._jknife.jknife_se[0,0:self.n_annot]
+		if intercept:
+			self.intercept = self._jknife.est[0,self.n_annot]
+			self.intercept_se = self._jknife.jknife_se[0,self.n_annot]
+		#self.tot_mu = np.sum(np.square(self.cat_mu))
+		#self.tot_mu_se = np.sqrt(np.sum(M*self._jknife.jknife_cov[0:self.n_annot,\
+		#	0:self.n_annot]*self.M.T))
+		
+		#self.prop_hsq = self.cat_hsq / self.tot_hsq
+		#self.M_prop = self.M / self.M_tot
+		#self.enrichment = np.divide(self.cat_hsq, self.M) / (self.tot_hsq/self.M_tot)
+		
+	def _aggregate(self, chisq, lbar, M_tot):
+		'''Aggregate estimator. For use in regression weights.'''
+		numerator = np.mean(chisq) - 1.0
+		denominator = lbar 
+		agg = numerator / denominator
+		return agg
+
 
 class Hsq(object):
-
 	'''
 	The conflict between python and genetics capitalization conventions (capitalize 
 	objects, but additive heritability is lowercase) makes me sad :-(
