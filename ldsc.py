@@ -74,6 +74,7 @@ def _print_intercept(h2hat):
 	out.append( 'Observed scale h2: '+str(h2hat.tot_hsq)+' ('+str(h2hat.tot_hsq_se)+')')
 	out.append( 'Lambda GC: '+ str(h2hat.lambda_gc))
 	out.append( 'Mean Chi^2: '+ str(h2hat.mean_chisq))
+	out.append( 'Weighted Mean Chi^2: '+ str(h2hat.w_mean_chisq))
 	out.append( 'Intercept: '+ str(h2hat.intercept)+' ('+str(h2hat.intercept_se)+')')
 	out.append( 'Ratio: '+str(h2hat.ratio))
 	out = '\n'.join(out)
@@ -90,6 +91,9 @@ def _print_hsq(h2hat, ref_ld_colnames):
 	out.append( 'Proportion of SNPs: '+str(h2hat.M_prop))
 	out.append( 'Proportion of h2g: ' +str(h2hat.prop_hsq))
 	out.append( 'Enrichment: '+str(h2hat.enrichment))		
+	out.append( 'Coefficients: '+str(h2hat.coef))
+	out.append( 'Lambda GC: '+ str(h2hat.lambda_gc))
+	out.append( 'Mean Chi^2: '+ str(h2hat.mean_chisq))
 	out.append( 'Intercept: '+ str(h2hat.intercept)+' ('+str(h2hat.intercept_se)+')')
 	out = '\n'.join(out)
 	return out
@@ -561,9 +565,12 @@ def sumstats(args):
 		log.log('Estimating LD Score regression intercept')
 		# filter out large-effect loci
 		max_N = np.max(sumstats['N'])
-		max_chisq = max(0.01*max_N, 20)
-		sumstats = sumstats[sumstats['CHISQ'] < max_chisq]
-		log_msg = 'After filtering on chi^2 < {C}, {N} SNPs remain.'
+		
+		if not args.no_filter_chisq:
+			max_chisq = max(0.001*max_N, 20)
+			sumstats = sumstats[sumstats['CHISQ'] < max_chisq]
+			log_msg = 'After filtering on chi^2 < {C}, {N} SNPs remain.'
+	
 		snp_count = len(sumstats)
 		if snp_count == 0:
 			raise ValueError(log_msg.format(C=max_chisq, N='no'))
@@ -794,7 +801,8 @@ if __name__ == '__main__':
 		help='Filename prefix for file with LD Scores with sum r^2 taken over SNPs included in the regression.')
 	parser.add_argument('--regression-snp-ld-chr', default=None, type=str,
 		help='Filename prefix for file with LD Scores with sum r^2 taken over SNPs included in the regression, split across 22 chromosomes.')
-	
+	parser.add_argument('--no-filter-chisq', default=False, action='store_true',
+		help='For use with --sumstats-intercept. Don\'t remove SNPs with large chi-square.')
 
 	parser.add_argument('--no-intercept', action='store_true',
 		help = 'Constrain the regression intercept to be 1.')

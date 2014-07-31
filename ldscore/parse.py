@@ -186,28 +186,58 @@ def betaprod_fromchisq(chisq1, chisq2, allele1, allele2):
 	The allele files have a SNP column and an INC_ALLELE, and INC_ALLELE.
 	'''
 
-	df_chisq1 = pd.read_csv(chisq1, delim_whitespace=True)
+	df_chisq1 = chisq(chisq1)
 	df_chisq1['BETAHAT1'] = np.sqrt(df_chisq1['CHISQ'])/np.sqrt(df_chisq1['N'])
 	df_chisq1.rename(columns={'N':'N1'},inplace=True)
 	del df_chisq1['CHISQ']
 
-	df_chisq2 = pd.read_csv(chisq2, delim_whitespace=True)
+	df_chisq2 = chisq(chisq2)
 	df_chisq2['BETAHAT2'] = np.sqrt(df_chisq2['CHISQ'])/np.sqrt(df_chisq2['N'])
 	df_chisq2.rename(columns={'N':'N2'},inplace=True)
 	del df_chisq2['CHISQ']
 	df_merged = pd.merge(df_chisq1,df_chisq2, how='inner', on='SNP')
 	
-	df_allele1 = pd.read_csv(allele1, delim_whitespace=True)
+	df_allele1 = pd.allele(allele1, delim_whitespace=True)
 	df_allele1.rename(columns={'INC_ALLELE':'INC_ALLELE1'},inplace=True)
 	df_merged = pd.merge(df_merged,df_allele1,how='inner', on='SNP')
 
-	df_allele2 = pd.read_csv(allele2, delim_whitespace=True)
+	df_allele2 = pd.allele(allele2, delim_whitespace=True)
 	df_allele2.rename(columns={'INC_ALLELE':'INC_ALLELE2'},inplace=True)
 	df_merged = pd.merge(df_merged,df_allele2,how='inner', on='SNP')
 
 	df_merged['BETAHAT2'] *= (-1)**(df_merged.INC_ALLELE1 != df_merged.INC_ALLELE2)
 
 	return df_merged
+
+
+def allele(fh):
+	'''
+	Parses .allele or .allele.gz files. See docs/file_formats_sumstats.txt
+	
+	'''
+	dtype_dict = {
+		'SNP' : str,
+		'INC_ALLELE': str
+	}	
+	
+	if fh.endswith('gz'):
+		compression='gzip'
+	elif fh.endswith('bz2'):
+		compression='bz2'
+	else:
+		compression=None
+
+	try:
+		dat = pd.read_csv(fh, delim_whitespace=True, compression=compression, header=0)
+	except AttributeError as e:
+		raise AttributeError('Improperly formatted allele file: '+str(e.args))
+	
+	try:
+		check_rsid(dat['SNP'])
+	except KeyError as e:
+		raise KeyError('No column named SNP in .betaprod: '+str(e.args))
+	
+	return dat
 
 
 def betaprod(fh):
