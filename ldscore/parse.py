@@ -5,6 +5,17 @@ from scipy.special import chdtri
 import gzip
 
 
+def get_compression(fh):
+	'''Which sort of compression should we use with pd.read_csv?'''
+	if fh.endswith('gz'):
+		compression='gzip'
+	elif fh.endswith('bz2'):
+		compression='bz2'
+	else:
+		compression=None
+	return compression
+
+
 def filter_df(df, colname, pred):
 	'''
 	Filters df down to those rows where pred applied to colname returns True
@@ -119,7 +130,54 @@ def check_N(N):
 		raise ValueError('Negative N.')
 
 
+def cut_cts(vec, breaks):
+	'''Cuts vectors for --cts-bin.'''
+	
+	max_cts = np.max(vec)
+	min_cts = np.min(vec)
+	cut_breaks = list(breaks)
+	name_breaks = list(cut_breaks)
+	if np.all(cut_breaks >= max_cts) or np.all(cut_breaks <= min_cts):
+		raise ValueError('All breaks lie outside the range of the cts variable.')
+
+	if np.all(cut_breaks <= max_cts):
+		name_breaks.append(max_cts)
+		cut_breaks.append(max_cts+1)
+		
+	if np.all(cut_breaks >= min_cts):	
+		name_breaks.append(min_cts)
+		cut_breaks.append(min_cts-1)
+
+	name_breaks.sort()
+	cut_breaks.sort()		
+	n_breaks = len(cut_breaks)
+	# so that col names are consistent across chromosomes with different max vals
+	name_breaks[0] = 'min'
+	name_breaks[-1] = 'max'
+	name_breaks = [str(x) for x in name_breaks]
+	labs = [name_breaks[i]+'_'+name_breaks[i+1] for i in xrange(n_breaks-1)]
+	print labs
+	print cut_breaks
+	cut_vec = pd.Series(pd.cut(vec, bins=cut_breaks, labels=labs))
+	return cut_vec
+
+
 # parsers
+
+def read_cts(fh, match_snps):
+	'''Reads files for --cts-bin.'''
+	comp = get_compression(fh)
+	cts = pd.read_csv(fh, header=None, delim_whitespace=True, compression=comp)
+	cts.rename( columns={0: 'SNP', 1: 'ANNOT'}, inplace=True)
+	check_rsid(cts.SNP)
+	snp = cts.SNP.values
+	if len(snp) != len(match_snps) or np.any(snp != match_snps):
+		msg = 'All --cts-bin files must contain the same SNPs in the same '
+		msg += 'order as the .bim file.'
+		raise ValueError(msg)
+
+	return cts.ANNOT.values
+
 
 def chisq(fh):
 	'''
@@ -220,15 +278,9 @@ def allele(fh):
 		'INC_ALLELE': str
 	}	
 	
-	if fh.endswith('gz'):
-		compression='gzip'
-	elif fh.endswith('bz2'):
-		compression='bz2'
-	else:
-		compression=None
-
+	comp = get_compression(fh)
 	try:
-		dat = pd.read_csv(fh, delim_whitespace=True, compression=compression, header=0)
+		dat = pd.read_csv(fh, delim_whitespace=True, compression=comp, header=0)
 	except AttributeError as e:
 		raise AttributeError('Improperly formatted allele file: '+str(e.args))
 	
@@ -487,17 +539,9 @@ def __ID_List_Factory__(colnames, keepcol, fname_end, header=None, usecols=None)
 			if end and not fname.endswith(end):
 				raise ValueError('{f} filename must end in {f}'.format(f=end))
 			
-			if fname.endswith('gz'):
-				self.df = pd.read_csv(fname, header=self.__header__, usecols=self.__usecols__, 
-					delim_whitespace=True, compression='gzip')
-			elif fname.endswith('bz2'):
-				self.df = pd.read_csv(fname, header=self.__header__, usecols=self.__usecols__, 
-					delim_whitespace=True, compression='bz2')
-			else:
-				self.df = pd.read_csv(fname, header=self.__header__, usecols=self.__usecols__, 
-					delim_whitespace=True)
-			
-			
+			comp = get_compression(fname)
+			self.df = pd.read_csv(fname, header=self.__header__, usecols=self.__usecols__, 
+				delim_whitespace=True, compression=comp)
 			#if np.any(self.df.duplicated(self.df.columns[self.__keepcol__])):
 			#	raise ValueError('Duplicate Entries in Filter File')
 

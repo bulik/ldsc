@@ -181,70 +181,47 @@ def ldscore(args):
 	
 	# read --cts-bin plus --cts-breaks
 	elif args.cts_bin is not None and args.cts_breaks is not None:
-			
+		# read fileames
+		cts_fnames = args.cts_bin.split(',')
 		# read breaks
+		# replace N with negative sign
 		args.cts_breaks = args.cts_breaks.replace('N','-')
+		# split on x
 		try:
-			breaks = [float(x) for x in args.cts_breaks.split(',')]
+			breaks = [[float(x) for x in y.split(',')] for y in args.cts_breaks.split('x')]
 		except ValueError as e:
-			raise ValueError('--cts-breaks must be a comma-separated list of numbers: '+str(e.args))
-					
-		# read cts variable
-		log.log('Reading numbers with which to bin SNPs from {F}'.format(F=args.cts_bin))
-		if args.cts_bin.endswith('gz'):
-			comp = 'gzip'
-		elif args.cts_bin.endswith('bz2'):
-			comp = 'bz2'
+			raise ValueError('--cts-breaks must be a comma-separated list of numbers: '
+				+str(e.args))
+	
+		if len(breaks) != len(cts_fnames):
+			raise ValueError('Need to specify one set of breaks for each file in --cts-bin.')
+		
+		if args.cts_names:
+			cts_colnames = [str(x) for x in args.cts_names.split(',')]
+			if len(cts_colnames) != len(cts_fnames):
+				msg = 'Must specify either no --cts-names or one value for each file in --cts-bin.'
+				raise ValueError(msg)
+
 		else:
-			comp = None
+			cts_colnames = ['ANNOT_'+str(i) for i in xrange(len(cts_fnames))]
 			
-		cts = pd.read_csv(args.cts_bin, header=None, delim_whitespace=True, compression=comp)
-		cts.rename( columns={0: 'SNP', 1: 'ANNOT'}, inplace=True)
-		ps.check_rsid(cts.SNP)
-		if len(cts.SNP.values) != len(array_snps.df.SNP.values) or\
-			np.any(cts.SNP.values != array_snps.df.SNP.values):
-			raise ValueError('The --cts-bin file must contain the same SNPs in the same'+\
-				' order as the .bim or .snp file')
-		
-		max_cts = max(cts.ANNOT)
-		min_cts = min(cts.ANNOT)
-		name_breaks = list(breaks)
-		if np.all(breaks >= max_cts) or np.all(breaks <= min_cts):
-			raise ValueError('All breaks lie outside the range of the cts variable.')
-			
-		if np.all(breaks <= max_cts):
-			name_breaks.append(max_cts)
-			breaks.append(max_cts+1)
-		
-		if np.all(breaks >= min_cts):	
-			name_breaks.append(min_cts)
-			breaks.append(min_cts-1)
-		
-		name_breaks.sort()
-		# so that col names are consistent across chromosomes with different max vals
-		name_breaks[0] = 'min'
-		name_breaks[-1] = 'max'
-		breaks.sort()		
-		log.log('Binning SNPs based on {F} with breakpoints {B}'.format(F=args.cts_bin,
-			B=breaks))	
-		num_annots = len(breaks) - 1
-		annot_colnames = ['bin_'+str(name_breaks[i])+'_'+str(name_breaks[i+1]) 
-			for i in xrange(num_annots) ] 
-		
-		# bin and produce annot matrix
-		annot_matrix = np.matrix(np.zeros((m, num_annots)))
-		for i in xrange(num_annots):
-			# this works because we have added a little padding to the first and last 
-			# entries in breaks
-			ii = np.logical_and(cts.ANNOT >= breaks[i], cts.ANNOT < breaks[i+1] ).values
-			annot_matrix[ii, i] = 1
-			
-		if np.any(np.sum(annot_matrix, axis=1) == 0):
-			# This exception should never be raised. For debugging only.
-			raise ValueError('Some SNPs have no annotation in --cts-bin. This is a bug!')
-						
+		log.log('Reading numbers with which to bin SNPs from {F}'.format(F=args.cts_bin))
+		annot_matrix = pd.concat([ps.cut_cts(ps.read_cts(cts_fnames[i], 
+			array_snps.df.SNP.values), breaks[i]) 
+			for i in xrange(len(breaks))], axis=1)
+		annot_matrix.columns = cts_colnames
+		# crosstab -- note empty columns removed automatically by pandas
+		annot_matrix = pd.crosstab(annot_matrix.index, 
+			[annot_matrix[i] for i in annot_matrix.columns])
+		annot_colnames = ['_'.join([cts_colnames[i]+'_'+b for i,b in enumerate(c)])
+			for c in annot_matrix.columns]
+		annot_matrix = np.matrix(annot_matrix)
 		keep_snps = None
-			
+		num_annots = len(annot_colnames)
+		if np.any(np.sum(annot_matrix, axis=1) == 0):
+ 			# This exception should never be raised. For debugging only.
+ 			raise ValueError('Some SNPs have no annotation in --cts-bin. This is a bug!')
+ 			
 	else:
 		annot_matrix, annot_colnames, keep_snps = None, None, None, 
 		num_annots = 1
@@ -293,7 +270,9 @@ def ldscore(args):
 	scale_suffix = ''
 	if args.pq_exp is not None:
 		log.log('Computing LD with pq ^ {S}.'.format(S=args.pq_exp))
-		log.log('Note that LD Scores with pq raised to a nonzero power are not directly comparable to normal LD Scores')
+		msg = 'Note that LD Scores with pq raised to a nonzero power are'
+		msg += 'not directly comparable to normal LD Scores.'
+		log.log(msg)
 		scale_suffix = '_S{S}'.format(S=args.pq_exp)
 		pq = np.matrix(geno_array.maf*(1-geno_array.maf)).reshape((geno_array.m,1))
 		pq = np.power(pq, args.pq_exp)
@@ -399,17 +378,26 @@ def ldscore(args):
 	call(['gzip', '-f', out_fname])
 
 	# print .M
-	fout_M = open(args.out + '.'+ file_suffix +'.M','wb')
 	if annot_matrix is not None:
 		M = np.atleast_1d(np.squeeze(np.asarray(np.sum(annot_matrix, axis=0))))
+		ii = geno_array.maf > 0.05
+		M_common = np.atleast_1d(np.squeeze(np.asarray(np.sum(annot_matrix[ii,:], axis=0))))
 	else:
 		M = [geno_array.m]
+		M_common = np.sum(geno_array.maf > 0.05)
 	
+	# print .M
+	fout_M = open(args.out + '.'+ file_suffix +'.M','wb')
 	print >>fout_M, '\t'.join(map(str,M))
 	fout_M.close()
-	pd.set_option('display.max_rows', 200)
+	
+	# print .M_common
+	fout_M_common = open(args.out + '.'+ file_suffix +'.M_common','wb')
+	print >>fout_M_common, '\t'.join(map(str,M_common))
+	fout_M_common.close()
 
-	# print LD Score summary
+	# print LD Score summary	
+	pd.set_option('display.max_rows', 200)
 	log.log('')
 	log.log('Summary of {F}:'.format(F=out_fname))
 	t = df.ix[:,4:].describe()
@@ -421,7 +409,6 @@ def ldscore(args):
 	log.log( df.ix[:,4:].corr() )
 		
 
-	
 def sumstats(args):
 	'''
 	Wrapper function for estmating
@@ -448,7 +435,8 @@ def sumstats(args):
 			log.log('Reading summary statistics from {S}.'.format(S=args.sumstats_gencor))
 			sumstats = ps.betaprod(args.sumstats_gencor)
 		elif args.sumstats_gencor_fromchisq:
-			sumstats = ps.betaprod_fromchisq(args.chisq1, args.chisq2, args.allele1, args.allele2)
+			sumstats = ps.betaprod_fromchisq(args.chisq1, args.chisq2, args.allele1, 
+				args.allele2)
 	except ValueError as e:
 		log.log('Error parsing summary statistics.')
 		raise e
@@ -467,20 +455,39 @@ def sumstats(args):
 		log.log('Error parsing reference LD.')
 		raise e
 				
-	# read .M or --M
-	if args.M is None:
-		if args.ref_ld:
-			M_annot = ps.M(args.ref_ld)	
-		elif args.ref_ld_chr:
-			M_annot = ps.M(args.ref_ld_chr, 22)
-
+	# read --M
+	if args.M:
+		try:
+			M_annot = [float(x) for x in args.M.split(',')]
+		except TypeError as e:
+			raise TypeError('Count not case --M to float: ' + str(e.args))
+		
+		if len(M_annot) != len(ref_ldscores.columns) - 1:
+			msg = 'Number of comma-separated terms in --M must match the number of partitioned'
+			msg += 'LD Scores in --ref-ld'
+			raise ValueError(msg)
+		
+	# read .M or --M-file			
+	else:
+		if args.M_file:
+			if args.ref_ld:
+				M_annot = ps.M(args.M_file)	
+			elif args.ref_ld_chr:
+				M_annot = ps.M(M_file, 22)
+		else:
+			if args.ref_ld:
+				M_annot = ps.M(args.ref_ld)	
+			elif args.ref_ld_chr:
+				M_annot = ps.M(args.ref_ld_chr, 22)
+		
 		# filter ref LD down to those columns specified by --keep-ld
 		if args.keep_ld is not None:
 			try:
 				keep_M_indices = [int(x) for x in args.keep_ld.split(',')]
 				keep_ld_colnums = [int(x)+1 for x in args.keep_ld.split(',')]
 			except ValueError as e:
-				raise ValueError('--keep-ld must be a comma-separate list of column numbers: '+str(e.args))
+				raise ValueError('--keep-ld must be a comma-separate list of column numbers: '\
+					+str(e.args))
 	
 			if len(keep_ld_colnums) == 0:
 				raise ValueError('No reference LD columns retained by --keep-ld')
@@ -491,16 +498,7 @@ def sumstats(args):
 				ref_ldscores = ref_ldscores.ix[:,keep_ld_colnums]
 			except IndexError as e:
 				raise IndexError('--keep-ld column numbers are out of bounds: '+str(e.args))
-
-	elif args.M is not None:
-		try:
-			M_annot = [float(x) for x in args.M.split(',')]
-		except TypeError as e:
-			raise TypeError('Count not case --M to float: ' + str(e.args))
 		
-		if len(M_annot) != len(ref_ldscores.columns) - 1:
-			raise ValueError('Number of comma-separated terms in --M must match the number of partitioned LD Scores in --ref-ld')
-					
 	log.log('Using M = '+str(M_annot))
 	if np.any(ref_ldscores.iloc[:,1:len(ref_ldscores.columns)].var(axis=0) == 0):
 		raise ValueError('Zero-variance LD Score. Possibly an empty column?')
@@ -562,10 +560,9 @@ def sumstats(args):
 
 	# LD Score regression intercept
 	if args.sumstats_intercept:
-		log.log('Estimating LD Score regression intercept')
+		log.log('Estimating LD Score regression intercept.')
 		# filter out large-effect loci
 		max_N = np.max(sumstats['N'])
-		
 		if not args.no_filter_chisq:
 			max_chisq = max(0.001*max_N, 20)
 			sumstats = sumstats[sumstats['CHISQ'] < max_chisq]
@@ -591,8 +588,7 @@ def sumstats(args):
 
 	# LD Score regression to estimate h2
 	elif args.sumstats_h2:
-		log.log('Estimating heritability')
-		
+		log.log('Estimating heritability.')
 		snp_count = len(sumstats); n_annot = len(ref_ld_colnames)
 		ref_ld = np.matrix(sumstats[ref_ld_colnames]).reshape((snp_count, n_annot))
 		w_ld = np.matrix(sumstats[w_ld_colname]).reshape((snp_count, 1))
@@ -602,7 +598,7 @@ def sumstats(args):
 		del sumstats
 
 		if args.no_intercept:
-			log.log('Constraining LD Score regression intercept = 1' )
+			log.log('Constraining LD Score regression intercept = 1.' )
 			h2hat = jk.Hsq_nointercept(chisq, ref_ld, w_ld, N, M_annot, args.num_blocks,
 				args.non_negative)
 			log.log(_print_hsq_nointercept(h2hat, ref_ld_colnames))
@@ -610,7 +606,7 @@ def sumstats(args):
 			if args.annot:
 				annot = ps.AnnotFile(args.annot)
 				num_annots,ma = len(annot.df.columns) - 4, len(annot.df)
-				log.log("Read {A} annotations for {M} SNPs from {f}".format(f=args.annot,A=num_annots,
+				log.log("Read {A} annotations for {M} SNPs from {f}.".format(f=args.annot,A=num_annots,
 			M=ma))
 				annot_matrix = np.matrix(annot.df.iloc[:,4:])
 			else:
@@ -627,7 +623,6 @@ def sumstats(args):
 	# LD Score regression to estimate genetic correlation
 	elif args.sumstats_gencor or args.sumstats_gencor_fromchisq:
 		log.log('Estimating genetic correlation.')
-		
 		snp_count = len(sumstats); n_annot = len(ref_ld_colnames)
 		ref_ld = np.matrix(sumstats[ref_ld_colnames]).reshape((snp_count, n_annot))
 		w_ld = np.matrix(sumstats[w_ld_colname]).reshape((snp_count, 1))
@@ -735,7 +730,9 @@ if __name__ == '__main__':
 		help='Filename prefix for cts binned LD Score estimation')
 	parser.add_argument('--cts-breaks', default=None, type=str, 
 		help='Comma separated list of breaks for --cts-bin. Specify negative numbers with an N instead of a -')
-		
+	parser.add_argument('--cts-names', default=None, type=str, 
+		help='Comma separated list of column names for --cts-bin.')
+
 	# Filtering / Data Management for LD Score
 	parser.add_argument('--extract', default=None, type=str, 
 		help='File with SNPs to include in LD Score analysis, one ID per row.')
@@ -765,8 +762,6 @@ if __name__ == '__main__':
 		help='Estimate l4. Only compatible with jackknife.')
 	parser.add_argument('--print-snps', default=None, type=str,
 		help='Only print LD Scores for these SNPs.')
-		
-	
 	parser.add_argument('--se', action='store_true', 
 		help='Block jackknife SE? (Warning: somewhat slower)')
 	parser.add_argument('--yes-really', default=False, action='store_true',
@@ -803,7 +798,6 @@ if __name__ == '__main__':
 		help='Filename prefix for file with LD Scores with sum r^2 taken over SNPs included in the regression, split across 22 chromosomes.')
 	parser.add_argument('--no-filter-chisq', default=False, action='store_true',
 		help='For use with --sumstats-intercept. Don\'t remove SNPs with large chi-square.')
-
 	parser.add_argument('--no-intercept', action='store_true',
 		help = 'Constrain the regression intercept to be 1.')
 	parser.add_argument('--non-negative', action='store_true',
@@ -812,7 +806,9 @@ if __name__ == '__main__':
 		help = 'Use the aggregate estimator.')
 	parser.add_argument('--M', default=None, type=str,
 		help='# of SNPs (if you don\'t want to use the .l2.M files that came with your .l2.ldscore.gz files)')
-
+	parser.add_argument('--M-file', default=None, type=str,
+		help='Alternate .M file (e.g., if you want to use .M_common).')
+		
 	# Filtering for sumstats
 	parser.add_argument('--info-min', default=None, type=float,
 		help='Minimum INFO score for SNPs included in the regression.')
@@ -841,14 +837,9 @@ if __name__ == '__main__':
 	parser.add_argument('--freq', default=False, action='store_true',
 		help='Compute reference allele frequencies (useful for .bin files).')
 		
-
-	
 	args = parser.parse_args()
 		
-	
-	
 	if args.freq:
-		
 		if (args.bfile is not None) == (args.bin is not None):
 			raise ValueError('Must set exactly one of --bin or --bfile for use with --freq') 
 	
@@ -856,30 +847,22 @@ if __name__ == '__main__':
 
 	# LD Score estimation
 	elif (args.bin is not None or args.bfile is not None) and (args.l1 or args.l1sq or args.l2 or args.l4):
-		
 		if np.sum((args.l1, args.l2, args.l1sq, args.l4)) != 1:
 			raise ValueError('Must specify exactly one of --l1, --l1sq, --l2, --l4 for LD estimation.')
 		if args.bfile and args.bin:
 			raise ValueError('Cannot specify both --bin and --bfile.')
-		
 		if args.block_size is None: # default jackknife block size for LD Score regression
 			args.block_size = 100
-		
 		if args.annot is not None and args.extract is not None:
 			raise ValueError('--annot and --extract are currently incompatible.')
-		
 		if args.cts_bin is not None and args.extract is not None:
 			raise ValueError('--cts-bin and --extract are currently incompatible.')
-		
 		if args.annot is not None and args.cts_bin is not None:
-			raise ValueError('--annot and --cts-bin are currently incompatible.')
-		
+			raise ValueError('--annot and --cts-bin are currently incompatible.')	
 		if (args.cts_bin is not None) != (args.cts_breaks is not None):
 			raise ValueError('Must set both or neither of --cts-bin and --cts-breaks.')
-		
 		if args.per_allele and args.pq_exp is not None:
 			raise ValueError('Cannot set both --per-allele and --pq-exp (--per-allele is equivalent to --pq-exp 1).')
-			
 		if args.per_allele:
 			args.pq_exp = 1
 		
@@ -889,21 +872,18 @@ if __name__ == '__main__':
 	elif (args.sumstats_h2 or args.sumstats_gencor or args.sumstats_intercept or args.sumstats_gencor_fromchisq) and\
 		(args.ref_ld or args.ref_ld_chr) and\
 		(args.regression_snp_ld or args.regression_snp_ld_chr):
-	
+		
 		if np.sum(np.array((args.sumstats_intercept, args.sumstats_h2, args.sumstats_gencor)).astype(bool)) > 1:	
 			raise ValueError('Cannot specify more than one of --sumstats-h2, --sumstats-gencor, --sumstats-intercept.')
-		
 		if args.ref_ld and args.ref_ld_chr:
 			raise ValueError('Cannot specify both --ref-ld and --ref-ld-chr.')--pq-exp
-		
 		if args.regression_snp_ld and args.regression_snp_ld_chr:
 			raise ValueError('Cannot specify both --regression-snp-ld and --regression-snp-ld-chr.')
-		
 		if args.rho or args.overlap:
 			if not args.sumstats_gencor:
 				raise ValueError('--rho and --overlap can only be used with --sumstats-gencor.')
 			if not (args.rho and args.overlap):
-				raise ValueError('Must specify either both or neither of --rho and --overlap')
+				raise ValueError('Must specify either both or neither of --rho and --overlap.')
 		
 		if args.block_size is None: # default jackknife block size for h2/gencor
 			args.block_size = 2000
