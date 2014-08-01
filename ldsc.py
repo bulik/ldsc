@@ -181,7 +181,7 @@ def ldscore(args):
 	
 	# read --cts-bin plus --cts-breaks
 	elif args.cts_bin is not None and args.cts_breaks is not None:
-		# read fileames
+		# read filenames
 		cts_fnames = args.cts_bin.split(',')
 		# read breaks
 		# replace N with negative sign
@@ -371,7 +371,6 @@ def ldscore(args):
 		else:
 			msg = 'After merging with --print-snps, LD Scores for {N} SNPs will be printed.'
 			log.log(msg.format(N=len(df)))
-		
 	
 	log.log("Writing LD Scores for {N} SNPs to {f}.gz".format(f=out_fname, N=len(df)))
 	df.to_csv(out_fname, sep="\t", header=True, index=False)	
@@ -384,7 +383,7 @@ def ldscore(args):
 		M_common = np.atleast_1d(np.squeeze(np.asarray(np.sum(annot_matrix[ii,:], axis=0))))
 	else:
 		M = [geno_array.m]
-		M_common = np.sum(geno_array.maf > 0.05)
+		M_common = [np.sum(geno_array.maf > 0.05)]
 	
 	# print .M
 	fout_M = open(args.out + '.'+ file_suffix +'.M','wb')
