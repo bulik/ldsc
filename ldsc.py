@@ -210,9 +210,9 @@ def ldscore(args):
 			array_snps.df.SNP.values), breaks[i]) 
 			for i in xrange(len(breaks))], axis=1)
 		annot_matrix.columns = cts_colnames
-		# crosstab -- note empty columns removed automatically by pandas
+		# crosstab -- for now we keep empty columns
 		annot_matrix = pd.crosstab(annot_matrix.index, 
-			[annot_matrix[i] for i in annot_matrix.columns])
+			[annot_matrix[i] for i in annot_matrix.columns, dropna=False])
 		annot_colnames = ['_'.join([cts_colnames[i]+'_'+b for i,b in enumerate(c)])
 			for c in annot_matrix.columns]
 		annot_matrix = np.matrix(annot_matrix)
@@ -504,9 +504,11 @@ def sumstats(args):
 				raise IndexError('--keep-ld column numbers are out of bounds: '+str(e.args))
 		
 	log.log('Using M = '+str(M_annot))
-	if np.any(ref_ldscores.iloc[:,1:len(ref_ldscores.columns)].var(axis=0) == 0):
-		raise ValueError('Zero-variance LD Score. Possibly an empty column?')
-	
+	ii = ref_ldscores.iloc[:,1:len(ref_ldscores.columns)].var(axis=0) == 0
+	if np.any(ii):
+		log.log('Removing partitioned LD Scores with zero variance')
+		ref_ldscores = ref_ldscores.ix[:,ii]
+			
 	log_msg = 'Read reference panel LD Scores for {N} SNPs.'
 	log.log(log_msg.format(N=len(ref_ldscores)))
 
