@@ -495,7 +495,7 @@ def l1(fh, num=None):
 	return x
 
 
-def M(fh, num=None, N=2):
+def M(fh, num=None, N=2, common=None):
 	'''
 	Parses .l{N}.M files. See docs/file_formats_ld.txt.
 	
@@ -504,7 +504,10 @@ def M(fh, num=None, N=2):
 
 	'''
 	parsefunc = lambda y : [float(z) for z in open(y, 'r').readline().split()]
-	suffix = '.l'+str(N)+'.M'
+	if common:
+		suffix = '.l'+str(N)+'.M_common'
+	else:
+		suffix = '.l'+str(N)+'.M'
 	if num is not None:
 		if '@' in fh:
 			x = np.sum([parsefunc(fh.replace('@',str(i))+suffix) for i in xrange(1,num+1)], axis=0)

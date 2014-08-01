@@ -474,6 +474,10 @@ def sumstats(args):
 				M_annot = ps.M(args.M_file)	
 			elif args.ref_ld_chr:
 				M_annot = ps.M(M_file, 22)
+		elif args.M_common:
+				M_annot = ps.M(args.ref_ld, common=True)	
+			elif args.ref_ld_chr:
+				M_annot = ps.M(args.ref_ld_chr, 22, common=True)
 		else:
 			if args.ref_ld:
 				M_annot = ps.M(args.ref_ld)	
@@ -808,6 +812,8 @@ if __name__ == '__main__':
 		help='# of SNPs (if you don\'t want to use the .l2.M files that came with your .l2.ldscore.gz files)')
 	parser.add_argument('--M-file', default=None, type=str,
 		help='Alternate .M file (e.g., if you want to use .M_common).')
+	parser.add_argument('--M-common', default=None, type=str,
+		help='Use .M_common file by default.')
 		
 	# Filtering for sumstats
 	parser.add_argument('--info-min', default=None, type=float,
