@@ -505,7 +505,7 @@ def M(fh, num=None, N=2, common=None):
 	'''
 	parsefunc = lambda y : [float(z) for z in open(y, 'r').readline().split()]
 	if common:
-		suffix = '.l'+str(N)+'.M_common'
+		suffix = '.l'+str(N)+'.M_5_50'
 	else:
 		suffix = '.l'+str(N)+'.M'
 	if num is not None:

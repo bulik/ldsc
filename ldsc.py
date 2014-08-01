@@ -391,7 +391,7 @@ def ldscore(args):
 	fout_M.close()
 	
 	# print .M_common
-	fout_M_common = open(args.out + '.'+ file_suffix +'.M_common','wb')
+	fout_M_common = open(args.out + '.'+ file_suffix +'.M_5_50','wb')
 	print >>fout_M_common, '\t'.join(map(str,M_common))
 	fout_M_common.close()
 
@@ -812,8 +812,8 @@ if __name__ == '__main__':
 		help='# of SNPs (if you don\'t want to use the .l2.M files that came with your .l2.ldscore.gz files)')
 	parser.add_argument('--M-file', default=None, type=str,
 		help='Alternate .M file (e.g., if you want to use .M_common).')
-	parser.add_argument('--M-common', default=None, type=str,
-		help='Use .M_common file by default.')
+	parser.add_argument('--M-5-50', default=None, type=str,
+		help='Use .M_5-50 file by default.')
 		
 	# Filtering for sumstats
 	parser.add_argument('--info-min', default=None, type=float,
