@@ -366,6 +366,7 @@ class Hsq(object):
 		x = _weight(x, weights)
 		y = _weight(chisq, weights)
 		
+		self.w_mean_chisq = np.average(chisq, weights=weights)
 		if non_negative:
 			self._jknife = LstsqJackknifeNN(x, y, num_blocks)
 		else:
@@ -373,6 +374,7 @@ class Hsq(object):
 		self.autocor = self._jknife.autocor(1)
 		no_intercept_cov = self._jknife.jknife_cov[0:self.n_annot,0:self.n_annot]
 		self.hsq_cov = np.multiply(np.dot(self.M.T,self.M), no_intercept_cov)
+		self.coef = self._jknife.est
 		self.cat_hsq = np.multiply(self.M, self._jknife.est[0,0:self.n_annot])
 		self.cat_hsq_se = np.multiply(self.M, self._jknife.jknife_se[0,0:self.n_annot])
 		self.intercept = self._jknife.est[0,self.n_annot]
