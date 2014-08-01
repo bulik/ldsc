@@ -475,6 +475,7 @@ def sumstats(args):
 			elif args.ref_ld_chr:
 				M_annot = ps.M(M_file, 22)
 		elif args.M_common:
+			if args.ref_ld:
 				M_annot = ps.M(args.ref_ld, common=True)	
 			elif args.ref_ld_chr:
 				M_annot = ps.M(args.ref_ld_chr, 22, common=True)
