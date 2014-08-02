@@ -380,20 +380,20 @@ def ldscore(args):
 	if annot_matrix is not None:
 		M = np.atleast_1d(np.squeeze(np.asarray(np.sum(annot_matrix, axis=0))))
 		ii = geno_array.maf > 0.05
-		M_common = np.atleast_1d(np.squeeze(np.asarray(np.sum(annot_matrix[ii,:], axis=0))))
+		M_5_50 = np.atleast_1d(np.squeeze(np.asarray(np.sum(annot_matrix[ii,:], axis=0))))
 	else:
 		M = [geno_array.m]
-		M_common = [np.sum(geno_array.maf > 0.05)]
+		M_5_50 = [np.sum(geno_array.maf > 0.05)]
 	
 	# print .M
 	fout_M = open(args.out + '.'+ file_suffix +'.M','wb')
 	print >>fout_M, '\t'.join(map(str,M))
 	fout_M.close()
 	
-	# print .M_common
-	fout_M_common = open(args.out + '.'+ file_suffix +'.M_5_50','wb')
-	print >>fout_M_common, '\t'.join(map(str,M_common))
-	fout_M_common.close()
+	# print .M_5_50
+	fout_M_5_50 = open(args.out + '.'+ file_suffix +'.M_5_50','wb')
+	print >>fout_M_5_50, '\t'.join(map(str,M_5_50))
+	fout_M_5_50.close()
 
 	# print LD Score summary	
 	pd.set_option('display.max_rows', 200)
@@ -473,7 +473,7 @@ def sumstats(args):
 				M_annot = ps.M(args.M_file)	
 			elif args.ref_ld_chr:
 				M_annot = ps.M(M_file, 22)
-		elif args.M_common:
+		elif args.M_5_50:
 			if args.ref_ld:
 				M_annot = ps.M(args.ref_ld, common=True)	
 			elif args.ref_ld_chr:
@@ -813,7 +813,7 @@ if __name__ == '__main__':
 	parser.add_argument('--M', default=None, type=str,
 		help='# of SNPs (if you don\'t want to use the .l2.M files that came with your .l2.ldscore.gz files)')
 	parser.add_argument('--M-file', default=None, type=str,
-		help='Alternate .M file (e.g., if you want to use .M_common).')
+		help='Alternate .M file (e.g., if you want to use .M_5_50).')
 	parser.add_argument('--M-5-50', default=False, action='store_true',
 		help='Use .M_5-50 file by default.')
 		
