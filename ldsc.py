@@ -814,7 +814,7 @@ if __name__ == '__main__':
 		help='# of SNPs (if you don\'t want to use the .l2.M files that came with your .l2.ldscore.gz files)')
 	parser.add_argument('--M-file', default=None, type=str,
 		help='Alternate .M file (e.g., if you want to use .M_common).')
-	parser.add_argument('--M-5-50', default=None, type=str,
+	parser.add_argument('--M-5-50', default=False, action='store_true',
 		help='Use .M_5-50 file by default.')
 		
 	# Filtering for sumstats
