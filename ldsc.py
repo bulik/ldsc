@@ -76,7 +76,7 @@ def _print_intercept(h2hat):
 	out.append( 'Mean Chi^2: '+ str(h2hat.mean_chisq))
 	out.append( 'Weighted Mean Chi^2: '+ str(h2hat.w_mean_chisq))
 	out.append( 'Intercept: '+ str(h2hat.intercept)+' ('+str(h2hat.intercept_se)+')')
-	out.append( 'Ratio: '+str(h2hat.ratio))
+	out.append( 'Ratio: '+str(h2hat.ratio)+' ('+str(h2hat.ratio_se+)')
 	out = '\n'.join(out)
 	return out
 	
