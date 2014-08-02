@@ -378,7 +378,7 @@ class Hsq(object):
 		self.cat_hsq = np.multiply(self.M, self._jknife.est[0,0:self.n_annot])
 		self.cat_hsq_se = np.multiply(self.M, self._jknife.jknife_se[0,0:self.n_annot])
 		self.intercept = self._jknife.est[0,self.n_annot]
-		s	elf.intercept_se = self._jknife.jknife_se[0,self.n_annot]
+		self.intercept_se = self._jknife.jknife_se[0,self.n_annot]
 		self.tot_hsq = np.sum(self.cat_hsq)
 		self.tot_hsq_se = np.sqrt(np.sum(M*self._jknife.jknife_cov[0:self.n_annot,\
 			0:self.n_annot]*self.M.T))
