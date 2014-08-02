@@ -212,7 +212,7 @@ def ldscore(args):
 		annot_matrix.columns = cts_colnames
 		# crosstab -- for now we keep empty columns
 		annot_matrix = pd.crosstab(annot_matrix.index, 
-			[annot_matrix[i] for i in annot_matrix.columns, dropna=False])
+			[annot_matrix[i] for i in annot_matrix.columns], dropna=False)
 		annot_colnames = ['_'.join([cts_colnames[i]+'_'+b for i,b in enumerate(c)])
 			for c in annot_matrix.columns]
 		annot_matrix = np.matrix(annot_matrix)
