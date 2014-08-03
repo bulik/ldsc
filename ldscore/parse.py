@@ -259,7 +259,7 @@ def betaprod_fromchisq(chisq1, chisq2, allele1, allele2):
 	df_allele1.rename(columns={'INC_ALLELE':'INC_ALLELE1'},inplace=True)
 	df_merged = pd.merge(df_merged,df_allele1,how='inner', on='SNP')
 
-	df_allele2 = allele(allele2)
+	df_allele2 = allele(allele2	)
 	df_allele2.rename(columns={'INC_ALLELE':'INC_ALLELE2'},inplace=True)
 	df_merged = pd.merge(df_merged,df_allele2,how='inner', on='SNP')
 

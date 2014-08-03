@@ -888,7 +888,7 @@ if __name__ == '__main__':
 		if args.regression_snp_ld and args.regression_snp_ld_chr:
 			raise ValueError('Cannot specify both --regression-snp-ld and --regression-snp-ld-chr.')
 		if args.rho or args.overlap:
-			if not args.sumstats_gencor:
+			if not (args.sumstats_gencor or args.sumstats_gencor_fromchisq):
 				raise ValueError('--rho and --overlap can only be used with --sumstats-gencor.')
 			if not (args.rho and args.overlap):
 				raise ValueError('Must specify either both or neither of --rho and --overlap.')
