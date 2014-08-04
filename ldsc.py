@@ -439,8 +439,17 @@ def sumstats(args):
 			log.log('Reading summary statistics from {S}.'.format(S=args.sumstats_gencor))
 			sumstats = ps.betaprod(args.sumstats_gencor)
 		elif args.sumstats_gencor_fromchisq:
-			sumstats = ps.betaprod_fromchisq(args.chisq1, args.chisq2, args.allele1, 
-				args.allele2)
+			if args.chisq1 and args.chisq2 and args.allele1 and args.allele2:
+				sumstats = ps.betaprod_fromchisq(args.chisq1, args.chisq2, args.allele1, 
+					args.allele2)
+			elif args.chisq1 and args.chisq2:
+				c1 = args.chisq1 + '.chisq.gz'
+				c2 = args.chisq2 + '.chisq.gz'
+				a1 = args.chisq1 + '.allele.gz'
+				a2 = args.chisq2 + '.allele.gz'
+				sumstats = ps.betaprod_fromchisq(c1, c2, a1, a2)
+			else:
+				raise ValueError('Must use --chisq1 and chisq2 flags with --sumstats-gencor-fromchisq.')
 	except ValueError as e:
 		log.log('Error parsing summary statistics.')
 		raise e
