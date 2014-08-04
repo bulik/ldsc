@@ -153,6 +153,8 @@ elif 'N_CAS' in dat.columns:
 	dat['N'] = dat.N_CAS + dat.N_CON
 	del dat['N_CAS']
 	del dat['N_CON']
+elif 'N' in dat.columns:
+	pass
 else:
 	raise ValueError('No N specified.')
 
