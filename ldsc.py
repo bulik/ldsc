@@ -638,7 +638,10 @@ def sumstats(args):
 				args.non_negative)
 			log.log(_print_hsq(h2hat, ref_ld_colnames))
 		return [M_annot,h2hat]
-
+		
+		if args.machine:
+			hsq_jknife_ofh = args.out+'.hsq.jknife'
+			np.savetxt(hsq_jknife_ofh, Hsq.hsq_cov)
 
 	# LD Score regression to estimate genetic correlation
 	elif args.sumstats_gencor or args.sumstats_gencor_fromchisq:
@@ -673,6 +676,14 @@ def sumstats(args):
 		log.log( '-------------------' )
 		log.log( _print_gencor(gchat) )
 		
+		if args.machine:
+			gencor_jknife_ofh = args.out+'.gencor.jknife'
+			hsq1_jknife_ofh = args.out+'.hsq1.jknife'
+			hsq2_jknife_ofh = args.out+'.hsq2.jknife'	
+			np.savetxt(gencor_jknife_ofh, gchat.gencov.gencov_cov)
+			np.savetxt(hsq1_jknife_ofh, gchat.hsq1.hsq_cov)
+			np.savetxt(hsq2_jknife_ofh, gchat.hsq2.hsq_cov)
+
 		return [M_annot,gchat]
 
 
@@ -846,7 +857,6 @@ if __name__ == '__main__':
 		help='Population correlation between phenotypes. Used only for weights in genetic covariance regression.')
 	parser.add_argument('--num-blocks', default=200, type=int,
 		help='Number of block jackknife blocks.')
-
 	# Flags for both LD Score estimation and h2/gencor estimation
 	parser.add_argument('--out', default='ldsc', type=str,
 		help='Output filename prefix')
@@ -854,7 +864,8 @@ if __name__ == '__main__':
 		help='Block size for block jackknife')
 	parser.add_argument('--maf', default=None, type=float,
 		help='Minor allele frequency lower bound. Default is 0')
-	
+	parser.add_argument('--machine', default=False, action='store_true',
+		help='Enable machine-readable output?')
 	# frequency (useful for .bin files)
 	parser.add_argument('--freq', default=False, action='store_true',
 		help='Compute reference allele frequencies (useful for .bin files).')
