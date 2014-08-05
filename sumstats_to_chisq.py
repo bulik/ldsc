@@ -150,7 +150,11 @@ if args.N:
 elif args.N_cas and args.N_con:
 	dat['N'] = args.N_cas + args.N_con
 elif 'N_CAS' in dat.columns:
-	dat['N'] = dat.N_CAS + dat.N_CON
+	N = dat.N_CAS + dat.N_CON
+	P = dat.N_CAS / N
+	ii = N == N.max()
+	P_max = P[ii].mean()
+	dat['N'] = N * P / P_max
 	del dat['N_CAS']
 	del dat['N_CON']
 elif 'N' in dat.columns:
