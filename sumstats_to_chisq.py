@@ -79,6 +79,8 @@ colnames_conversion = {
 	'OR': 'OR',
 	'BETA': 'BETA',
 	'LOG_ODDS': 'LOG_ODDS',
+	'EFFECT': 'BETA',
+	'EFFECTS': 'BETA',
 	
 	# INFO
 	'INFO': 'INFO',
