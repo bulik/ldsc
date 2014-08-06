@@ -45,6 +45,7 @@ colnames_conversion = {
 	# P-VALUE
 	'P': 'P',
 	'PVALUE': 'P',
+	'P_VALUE': 	'P',
 	'PVAL' : 'P',
 	'GC.PVALUE': 'P',
 
@@ -53,6 +54,7 @@ colnames_conversion = {
 	'ALLELE1': 'A1',
 	'EFFECT_ALLELE': 'A1',
 	'RISK_ALLELE': 'A1',
+	'REFERENCE_ALLELE': 'A1',	
 
 	# ALLELE 2
 	'A2' : 'A2',
@@ -66,6 +68,8 @@ colnames_conversion = {
 	'N_CONTROLS' : 'N_CON',
 	'N_CAS': 'N_CAS',
 	'N_CON' : 'N_CON',
+	'N_CASE': 'N_CAS',
+	'N_CONTROL' : 'N_CON',
 	'WEIGHT' : 'N',              # risky
 	
 	# SIGNED STATISTICS
@@ -74,6 +78,7 @@ colnames_conversion = {
 	'Z': 'Z',
 	'OR': 'OR',
 	'BETA': 'BETA',
+	'LOG_ODDS': 'LOG_ODDS',
 	
 	# INFO
 	'INFO': 'INFO',
@@ -154,7 +159,9 @@ elif 'N_CAS' in dat.columns:
 	P = dat.N_CAS / N
 	ii = N == N.max()
 	P_max = P[ii].mean()
-	dat['N'] = N * P / P_max
+	print "Using P_max = {P}.".format(P=P_max)
+
+	dat['N'] = N * P /	 P_max
 	del dat['N_CAS']
 	del dat['N_CON']
 elif 'N' in dat.columns:
@@ -187,6 +194,10 @@ elif 'BETA' in dat.columns:
 	dat.BETA = dat.BETA.convert_objects(convert_numeric=True)
 	dat = dat[~np.isnan(dat.BETA)]
 	flip = dat.BETA < 0
+elif 'LOG_ODDS' in dat.columns:
+	dat.LOG_ODDS = dat.LOG_ODDS.convert_objects(convert_numeric=True)
+	dat = dat[~np.isnan(dat.LOG_ODDS)]
+	flip = dat.LOG_ODDS < 0
 else: # assume A1 is trait increasing allele and print a warning
 	print 'Warning: no signed summary stat found. Assuming A1 is risk/increasing allele.'
 	flip = pd.Series(False)
