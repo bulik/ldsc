@@ -211,15 +211,15 @@ def ldscore(args):
 			for i in xrange(len(breaks))], axis=1)
 		annot_matrix.columns = cts_colnames
 		# crosstab -- for now we keep empty columns
-
 		annot_matrix = pd.crosstab(annot_matrix.index, 
-			[annot_matrix[i] for i in annot_matrix.columns], dropna=False)
+			[annot_matrix[i] for i in annot_matrix.columns], dropna=False,
+			colnames=annot_matrix.columns)
 		if len(cts_colnames) > 1:
 			annot_colnames = ['_'.join([cts_colnames[i]+'_'+b for i,b in enumerate(c)])
 				for c in annot_matrix.columns]
 		else:
 			annot_colnames = [cts_colnames[0]+'_'+b for b in annot_matrix.columns]
-
+		
 		annot_matrix = np.matrix(annot_matrix)
 		keep_snps = None
 		num_annots = len(annot_colnames)
@@ -486,7 +486,7 @@ def sumstats(args):
 			if args.ref_ld:
 				M_annot = ps.M(args.M_file)	
 			elif args.ref_ld_chr:
-				M_annot = ps.M(M_file, 22)
+				M_annot = ps.M(args.M_file, 22)
 		elif args.M_5_50:
 			if args.ref_ld:
 				M_annot = ps.M(args.ref_ld, common=True)	
