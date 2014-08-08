@@ -88,6 +88,7 @@ colnames_conversion = {
 	# MAF
 	'FRQ': 'FRQ',
 	'MAF': 'FRQ',
+	'FRQ_U': 'FRQ'
 	# don't bother filtering on HM2 CEU MAF
 	
 }
