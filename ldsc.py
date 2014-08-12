@@ -98,6 +98,7 @@ def _print_hsq(h2hat, ref_ld_colnames):
 	out = '\n'.join(out)
 	return out
 
+
 def _print_hsq_nointercept(h2hat, ref_ld_colnames):
 	'''Reusable code for printing output of jk.Hsq object'''
 	out = []
@@ -502,17 +503,17 @@ def sumstats(args):
 				M_annot = ps.M(args.M_file)	
 			elif args.ref_ld_chr:
 				M_annot = ps.M(args.M_file, 22)
-		elif args.M_5_50:
-			if args.ref_ld:
-				M_annot = ps.M(args.ref_ld, common=True)	
-			elif args.ref_ld_chr:
-				M_annot = ps.M(args.ref_ld_chr, 22, common=True)
-		else:
+		elif args.not_M_5_50:
 			if args.ref_ld:
 				M_annot = ps.M(args.ref_ld)	
 			elif args.ref_ld_chr:
 				M_annot = ps.M(args.ref_ld_chr, 22)
-		
+		else:
+			if args.ref_ld:
+				M_annot = ps.M(args.ref_ld, common=True)	
+			elif args.ref_ld_chr:
+				M_annot = ps.M(args.ref_ld_chr, 22, common=True)
+				
 		# filter ref LD down to those columns specified by --keep-ld
 		if args.keep_ld is not None:
 			try:
@@ -855,7 +856,10 @@ if __name__ == '__main__':
 	parser.add_argument('--M-file', default=None, type=str,
 		help='Alternate .M file (e.g., if you want to use .M_5_50).')
 	parser.add_argument('--M-5-50', default=False, action='store_true',
-		help='Use .M_5-50 file by default.')
+		help='Deprecated. Now default behavior.')
+	parser.add_argument('--not-M-5-50', default=False, action='store_true',
+		help='Don\'t .M_5-50 file by default.')
+
 		
 	# Filtering for sumstats
 	parser.add_argument('--info-min', default=None, type=float,
@@ -940,4 +944,4 @@ if __name__ == '__main__':
 		
 	# bad flags
 	else:
-		raise ValueError('No analysis selected.')                                                   
+		raise ValueError('No analysis selected.')
