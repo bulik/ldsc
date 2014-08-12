@@ -136,6 +136,21 @@ def _print_gencor(gencor):
 	out = '\n'.join(out)
 	return out
 	
+	
+def annot_sort_key(s):
+	'''For use with --cts-bin. Fixes weird pandas crosstab column order.'''
+	if type(s) == tuple:
+		s = [x.split('_')[0] for x in s]
+		s = map(lambda x: float(x) if x != 'min' else -float('inf'), s)
+	else: #type(s) = str:	
+		s = s.split('_')[0]
+		if s == 'min': 
+			s = float('-inf')
+		else:
+			s = float(s)
+				
+ 	return s
+
 
 def ldscore(args):
 	'''
@@ -203,34 +218,35 @@ def ldscore(args):
 				raise ValueError(msg)
 
 		else:
-			cts_colnames = ['ANNOT_'+str(i) for i in xrange(len(cts_fnames))]
+			cts_colnames = ['ANNOT'+str(i) for i in xrange(len(cts_fnames))]
 			
 		log.log('Reading numbers with which to bin SNPs from {F}'.format(F=args.cts_bin))
 		annot_matrix = pd.concat([ps.cut_cts(ps.read_cts(cts_fnames[i], 
-			array_snps.df.SNP.values), breaks[i]) 
-			for i in xrange(len(breaks))], axis=1)
+			array_snps.df.SNP.values), breaks[i]) for i in xrange(len(breaks))], axis=1)
 		annot_matrix.columns = cts_colnames
 		# crosstab -- for now we keep empty columns
 		annot_matrix = pd.crosstab(annot_matrix.index, 
 			[annot_matrix[i] for i in annot_matrix.columns], dropna=False,
 			colnames=annot_matrix.columns)
+		annot_matrix = annot_matrix[sorted(annot_matrix.columns, key=annot_sort_key)]
 		if len(cts_colnames) > 1:
+			# flatten multi-index
 			annot_colnames = ['_'.join([cts_colnames[i]+'_'+b for i,b in enumerate(c)])
 				for c in annot_matrix.columns]
 		else:
 			annot_colnames = [cts_colnames[0]+'_'+b for b in annot_matrix.columns]
-		
+	
 		annot_matrix = np.matrix(annot_matrix)
 		keep_snps = None
 		num_annots = len(annot_colnames)
 		if np.any(np.sum(annot_matrix, axis=1) == 0):
  			# This exception should never be raised. For debugging only.
  			raise ValueError('Some SNPs have no annotation in --cts-bin. This is a bug!')
- 			
+ 	
 	else:
 		annot_matrix, annot_colnames, keep_snps = None, None, None, 
 		num_annots = 1
-	
+
 	# read fam/ind
 	array_indivs = ind_obj(ind_file)
 	n = len(array_indivs.IDList)	 
@@ -287,7 +303,6 @@ def ldscore(args):
 		else:
 			annot_matrix = pq
 	
-
 	if args.se: # block jackknife
 
 		# block size
@@ -925,4 +940,4 @@ if __name__ == '__main__':
 		
 	# bad flags
 	else:
-		raise ValueError('No analysis selected.')
+		raise ValueError('No analysis selected.')                                                   
