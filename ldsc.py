@@ -100,6 +100,7 @@ def _print_hsq(h2hat, ref_ld_colnames):
 	out = '\n'.join(out)
 	return out
 
+
 def _print_hsq_nointercept(h2hat, ref_ld_colnames):
 	'''Reusable code for printing output of jk.Hsq object'''
 	out = []
@@ -142,6 +143,21 @@ def _print_gencor(gencor):
 	out = '\n'.join(out)
 	return out
 	
+	
+def annot_sort_key(s):
+	'''For use with --cts-bin. Fixes weird pandas crosstab column order.'''
+	if type(s) == tuple:
+		s = [x.split('_')[0] for x in s]
+		s = map(lambda x: float(x) if x != 'min' else -float('inf'), s)
+	else: #type(s) = str:	
+		s = s.split('_')[0]
+		if s == 'min': 
+			s = float('-inf')
+		else:
+			s = float(s)
+				
+ 	return s
+
 
 def ldscore(args):
 	'''
@@ -209,29 +225,35 @@ def ldscore(args):
 				raise ValueError(msg)
 
 		else:
-			cts_colnames = ['ANNOT_'+str(i) for i in xrange(len(cts_fnames))]
+			cts_colnames = ['ANNOT'+str(i) for i in xrange(len(cts_fnames))]
 			
 		log.log('Reading numbers with which to bin SNPs from {F}'.format(F=args.cts_bin))
 		annot_matrix = pd.concat([ps.cut_cts(ps.read_cts(cts_fnames[i], 
-			array_snps.df.SNP.values), breaks[i]) 
-			for i in xrange(len(breaks))], axis=1)
+			array_snps.df.SNP.values), breaks[i]) for i in xrange(len(breaks))], axis=1)
 		annot_matrix.columns = cts_colnames
 		# crosstab -- for now we keep empty columns
 		annot_matrix = pd.crosstab(annot_matrix.index, 
-			[annot_matrix[i] for i in annot_matrix.columns], dropna=False)
-		annot_colnames = ['_'.join([cts_colnames[i]+'_'+b for i,b in enumerate(c)])
-			for c in annot_matrix.columns]
+			[annot_matrix[i] for i in annot_matrix.columns], dropna=False,
+			colnames=annot_matrix.columns)
+		annot_matrix = annot_matrix[sorted(annot_matrix.columns, key=annot_sort_key)]
+		if len(cts_colnames) > 1:
+			# flatten multi-index
+			annot_colnames = ['_'.join([cts_colnames[i]+'_'+b for i,b in enumerate(c)])
+				for c in annot_matrix.columns]
+		else:
+			annot_colnames = [cts_colnames[0]+'_'+b for b in annot_matrix.columns]
+	
 		annot_matrix = np.matrix(annot_matrix)
 		keep_snps = None
 		num_annots = len(annot_colnames)
 		if np.any(np.sum(annot_matrix, axis=1) == 0):
  			# This exception should never be raised. For debugging only.
  			raise ValueError('Some SNPs have no annotation in --cts-bin. This is a bug!')
- 			
+ 	
 	else:
 		annot_matrix, annot_colnames, keep_snps = None, None, None, 
 		num_annots = 1
-	
+
 	# read fam/ind
 	array_indivs = ind_obj(ind_file)
 	n = len(array_indivs.IDList)	 
@@ -288,7 +310,6 @@ def ldscore(args):
 		else:
 			annot_matrix = pq
 	
-
 	if args.se: # block jackknife
 
 		# block size
@@ -440,8 +461,17 @@ def sumstats(args):
 			log.log('Reading summary statistics from {S}.'.format(S=args.sumstats_gencor))
 			sumstats = ps.betaprod(args.sumstats_gencor)
 		elif args.sumstats_gencor_fromchisq:
-			sumstats = ps.betaprod_fromchisq(args.chisq1, args.chisq2, args.allele1, 
-				args.allele2)
+			if args.chisq1 and args.chisq2 and args.allele1 and args.allele2:
+				sumstats = ps.betaprod_fromchisq(args.chisq1, args.chisq2, args.allele1, 
+					args.allele2)
+			elif args.chisq1 and args.chisq2:
+				c1 = args.chisq1 + '.chisq.gz'
+				c2 = args.chisq2 + '.chisq.gz'
+				a1 = args.chisq1 + '.allele.gz'
+				a2 = args.chisq2 + '.allele.gz'
+				sumstats = ps.betaprod_fromchisq(c1, c2, a1, a2)
+			else:
+				raise ValueError('Must use --chisq1 and chisq2 flags with --sumstats-gencor-fromchisq.')
 	except ValueError as e:
 		log.log('Error parsing summary statistics.')
 		raise e
@@ -478,18 +508,18 @@ def sumstats(args):
 			if args.ref_ld:
 				M_annot = ps.M(args.M_file)	
 			elif args.ref_ld_chr:
-				M_annot = ps.M(M_file, 22)
-		elif args.M_5_50:
-			if args.ref_ld:
-				M_annot = ps.M(args.ref_ld, common=True)	
-			elif args.ref_ld_chr:
-				M_annot = ps.M(args.ref_ld_chr, 22, common=True)
-		else:
+				M_annot = ps.M(args.M_file, 22)
+		elif args.not_M_5_50:
 			if args.ref_ld:
 				M_annot = ps.M(args.ref_ld)	
 			elif args.ref_ld_chr:
 				M_annot = ps.M(args.ref_ld_chr, 22)
-		
+		else:
+			if args.ref_ld:
+				M_annot = ps.M(args.ref_ld, common=True)	
+			elif args.ref_ld_chr:
+				M_annot = ps.M(args.ref_ld_chr, 22, common=True)
+				
 		# filter ref LD down to those columns specified by --keep-ld
 		if args.keep_ld is not None:
 			try:
@@ -633,7 +663,10 @@ def sumstats(args):
 				args.non_negative)
 			log.log(_print_hsq(h2hat, ref_ld_colnames))
 		return [M_annot,h2hat]
-
+		
+		if args.machine:
+			hsq_jknife_ofh = args.out+'.hsq.jknife'
+			np.savetxt(hsq_jknife_ofh, Hsq.hsq_cov)
 
 	# LD Score regression to estimate genetic correlation
 	elif args.sumstats_gencor or args.sumstats_gencor_fromchisq:
@@ -668,6 +701,14 @@ def sumstats(args):
 		log.log( '-------------------' )
 		log.log( _print_gencor(gchat) )
 		
+		if args.machine:
+			gencor_jknife_ofh = args.out+'.gencor.jknife'
+			hsq1_jknife_ofh = args.out+'.hsq1.jknife'
+			hsq2_jknife_ofh = args.out+'.hsq2.jknife'	
+			np.savetxt(gencor_jknife_ofh, gchat.gencov.gencov_cov)
+			np.savetxt(hsq1_jknife_ofh, gchat.hsq1.hsq_cov)
+			np.savetxt(hsq2_jknife_ofh, gchat.hsq2.hsq_cov)
+
 		return [M_annot,gchat]
 
 
@@ -824,7 +865,10 @@ if __name__ == '__main__':
 	parser.add_argument('--M-file', default=None, type=str,
 		help='Alternate .M file (e.g., if you want to use .M_5_50).')
 	parser.add_argument('--M-5-50', default=False, action='store_true',
-		help='Use .M_5-50 file by default.')
+		help='Deprecated. Now default behavior.')
+	parser.add_argument('--not-M-5-50', default=False, action='store_true',
+		help='Don\'t .M_5-50 file by default.')
+
 		
 	# Filtering for sumstats
 	parser.add_argument('--info-min', default=None, type=float,
@@ -841,7 +885,6 @@ if __name__ == '__main__':
 		help='Population correlation between phenotypes. Used only for weights in genetic covariance regression.')
 	parser.add_argument('--num-blocks', default=200, type=int,
 		help='Number of block jackknife blocks.')
-
 	# Flags for both LD Score estimation and h2/gencor estimation
 	parser.add_argument('--out', default='ldsc', type=str,
 		help='Output filename prefix')
@@ -849,7 +892,8 @@ if __name__ == '__main__':
 		help='Block size for block jackknife')
 	parser.add_argument('--maf', default=None, type=float,
 		help='Minor allele frequency lower bound. Default is 0')
-	
+	parser.add_argument('--machine', default=False, action='store_true',
+		help='Enable machine-readable output?')
 	# frequency (useful for .bin files)
 	parser.add_argument('--freq', default=False, action='store_true',
 		help='Compute reference allele frequencies (useful for .bin files).')
@@ -897,7 +941,7 @@ if __name__ == '__main__':
 		if args.regression_snp_ld and args.regression_snp_ld_chr:
 			raise ValueError('Cannot specify both --regression-snp-ld and --regression-snp-ld-chr.')
 		if args.rho or args.overlap:
-			if not args.sumstats_gencor:
+			if not (args.sumstats_gencor or args.sumstats_gencor_fromchisq):
 				raise ValueError('--rho and --overlap can only be used with --sumstats-gencor.')
 			if not (args.rho and args.overlap):
 				raise ValueError('Must specify either both or neither of --rho and --overlap.')

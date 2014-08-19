@@ -115,8 +115,12 @@ def _gencov_weights(ld, w_ld, N1, N2, No, M, h1, h2, rho_g, rho):
 	
 	'''
 
-	h1 = max(h1,0); h2=max(h2,0)
-	h1 = min(h1,1); h2=min(h2,1)
+	h1 = max(h1,0) 
+	h2=max(h2,0)
+	h1 = min(h1,1)
+	h2=min(h2,1)
+	rho_g = min(rho_g,1)
+	rho_g = max(rho_g, -1)	
 	ld = np.fmax(ld, 1.0)
 	w_ld = np.fmax(w_ld, 1.0) 
 	# prevent integer division bugs with np.divide
@@ -229,7 +233,6 @@ class Mu(object):
 		#weights = _mu_weights(w_l2, w_l2, N, self.M_tot, self.agg_hsq) 
 		#self.weights=weights
 		weights = np.ones_like(w_l2)
-		print weights.shape
 		if np.all(weights == 0):
 			raise ValueError('Something is wrong, all regression weights are zero.')	
 
@@ -584,7 +587,7 @@ class Gencov(object):
 		
 		ref_ld_tot = np.sum(ref_ld, axis=1)
 		y = np.multiply(bhat1, bhat2)
-		agg_gencov = self._aggregate(y, ref_ld_tot, self.M_tot)
+		agg_gencov = self._aggregate(y, ref_ld_tot, self.M_tot, rho, N_overlap)
 		weights = _gencov_weights(ref_ld_tot, w_ld, N1, N2, N_overlap, self.M_tot, hsq1, hsq2, 
 			agg_gencov, rho) 
 		if np.all(weights == 0):
@@ -596,6 +599,8 @@ class Gencov(object):
 		
 		self._jknife = LstsqJackknife(x, y, num_blocks)
 		self.autocor = self._jknife.autocor(1)
+		no_intercept_cov = self._jknife.jknife_cov[0:self.n_annot,0:self.n_annot]
+		self.gencov_cov = np.multiply(np.dot(self.M.T,self.M), no_intercept_cov)
 		self.cat_gencov = np.multiply(self.M, self._jknife.est[0,0:self.n_annot])
 		self.cat_gencov_se = np.multiply(self.M, self._jknife.jknife_se[0,0:self.n_annot])
 		self.intercept = self._jknife.est[0,self.n_annot]
@@ -608,9 +613,13 @@ class Gencov(object):
 		self.M_prop = self.M / self.M_tot
 		self.enrichment = np.divide(self.cat_gencov, self.M) / (self.tot_gencov/self.M_tot)
 
-	def _aggregate(self, y, x, M_tot):
+	def _aggregate(self, y, x, M_tot, rho=None, N_overlap=None):
 		'''Aggregate estimator. For use in regression weights.'''
-		numerator = np.mean(y)
+		if rho and N_overlap:
+			numerator = np.mean(y - np.divide(N_overlap*rho, np.multiply(self.N1, self.N2)))
+		else:
+			numerator = np.mean(y)
+			
 		denominator = np.mean(x) / M_tot
 		agg = numerator / denominator
 		return agg

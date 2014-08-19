@@ -156,8 +156,6 @@ def cut_cts(vec, breaks):
 	name_breaks[-1] = 'max'
 	name_breaks = [str(x) for x in name_breaks]
 	labs = [name_breaks[i]+'_'+name_breaks[i+1] for i in xrange(n_breaks-1)]
-	print labs
-	print cut_breaks
 	cut_vec = pd.Series(pd.cut(vec, bins=cut_breaks, labels=labs))
 	return cut_vec
 
@@ -259,12 +257,14 @@ def betaprod_fromchisq(chisq1, chisq2, allele1, allele2):
 	df_allele1.rename(columns={'INC_ALLELE':'INC_ALLELE1'},inplace=True)
 	df_merged = pd.merge(df_merged,df_allele1,how='inner', on='SNP')
 
-	df_allele2 = allele(allele2)
+	df_allele2 = allele(allele2	)
 	df_allele2.rename(columns={'INC_ALLELE':'INC_ALLELE2'},inplace=True)
 	df_merged = pd.merge(df_merged,df_allele2,how='inner', on='SNP')
 
 	df_merged['BETAHAT2'] *= (-1)**(df_merged.INC_ALLELE1 != df_merged.INC_ALLELE2)
-
+	if 'MAF_x' in df_merged.columns and 'MAF_y' in df_merged.columns:
+		df_merged['MAF'] = np.minimum(df_merged['MAF_x'], df_merged['MAF_y'])
+		
 	return df_merged
 
 
