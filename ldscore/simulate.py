@@ -32,17 +32,17 @@ def rnorm(N, mean, var):
 	# convert to matrix to make keeping track of shape easier
 	var = np.matrix(var)
 	mean = np.matrix(mean)
-
+	
 	if (var.shape == (1,1) and mean.shape == (1,1)):
 		if var == 0:
-			output = np.repeat(mean, N)
+			output = np.repeat(mean, int(N))
 		else: 
-			output = np.random.normal(loc=mean, scale=np.sqrt(var), size=N)
+			output = np.random.normal(loc=mean, scale=np.sqrt(var), size=int(N))
 	
 	elif mean.shape[1] == var.shape[0] == var.shape[1]: # MVN
 		# mean must be one-dimensional --> convert back to array
 		mean = np.squeeze(np.asarray(mean))
-		output =  np.random.multivariate_normal(mean=mean, cov=var, size=N)
+		output =  np.random.multivariate_normal(mean=mean, cov=var, size=int(N))
 	else:
 		raise ValueError('Dimensions of input not understood')
 
