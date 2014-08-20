@@ -88,9 +88,11 @@ def _print_hsq(h2hat, ref_ld_colnames):
 	out.append( 'Categories: '+ str(' '.join(ref_ld_colnames)))
 	out.append( 'Observed scale h2: '+str(h2hat.cat_hsq))
 	out.append( 'Observed scale h2 SE: '+str(h2hat.cat_hsq_se))
-	out.append( 'Proportion of SNPs: '+str(h2hat.M_prop))
-	out.append( 'Proportion of h2g: ' +str(h2hat.prop_hsq))
-	out.append( 'Enrichment: '+str(h2hat.enrichment))		
+	if h2hat.n_annot > 1:
+		out.append( 'Proportion of SNPs: '+str(h2hat.M_prop))
+		out.append( 'Proportion of h2g: ' +str(h2hat.prop_hsq))
+		out.append( 'Enrichment: '+str(h2hat.enrichment))		
+		
 	out.append( 'Coefficients: '+str(h2hat.coef))
 	out.append( 'Lambda GC: '+ str(h2hat.lambda_gc))
 	out.append( 'Mean Chi^2: '+ str(h2hat.mean_chisq))
@@ -106,9 +108,11 @@ def _print_hsq_nointercept(h2hat, ref_ld_colnames):
 	out.append( 'Categories: '+ str(' '.join(ref_ld_colnames)))
 	out.append( 'Observed scale h2: '+str(h2hat.cat_hsq))
 	out.append( 'Observed scale h2 SE: '+str(h2hat.cat_hsq_se))
-	out.append( 'Proportion of SNPs: '+str(h2hat.M_prop))
-	out.append( 'Proportion of h2g: ' +str(h2hat.prop_hsq))
-	out.append( 'Enrichment: '+str(h2hat.enrichment))		
+	if h2hat.n_annot > 1:
+		out.append( 'Proportion of SNPs: '+str(h2hat.M_prop))
+		out.append( 'Proportion of h2g: ' +str(h2hat.prop_hsq))
+		out.append( 'Enrichment: '+str(h2hat.enrichment))		
+		
 	out = '\n'.join(out)
 	return out
 	
@@ -121,9 +125,11 @@ def _print_gencov(gencov, ref_ld_colnames):
 	out.append( 'Categories: '+ str(' '.join(ref_ld_colnames)))
 	out.append( 'Observed scale gencov: '+str(gencov.cat_gencov))
 	out.append( 'Observed scale gencov SE: '+str(gencov.cat_gencov_se))
-	out.append( 'Proportion of SNPs: '+str(gencov.M_prop))
-	out.append( 'Proportion of gencov: ' +str(gencov.prop_gencov))
-	out.append( 'Enrichment: '+str(gencov.enrichment))		
+	if h2hat.n_annot > 1:
+		out.append( 'Proportion of SNPs: '+str(gencov.M_prop))
+		out.append( 'Proportion of gencov: ' +str(gencov.prop_gencov))
+		out.append( 'Enrichment: '+str(gencov.enrichment))		
+		
 	out.append( 'Intercept: '+ str(gencov.intercept)+' ('+str(gencov.intercept_se)+')')
 	out = '\n'.join(out)
 	return out
@@ -602,6 +608,9 @@ def sumstats(args):
 					log.log(log_msg.format(C=cname, F=arg, N=snp_count, P=pred_str))
 
 	log.log('Estimating standard errors using a block jackknife with {N} blocks.'.format(N=args.num_blocks))
+	if len(sumstats) < 200000:
+		log.log('Note, # of SNPs < 200k; this is often bad.')
+
 	# LD Score regression intercept
 	if args.sumstats_intercept:
 		log.log('Estimating LD Score regression intercept.')

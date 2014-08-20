@@ -607,7 +607,7 @@ class QT_CC_GWAS(DoubleGWAS):
 			chunk_size=chunk_size)
 		
 		
-class CC_CC_GWAS(DoubleGWAS):
+class Healthy_Controls_GWAS(DoubleGWAS):
 	'''
 	Simulation class with two CC simulations. 
 	
@@ -637,7 +637,7 @@ class CC_CC_GWAS(DoubleGWAS):
 		Heritability, must lie in the interval [0,1].
 	e_var : symmetric, positive-definite np.matrix with shape (# phenos, # phenos)
 		Environmental covariance matrix.
-	P : np.ndarray of floats with shape (# phenotypes, )
+	K : np.ndarray of floats with shape (# phenotypes, )
 		Population prevalences of each phenotype
 	overlap : int, default = 0 
 		Number of overlapping controls (chosen at random). Must be < min(N_con)
@@ -656,15 +656,15 @@ class CC_CC_GWAS(DoubleGWAS):
 		Extends DoubleGWAS.sample.
 	
 	'''
-	def __init__(self,M,N_cas,N_con,mafs,betas,hsqs,P,e_var,overlap,chunk_size=4000):
+	def __init__(self,M,N_cas,N_con,mafs,betas,hsqs,K,e_var,overlap,chunk_size=4000):
 		self.overlap = overlap
 		hsqs = np.matrix(hsqs)
 		cs = chunk_size
-		self.gwas1 = CC_GWAS(M,N_cas[0],N_con[0],mafs,betas,hsqs,P,e_var,chunk_size=cs)
+		self.gwas1 = CC_GWAS(M,N_cas[0],N_con[0],mafs,betas,hsqs,K,e_var,chunk_size=cs)
 		# TODO: this assumes that betas has at least 2 cols, which should be  checked 
 		# switch col1 and col2 for gwas2
 		betas[:,(0,1)] = betas[:,(1,0)]
-		self.gwas2 = CC_GWAS(M,N_cas[1],N_con[1],mafs,betas,hsqs,P,e_var,chunk_size=cs)
+		self.gwas2 = CC_GWAS(M,N_cas[1],N_con[1],mafs,betas,hsqs,K,e_var,chunk_size=cs)
 
 	def sample(self):
 		con_indices = np.nonzero(self.gwas1.pheno[:,0] == 0)[0]
