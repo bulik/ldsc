@@ -19,6 +19,7 @@ import argparse
 import numpy as np
 import pandas as pd
 from subprocess import call
+from itertools import product
 
 pd.set_option('display.max_rows', 500)
 pd.set_option('display.max_columns', 500)
@@ -125,7 +126,7 @@ def _print_gencov(gencov, ref_ld_colnames):
 	out.append( 'Categories: '+ str(' '.join(ref_ld_colnames)))
 	out.append( 'Observed scale gencov: '+str(gencov.cat_gencov))
 	out.append( 'Observed scale gencov SE: '+str(gencov.cat_gencov_se))
-	if h2hat.n_annot > 1:
+	if gencov.n_annot > 1:
 		out.append( 'Proportion of SNPs: '+str(gencov.M_prop))
 		out.append( 'Proportion of gencov: ' +str(gencov.prop_gencov))
 		out.append( 'Enrichment: '+str(gencov.enrichment))		
@@ -228,13 +229,51 @@ def ldscore(args):
 			cts_colnames = ['ANNOT'+str(i) for i in xrange(len(cts_fnames))]
 			
 		log.log('Reading numbers with which to bin SNPs from {F}'.format(F=args.cts_bin))
-		annot_matrix = pd.concat([ps.cut_cts(ps.read_cts(cts_fnames[i], 
-			array_snps.df.SNP.values), breaks[i]) for i in xrange(len(breaks))], axis=1)
+	
+		cts_levs = []
+		full_labs = []
+		for i,fh in enumerate(cts_fnames):
+			vec = ps.read_cts(cts_fnames[i], array_snps.df.SNP.values)
+			
+			max_cts = np.max(vec)
+			min_cts = np.min(vec)
+			cut_breaks = list(breaks[i])
+			name_breaks = list(cut_breaks)
+			if np.all(cut_breaks >= max_cts) or np.all(cut_breaks <= min_cts):
+				raise ValueError('All breaks lie outside the range of the cts variable.')
+
+			if np.all(cut_breaks <= max_cts):
+				name_breaks.append(max_cts)
+				cut_breaks.append(max_cts+1)
+		
+			if np.all(cut_breaks >= min_cts):	
+				name_breaks.append(min_cts)
+				cut_breaks.append(min_cts-1)
+
+			name_breaks.sort()
+			cut_breaks.sort()		
+			n_breaks = len(cut_breaks)
+			# so that col names are consistent across chromosomes with different max vals
+			name_breaks[0] = 'min'
+			name_breaks[-1] = 'max'
+			name_breaks = [str(x) for x in name_breaks]
+			labs = [name_breaks[i]+'_'+name_breaks[i+1] for i in xrange(n_breaks-1)]
+			cut_vec = pd.Series(pd.cut(vec, bins=cut_breaks, labels=labs))
+			cts_levs.append(cut_vec)
+			full_labs.append(labs)
+
+		annot_matrix = pd.concat(cts_levs, axis=1)
 		annot_matrix.columns = cts_colnames
 		# crosstab -- for now we keep empty columns
 		annot_matrix = pd.crosstab(annot_matrix.index, 
 			[annot_matrix[i] for i in annot_matrix.columns], dropna=False,
 			colnames=annot_matrix.columns)
+
+		# add missing columns
+		for x in product(*full_labs)		:
+			if x not in annot_matrix.columns:
+				annot_matrix[x] = 0
+				
 		annot_matrix = annot_matrix[sorted(annot_matrix.columns, key=annot_sort_key)]
 		if len(cts_colnames) > 1:
 			# flatten multi-index
@@ -242,7 +281,6 @@ def ldscore(args):
 				for c in annot_matrix.columns]
 		else:
 			annot_colnames = [cts_colnames[0]+'_'+b for b in annot_matrix.columns]
-	
 		annot_matrix = np.matrix(annot_matrix)
 		keep_snps = None
 		num_annots = len(annot_colnames)
@@ -253,7 +291,7 @@ def ldscore(args):
 	else:
 		annot_matrix, annot_colnames, keep_snps = None, None, None, 
 		num_annots = 1
-
+	
 	# read fam/ind
 	array_indivs = ind_obj(ind_file)
 	n = len(array_indivs.IDList)	 
