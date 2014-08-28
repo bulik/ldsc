@@ -270,9 +270,14 @@ def ldscore(args):
 			colnames=annot_matrix.columns)
 
 		# add missing columns
-		for x in product(*full_labs)		:
-			if x not in annot_matrix.columns:
-				annot_matrix[x] = 0
+		if len(cts_colnames) > 1:
+			for x in product(*full_labs)		:
+				if x not in annot_matrix.columns:
+					annot_matrix[x] = 0
+		else:
+			for x in full_labs[0]:
+				if x not in annot_matrix.columns:
+					annot_matrix[x] = 0
 				
 		annot_matrix = annot_matrix[sorted(annot_matrix.columns, key=annot_sort_key)]
 		if len(cts_colnames) > 1:
@@ -281,6 +286,7 @@ def ldscore(args):
 				for c in annot_matrix.columns]
 		else:
 			annot_colnames = [cts_colnames[0]+'_'+b for b in annot_matrix.columns]
+
 		annot_matrix = np.matrix(annot_matrix)
 		keep_snps = None
 		num_annots = len(annot_colnames)
