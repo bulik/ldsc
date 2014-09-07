@@ -360,6 +360,7 @@ class Hsq(object):
 		
 		ref_ld_tot = np.sum(ref_ld, axis=1)
 		agg_hsq = self._aggregate(chisq, np.multiply(N, ref_ld_tot), self.M_tot)
+		print agg_hsq
 		weights = _hsq_weights(ref_ld_tot, w_ld, N, self.M_tot, agg_hsq) 
 		if np.all(weights == 0):
 			raise ValueError('Something is wrong, all regression weights are zero.')	
@@ -444,7 +445,8 @@ class Hsq_nointercept(object):
 		self.prop_hsq = self.cat_hsq / self.tot_hsq
 		self.M_prop = self.M / self.M_tot
 		self.enrichment = np.divide(self.cat_hsq, self.M) / (self.tot_hsq/self.M_tot)
-		
+		self.coef = self._jknife.est
+
 	def _aggregate(self, y, x, M_tot):
 		'''Aggregate estimator. For use in regression weights.'''
 		numerator = np.mean(y) - 1.0
@@ -588,6 +590,7 @@ class Gencov(object):
 		ref_ld_tot = np.sum(ref_ld, axis=1)
 		y = np.multiply(bhat1, bhat2)
 		agg_gencov = self._aggregate(y, ref_ld_tot, self.M_tot, rho, N_overlap)
+		print agg_gencov
 		weights = _gencov_weights(ref_ld_tot, w_ld, N1, N2, N_overlap, self.M_tot, hsq1, hsq2, 
 			agg_gencov, rho) 
 		if np.all(weights == 0):
@@ -875,7 +878,8 @@ class LstsqJackknife(object):
 				delete_values[j,...] = delete_value_j
 		except np.linalg.linalg.LinAlgError as e:
 			msg = 'Singular design matrix in at least one delete-k jackknife block. '
-			msg += 'Check that you have not passed highly correlated partitioned LD Scores.'
+			msg += 'Check that you have not passed highly correlated partitioned LD Scores. '
+			msg += 'Sometimes changin the block size can help. '
 			raise np.linalg.linalg.LinAlgError(msg, e)
 			
 		return (pseudovalues, delete_values)
@@ -1015,7 +1019,6 @@ class JackknifeAggregate(object):
 
 
 class LstsqJackknifeNN(object):
-
 
 	def __init__(self, x, y, num_blocks):
 		if len(x.shape) <= 1:

@@ -114,6 +114,8 @@ def _print_hsq_nointercept(h2hat, ref_ld_colnames):
 		out.append( 'Proportion of h2g: ' +str(h2hat.prop_hsq))
 		out.append( 'Enrichment: '+str(h2hat.enrichment))		
 		
+	out.append( 'Coefficients: '+str(h2hat.coef))
+
 	out = '\n'.join(out)
 	return out
 	
@@ -354,6 +356,20 @@ def ldscore(args):
 		else:
 			annot_matrix = pq
 	
+	elif args.maf_exp is not None:
+		log.log('Computing LD with MAF ^ {S}.'.format(S=args.maf_exp))
+		msg = 'Note that LD Scores with MAF raised to a nonzero power are'
+		msg += 'not directly comparable to normal LD Scores.'
+		log.log(msg)
+		scale_suffix = '_S{S}'.format(S=args.maf_exp)
+		mf = np.matrix(geno_array.maf).reshape((geno_array.m,1))
+		mf = np.power(mf, args.maf_exp)
+
+		if annot_matrix is not None:
+			annot_matrix = np.multiply(annot_matrix, mf)
+		else:
+			annot_matrix = mf
+	
 	if args.se: # block jackknife
 
 		# block size
@@ -591,10 +607,14 @@ def sumstats(args):
 				raise IndexError('--keep-ld column numbers are out of bounds: '+str(e.args))
 		
 	log.log('Using M = '+str(M_annot))
-	ii = ref_ldscores.iloc[:,1:len(ref_ldscores.columns)].var(axis=0) == 0
+	
+	ii = np.squeeze(np.array(ref_ldscores.iloc[:,1:len(ref_ldscores.columns)].var(axis=0) == 0))
 	if np.any(ii):
 		log.log('Removing partitioned LD Scores with zero variance')
-		ref_ldscores = ref_ldscores.ix[:,ii]
+		ii = np.insert(ii, 0, False) # keep the SNP column		
+		ref_ldscores = ref_ldscores.ix[:,np.logical_not(ii)]
+		M_annot = [M_annot[i] for i in xrange(1,len(ii)) if not ii[i]]
+		n_annot = len(M_annot)
 			
 	log_msg = 'Read reference panel LD Scores for {N} SNPs.'
 	log.log(log_msg.format(N=len(ref_ldscores)))
@@ -685,11 +705,12 @@ def sumstats(args):
 
 	# LD Score regression to estimate h2
 	elif args.sumstats_h2:
+	
 		log.log('Estimating heritability.')
 		snp_count = len(sumstats); n_annot = len(ref_ld_colnames)
 		ref_ld = np.matrix(sumstats[ref_ld_colnames]).reshape((snp_count, n_annot))
 		w_ld = np.matrix(sumstats[w_ld_colname]).reshape((snp_count, 1))
-		M_annot = np.matrix(M_annot).reshape((1, n_annot))
+		M_annot = np.matrix(M_annot).reshape((1,n_annot))
 		chisq = np.matrix(sumstats.CHISQ).reshape((snp_count, 1))
 		N = np.matrix(sumstats.N).reshape((snp_count,1))
 		del sumstats
@@ -714,11 +735,24 @@ def sumstats(args):
 			h2hat = jk.Hsq(chisq, ref_ld, w_ld, N, M_annot, args.num_blocks,
 				args.non_negative)
 			log.log(_print_hsq(h2hat, ref_ld_colnames))
-		return [M_annot,h2hat]
 		
 		if args.machine:
+			print "Printing block jackknife covariance matrix."
 			hsq_jknife_ofh = args.out+'.hsq.jknife'
 			np.savetxt(hsq_jknife_ofh, Hsq.hsq_cov)
+		
+		if args.print_delete_vals:
+			print "Printing block jackknife delete-a-block values."
+			hsq_jknife_ofh = args.out+'.delete_k'
+			out_mat = np.vstack((h2hat.coef, h2hat._jknife.delete_values))
+			if not args.no_intercept:
+				ncol = out_mat.shape[1]
+				out_mat = out_mat[:,0:ncol-1]
+				
+			np.savetxt(hsq_jknife_ofh, out_mat)
+
+		return [M_annot,h2hat]
+
 
 	# LD Score regression to estimate genetic correlation
 	elif args.sumstats_gencor or args.sumstats_gencor_fromchisq or args.gencor:
@@ -866,6 +900,8 @@ if __name__ == '__main__':
 		help='Estimate per-allele l{N}. Same as --pq-exp 0. ')
 	parser.add_argument('--pq-exp', default=None, type=float,
 		help='Estimate l{N} with given scale factor. Default -1. Per-allele is equivalent to --pq-exp 1.')
+	parser.add_argument('--maf-exp', default=None, type=float,
+		help='Estimate l{N} with given MAF scale factor.')
 	parser.add_argument('--l4', default=False, action='store_true',
 		help='Estimate l4. Only compatible with jackknife.')
 	parser.add_argument('--print-snps', default=None, type=str,
@@ -955,7 +991,8 @@ if __name__ == '__main__':
 	# frequency (useful for .bin files)
 	parser.add_argument('--freq', default=False, action='store_true',
 		help='Compute reference allele frequencies (useful for .bin files).')
-		
+	parser.add_argument('--print-delete-vals', default=False, action='store_true',
+		help='Print block jackknife delete-k values.')
 	args = parser.parse_args()
 		
 	if args.w_ld:
