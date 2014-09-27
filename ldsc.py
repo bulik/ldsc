@@ -947,7 +947,7 @@ if __name__ == '__main__':
 		help='Filename prefix for files with reference panel LD Scores split across 22 chromosomes.')
 	parser.add_argument('--ref-ld-fromfile', default=None, type=str,
 		help='File with one line per reference ldscore file.')
-	parser.add_argument('--ref-ld-from-file-chr', default=None, type=str,
+	parser.add_argument('--ref-ld-fromfile-chr', default=None, type=str,
 		help='File with one line per ref-ld-chr prefix.')
 	parser.add_argument('--regression-snp-ld', default=None, type=str,
 		help='Filename prefix for file with LD Scores with sum r^2 taken over SNPs included in the regression.')
