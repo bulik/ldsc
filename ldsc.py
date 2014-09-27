@@ -552,6 +552,10 @@ def sumstats(args):
 			ref_ldscores = ps.ldscore(args.ref_ld)
 		elif args.ref_ld_chr:
 			ref_ldscores = ps.ldscore(args.ref_ld_chr,22)
+		elif args.ref_ld_fromfile:
+			ref_ldscores = ps.ldscore_fromfile(args.ref_ld_fromfile)
+		elif args.ref_ld_fromfile_chr:
+			ref_ldscores = ps.ldscore_fromfile(args.ref_ld_fromfile,22)
 
 	except ValueError as e:
 		log.log('Error parsing reference LD.')
@@ -586,6 +590,10 @@ def sumstats(args):
 				M_annot = ps.M(args.ref_ld, common=True)	
 			elif args.ref_ld_chr:
 				M_annot = ps.M(args.ref_ld_chr, 22, common=True)
+			elif args.ref_ld_fromfile:
+				M_annot = ps.M_fromfile(args.ref_ld_fromfile)
+			elif args.ref_ld_fromfile_chr:
+				M_annot = ps.M_fromfile(args.ref_ld_fromfile_chr, 22)
 				
 		# filter ref LD down to those columns specified by --keep-ld
 		if args.keep_ld is not None:
@@ -937,6 +945,10 @@ if __name__ == '__main__':
 		help='Filename prefix for file with reference panel LD Scores.')
 	parser.add_argument('--ref-ld-chr', default=None, type=str,
 		help='Filename prefix for files with reference panel LD Scores split across 22 chromosomes.')
+	parser.add_argument('--ref-ld-fromfile', default=None, type=str,
+		help='File with one line per reference ldscore file.')
+	parser.add_argument('--ref-ld-from-file-chr', default=None, type=str,
+		help='File with one line per ref-ld-chr prefix.')
 	parser.add_argument('--regression-snp-ld', default=None, type=str,
 		help='Filename prefix for file with LD Scores with sum r^2 taken over SNPs included in the regression.')
 	parser.add_argument('--regression-snp-ld-chr', default=None, type=str,
@@ -1035,7 +1047,7 @@ if __name__ == '__main__':
 		args.sumstats_intercept or 
 		args.sumstats_gencor_fromchisq
 		or args.gencor) and\
-		(args.ref_ld or args.ref_ld_chr) and\
+		(args.ref_ld or args.ref_ld_chr or args.ref_ld_fromfile or args.ref_ld_fromfile_chr) and\
 		(args.regression_snp_ld or args.regression_snp_ld_chr):
 		
 		if np.sum(np.array((args.sumstats_intercept, args.sumstats_h2, args.sumstats_gencor, args.gencor, args.sumstats_gencor_fromchisq)).astype(bool)) > 1:	
