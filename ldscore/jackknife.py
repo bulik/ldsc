@@ -407,7 +407,8 @@ class Hsq(object):
 class Hsq_nointercept(object):
 
 	'''
-	same as Hsq but wo intercept
+	same as Hsq but w/o intercept
+	
 	'''
 	
 	def __init__(self, chisq, ref_ld, w_ld, N, M, num_blocks=200, non_negative=False):
@@ -458,7 +459,8 @@ class Hsq_nointercept(object):
 class Hsq_aggregate(object):
 
 	'''
-	same as Hsq but wo intercept
+	same as Hsq but w/o intercept
+
 	'''
 	
 	def __init__(self, chisq, ref_ld, w_ld, N, M, annot_matrix, num_blocks=200, non_negative=False):
@@ -540,7 +542,9 @@ class Gencov(object):
 		regression weights, and then only when N_overlap > 0. 	
 	num_blocks : int, default = 1000
 		Number of block jackknife blocks.
-	
+	intercept : bool
+		Include an intercept in the LD Score regression? Default True.
+			
 	Attributes
 	----------
 	N1, N2 : int
@@ -577,7 +581,7 @@ class Gencov(object):
 	'''
 	
 	def __init__(self, bhat1, bhat2, ref_ld, w_ld, N1, N2, M, hsq1, hsq2, N_overlap=None,
-		rho=None, num_blocks=200):
+		rho=None, num_blocks=200, intercept=True):
 		
 		self.N1 = N1
 		self.N2 = N2
@@ -595,8 +599,11 @@ class Gencov(object):
 			agg_gencov, rho) 
 		if np.all(weights == 0):
 			raise ValueError('Something is wrong, all regression weights are zero.')	
-
-		x = _append_intercept(ref_ld)
+		if intercept:
+			x = _append_intercept(ref_ld)
+		else:
+			x = ref_ld
+	
 		x = _weight(x, weights)
 		y = _weight(y, weights)
 		
@@ -660,6 +667,8 @@ class Gencor(object):
 		regression weights, and then only when N_overlap > 0. 	
 	num_blocks : int, default = 1000
 		Number of block jackknife blocks.
+	intercept: bool
+		Include an intercept in the LD Score regression? Default True.
 	
 	Attributes
 	----------
@@ -694,7 +703,7 @@ class Gencor(object):
 	'''
 	
 	def __init__(self, bhat1, bhat2, ref_ld, w_ld, N1, N2, M, N_overlap=None,	rho=None, 
-		num_blocks=200):
+		num_blocks=200, intercept=True):
 
 		self.N1 = N1
 		self.N2 = N2
@@ -705,17 +714,21 @@ class Gencor(object):
 		self.n_annot = ref_ld.shape[1]
 		self.n_snp = ref_ld.shape[0]			
 		
-		# first hsq
 		chisq1 = np.multiply(N1, np.square(bhat1))
-		self.hsq1 = Hsq(chisq1, ref_ld, w_ld, N1, M, num_blocks)
-		# second hsq
 		chisq2 = np.multiply(N2, np.square(bhat2))
-		self.hsq2 = Hsq(chisq2, ref_ld, w_ld, N2, M, num_blocks)
 
-		# genetic covariance
-		self.gencov = Gencov(bhat1, bhat2, ref_ld, w_ld, N1, N2, M, self.hsq1.tot_hsq,
-			self.hsq2.tot_hsq, self.N_overlap, self.rho, num_blocks)
-		
+		if intercept:
+			self.hsq1 = Hsq(chisq1, ref_ld, w_ld, N1, M, num_blocks)
+			self.hsq2 = Hsq(chisq2, ref_ld, w_ld, N2, M, num_blocks)
+			self.gencov = Gencov(bhat1, bhat2, ref_ld, w_ld, N1, N2, M, self.hsq1.tot_hsq,
+				self.hsq2.tot_hsq, self.N_overlap, self.rho, num_blocks)
+
+		else:
+			self.hsq1 = Hsq_nointercept(chisq1, ref_ld, w_ld, N1, M, num_blocks)
+			self.hsq2 = Hsq_nointercept(chisq2, ref_ld, w_ld, N2, M, num_blocks)
+			self.gencov = Gencov(bhat1, bhat2, ref_ld, w_ld, N1, N2, M, self.hsq1.tot_hsq,
+				self.hsq2.tot_hsq, self.N_overlap, self.rho, num_blocks, intercept=False)
+				
 		# total genetic correlation
 		self.tot_gencor_biased = self.gencov.tot_gencov /\
 			np.sqrt(self.hsq1.tot_hsq * self.hsq2.tot_hsq)
