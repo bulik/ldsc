@@ -609,16 +609,19 @@ class Gencov(object):
 		
 		self._jknife = LstsqJackknife(x, y, num_blocks)
 		self.autocor = self._jknife.autocor(1)
-		no_intercept_cov = self._jknife.jknife_cov[0:self.n_annot,0:self.n_annot]
+		if intercept:
+			no_intercept_cov = self._jknife.jknife_cov[0:self.n_annot,0:self.n_annot]
+			self.intercept = self._jknife.est[0,self.n_annot]
+			self.intercept_se = self._jknife.jknife_se[0,self.n_annot]
+	
+		else:
+			no_intercept_cov = np.atleast_2d(self._jknife.jknife_cov)
+
 		self.gencov_cov = np.multiply(np.dot(self.M.T,self.M), no_intercept_cov)
 		self.cat_gencov = np.multiply(self.M, self._jknife.est[0,0:self.n_annot])
 		self.cat_gencov_se = np.multiply(self.M, self._jknife.jknife_se[0,0:self.n_annot])
-		self.intercept = self._jknife.est[0,self.n_annot]
-		self.intercept_se = self._jknife.jknife_se[0,self.n_annot]
 		self.tot_gencov = np.sum(self.cat_gencov)
-		self.tot_gencov_se = np.sqrt(np.sum(M*self._jknife.jknife_cov[0:self.n_annot,\
-			0:self.n_annot]*self.M.T))
-		
+		self.tot_gencov_se = np.sqrt(np.sum(M*no_intercept_cov*self.M.T))
 		self.prop_gencov = self.cat_gencov / self.tot_gencov
 		self.M_prop = self.M / self.M_tot
 		self.enrichment = np.divide(self.cat_gencov, self.M) / (self.tot_gencov/self.M_tot)
@@ -846,7 +849,7 @@ class LstsqJackknife(object):
 		jknife_est = np.mean(pseudovalues, axis=0) 
 		jknife_var = np.var(pseudovalues, axis=0) / (num_blocks - 1) 
 		jknife_se = np.std(pseudovalues, axis=0) / np.sqrt(num_blocks - 1)
-		jknife_cov = np.cov(pseudovalues.T) / (num_blocks )
+		jknife_cov = np.cov(pseudovalues.T) / (num_blocks)
 		return (jknife_est, jknife_var, jknife_se, jknife_cov)
 
 	def __compute_block_vals__(self, x, y, num_blocks):
@@ -964,10 +967,10 @@ class JackknifeAggregate(object):
 			
 	def __jknife__(self, pseudovalues, num_blocks):
 		'''Converts pseudovalues to jackknife estimates'''
-		jknife_est = np.mean(pseudovalues, axis=0) 
-		jknife_var = np.var(pseudovalues, axis=0) / (num_blocks - 1) 
-		jknife_se = np.std(pseudovalues, axis=0) / np.sqrt(num_blocks - 1)
-		jknife_cov = np.cov(pseudovalues.T) / (num_blocks )
+		jknife_est = np.atleast_2d(np.mean(pseudovalues, axis=0)) 
+		jknife_var = np.atleast_2d(np.var(pseudovalues, axis=0)) / (num_blocks - 1) 
+		jknife_se = np.atleast_2d(np.std(pseudovalues, axis=0)) / np.sqrt(num_blocks - 1)
+		jknife_cov = np.atleast_2d(np.cov(pseudovalues.T)) / (num_blocks )
 		return (jknife_est, jknife_var, jknife_se, jknife_cov)
 
 	def __compute_delete_vals__(self, x, y, annot_matrix, num_blocks):
