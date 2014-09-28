@@ -82,7 +82,7 @@ def _print_intercept(h2hat):
 	return out
 	
 	
-def _print_hsq(h2hat, ref_ld_colnames, intercept=True):
+def _print_hsq(h2hat, ref_ld_colnames, no_intercept=False):
 	'''Reusable code for printing output of jk.Hsq object'''
 	out = []
 	out.append('Total observed scale h2: '+str(h2hat.tot_hsq)+' ('+str(h2hat.tot_hsq_se)+')')
@@ -97,10 +97,10 @@ def _print_hsq(h2hat, ref_ld_colnames, intercept=True):
 	out.append( 'Coefficients: '+str(h2hat.coef))
 	out.append( 'Lambda GC: '+ str(h2hat.lambda_gc))
 	out.append( 'Mean Chi^2: '+ str(h2hat.mean_chisq))
-	if intercept:
-		out.append( 'Intercept: '+ str(h2hat.intercept)+' ('+str(h2hat.intercept_se)+')')
-	else:
+	if no_intercept:
 		out.append( 'Intercept: constrained to 1')
+	else:
+		out.append( 'Intercept: '+ str(h2hat.intercept)+' ('+str(h2hat.intercept_se)+')')
 
 	out = '\n'.join(out)
 	return out
@@ -124,7 +124,7 @@ def _print_hsq_nointercept(h2hat, ref_ld_colnames):
 	return out
 	
 
-def _print_gencov(gencov, ref_ld_colnames, intercept=True):
+def _print_gencov(gencov, ref_ld_colnames, no_intercept=False):
 	'''Reusable code for printing output of jk.Gencov object'''
 	out = []
 	out.append('Total observed scale gencov: '+str(gencov.tot_gencov)+' ('+\
@@ -136,10 +136,11 @@ def _print_gencov(gencov, ref_ld_colnames, intercept=True):
 		out.append( 'Proportion of SNPs: '+str(gencov.M_prop))
 		out.append( 'Proportion of gencov: ' +str(gencov.prop_gencov))
 		out.append( 'Enrichment: '+str(gencov.enrichment))		
-	if intercept:
-		out.append( 'Intercept: '+ str(gencov.intercept)+' ('+str(gencov.intercept_se)+')')
-	else:
+	if no_intercept:
 		out.append( 'Intercept: constrained to zero.')
+	else:
+		out.append( 'Intercept: '+ str(gencov.intercept)+' ('+str(gencov.intercept_se)+')')
+
 	out = '\n'.join(out)
 	return out
 
@@ -781,7 +782,7 @@ def sumstats(args):
 		N2 = np.matrix(sumstats.N2).reshape((snp_count,1))
 		del sumstats
 		
-		if args. no_intercept:
+		if args.no_intercept:
 			log.log('Constraining LD Score regression intercept.' )
 			gchat = jk.Gencor(betahat1, betahat2, ref_ld, w_ld, N1, N2, M_annot, args.overlap,
 				args.rho, args.num_blocks, intercept=False)
@@ -792,15 +793,15 @@ def sumstats(args):
 		log.log( '\n' )
 		log.log( 'Heritability of first phenotype' )
 		log.log( '-------------------------------' )
-		log.log( _print_hsq(gchat.hsq1, ref_ld_colnames, args.intercept) )
+		log.log( _print_hsq(gchat.hsq1, ref_ld_colnames, args.no_intercept) )
 		log.log( '\n' )
 		log.log( 'Heritability of second phenotype' )
 		log.log( '--------------------------------' )
-		log.log( _print_hsq(gchat.hsq2, ref_ld_colnames, args.intercept) )
+		log.log( _print_hsq(gchat.hsq2, ref_ld_colnames, args.no_intercept) )
 		log.log( '\n' )
 		log.log( 'Genetic Covariance' )
 		log.log( '------------------' )
-		log.log( _print_gencov(gchat.gencov, ref_ld_colnames, args.intercept) )
+		log.log( _print_gencov(gchat.gencov, ref_ld_colnames, args.no_intercept) )
 		log.log( '\n' )
 		log.log( 'Genetic Correlation' )
 		log.log( '-------------------' )
