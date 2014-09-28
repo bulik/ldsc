@@ -370,7 +370,16 @@ def betaprod(fh):
 		
 	return x
 
-	
+def ldscore_fromfile(flist,num=None):
+	f = open(flist,'r')
+	lines = f.readlines()
+	x = ldscore(lines[0][0:-1],num)
+	for fh in lines[1:]:
+		fh = fh[0:-1]
+		x = pd.merge(x,ldscore(fh,num),on='SNP',how='inner')
+	f.close()
+	return x
+
 def ldscore(fh, num=None):
 	'''
 	Parses .l2.ldscore files. See docs/file_formats_ld.txt
@@ -517,6 +526,13 @@ def M(fh, num=None, N=2, common=None):
 		x = parsefunc(fh + suffix)
 		
 	return x
+
+def M_fromfile(flist,num=None):
+	f = open(flist,'r')
+	lines = [l[0:-1] for l in f.readlines()]
+	M_annot = np.hstack([M(fh,num) for fh in lines])
+	f.close()
+	return M_annot
 	
 
 def __ID_List_Factory__(colnames, keepcol, fname_end, header=None, usecols=None):
