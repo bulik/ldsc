@@ -699,12 +699,13 @@ def sumstats(args):
 			max_chisq = max(0.001*max_N, 20)
 			sumstats = sumstats[sumstats['CHISQ'] < max_chisq]
 			log_msg = 'After filtering on chi^2 < {C}, {N} SNPs remain.'
-	
-		snp_count = len(sumstats)
-		if snp_count == 0:
-			raise ValueError(log_msg.format(C=max_chisq, N='no'))
-		else:
 			log.log(log_msg.format(C=max_chisq, N=len(sumstats)))
+	
+			snp_count = len(sumstats)
+			if snp_count == 0:
+				raise ValueError(log_msg.format(C=max_chisq, N='no'))
+			else:
+				log.log(log_msg.format(C=max_chisq, N=len(sumstats)))
 
 		snp_count = len(sumstats); n_annot = len(ref_ld_colnames)
 		ref_ld = np.matrix(sumstats[ref_ld_colnames]).reshape((snp_count, n_annot))
@@ -722,6 +723,13 @@ def sumstats(args):
 	elif args.sumstats_h2:
 	
 		log.log('Estimating heritability.')
+		max_N = np.max(sumstats['N'])
+		if not args.no_filter_chisq:
+			max_chisq = max(0.001*max_N, 80)
+			sumstats = sumstats[sumstats['CHISQ'] < max_chisq]
+			log_msg = 'After filtering on chi^2 < {C}, {N} SNPs remain.'
+			log.log(log_msg.format(C=max_chisq, N=len(sumstats)))
+			
 		snp_count = len(sumstats); n_annot = len(ref_ld_colnames)
 		ref_ld = np.matrix(sumstats[ref_ld_colnames]).reshape((snp_count, n_annot))
 		w_ld = np.matrix(sumstats[w_ld_colname]).reshape((snp_count, 1))
@@ -772,6 +780,19 @@ def sumstats(args):
 	# LD Score regression to estimate genetic correlation
 	elif args.sumstats_gencor or args.sumstats_gencor_fromchisq or args.gencor:
 		log.log('Estimating genetic correlation.')
+
+		max_N1 = np.max(sumstats['N1'])
+		max_N2 = np.max(sumstats['N2'])
+		if not args.no_filter_chisq:
+			max_chisq1 = max(0.001*max_N1, 80)
+			max_chisq2 = max(0.001*max_N2, 80)
+			chisq1 = sumstats.BETAHAT1**2 * sumstats.N1
+			chisq2 = sumstats.BETAHAT2**2 * sumstats.N2
+			ii = np.logical_and(chisq1 < max_chisq1, chisq2 < max_chisq2)
+			sumstats = sumstats[ii]
+			log_msg = 'After filtering on chi^2 < {C},{D}, {N} SNPs remain.'
+			log.log(log_msg.format(C=max_chisq1, D=max_chisq2, N=np.sum(ii)))
+
 		snp_count = len(sumstats); n_annot = len(ref_ld_colnames)
 		ref_ld = np.matrix(sumstats[ref_ld_colnames]).reshape((snp_count, n_annot))
 		w_ld = np.matrix(sumstats[w_ld_colname]).reshape((snp_count, 1))

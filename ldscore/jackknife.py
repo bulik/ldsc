@@ -391,6 +391,8 @@ class Hsq(object):
 			self.ratio = (self.intercept - 1) / (self.mean_chisq - 1)
 		else:
 			self.ratio = float('nan')
+			self.ratio_se = float('nan')
+
 		
 		self.prop_hsq = self.cat_hsq / self.tot_hsq
 		self.M_prop = self.M / self.M_tot
