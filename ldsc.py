@@ -211,6 +211,92 @@ def ldscore(args):
 		keep_snps = __filter__(args.extract, 'SNPs', 'include', array_snps)
 		annot_matrix, annot_colnames, num_annots = None, None, 1
 	
+	# read cts_bin_add
+	elif args.cts_bin_add is not None and args.cts_breaks is not None:
+		# read filenames
+		cts_fnames = args.cts_bin_add.split(',')
+		# read breaks
+		# replace N with negative sign
+		args.cts_breaks = args.cts_breaks.replace('N','-')
+		# split on x
+		try:
+			breaks = [[float(x) for x in y.split(',')] for y in args.cts_breaks.split('x')]
+		except ValueError as e:
+			raise ValueError('--cts-breaks must be a comma-separated list of numbers: '
+				+str(e.args))
+	
+		if len(breaks) != len(cts_fnames):
+			raise ValueError('Need to specify one set of breaks for each file in --cts-bin.')
+		
+		if args.cts_names:
+			cts_colnames = [str(x) for x in args.cts_names.split(',')]
+			if len(cts_colnames) != len(cts_fnames):
+				msg = 'Must specify either no --cts-names or one value for each file in --cts-bin.'
+				raise ValueError(msg)
+
+		else:
+			cts_colnames = ['ANNOT'+str(i) for i in xrange(len(cts_fnames))]
+			
+		log.log('Reading numbers with which to bin SNPs from {F}'.format(F=args.cts_bin_add))
+	
+		cts_levs = []
+		full_labs = []
+		for i,fh in enumerate(cts_fnames):
+			vec = ps.read_cts(cts_fnames[i], array_snps.df.SNP.values)
+			
+			max_cts = np.max(vec)
+			min_cts = np.min(vec)
+			cut_breaks = list(breaks[i])
+			name_breaks = list(cut_breaks)
+			if np.all(cut_breaks >= max_cts) or np.all(cut_breaks <= min_cts):
+				raise ValueError('All breaks lie outside the range of the cts variable.')
+
+			if np.all(cut_breaks <= max_cts):
+				name_breaks.append(max_cts)
+				cut_breaks.append(max_cts+1)
+		
+			if np.all(cut_breaks >= min_cts):	
+				name_breaks.append(min_cts)
+				cut_breaks.append(min_cts-1)
+
+			name_breaks.sort()
+			cut_breaks.sort()		
+			n_breaks = len(cut_breaks)
+			# so that col names are consistent across chromosomes with different max vals
+			name_breaks[0] = 'min'
+			name_breaks[-1] = 'max'
+			name_breaks = [str(x) for x in name_breaks]
+			labs = [name_breaks[i]+'_'+name_breaks[i+1] for i in xrange(n_breaks-1)]
+			cut_vec = pd.Series(pd.cut(vec, bins=cut_breaks, labels=labs))
+			full_labs.append(labs)
+			small_annot_matrix = cut_vec
+			# crosstab -- for now we keep empty columns
+			small_annot_matrix = pd.crosstab(small_annot_matrix.index, 
+				small_annot_matrix, dropna=False)
+			small_annot_matrix = small_annot_matrix[sorted(small_annot_matrix.columns, key=annot_sort_key)]
+			cts_levs.append(small_annot_matrix)
+
+	
+		if len(cts_colnames) == 1:
+			annot_colnames = [cts_colnames[0]+'_'+bin for bin in full_labs[0]]
+		else:
+			print cts_colnames
+			print full_labs
+			annot_colnames = []
+			for i,cname in enumerate(cts_colnames):
+				for bin in full_labs[i]:
+					annot_colnames.append(cts_colnames[i]+'_'+bin)
+			
+		#	annot_colnames = [cts_colnames[i]+'_'+bin for bin in full_labs[i] for i in xrange(len(cts_colnames))]
+	
+		print annot_colnames
+		annot_matrix = pd.concat(cts_levs, axis=1)
+		print annot_matrix.shape
+		annot_matrix = np.matrix(annot_matrix)
+		print annot_matrix
+		keep_snps = None
+		num_annots = annot_matrix.shape[1]
+
 	# read --cts-bin plus --cts-breaks
 	elif args.cts_bin is not None and args.cts_breaks is not None:
 		# read filenames
@@ -747,12 +833,13 @@ def sumstats(args):
 			if args.annot:
 				annot = ps.AnnotFile(args.annot)
 				num_annots,ma = len(annot.df.columns) - 4, len(annot.df)
-				log.log("Read {A} annotations for {M} SNPs from {f}.".format(f=args.annot,A=num_annots,
-			M=ma))
+				log.log("Read {A} annotations for {M} SNPs from {f}.".format(f=args.annot,
+					A=num_annots,	M=ma))
 				annot_matrix = np.matrix(annot.df.iloc[:,4:])
 			else:
 				raise ValueError("No annot file specified.")
-			h2hat = jk.Hsq_aggregate(chisq, ref_ld, N, M_annot, annot_matrix, args.num_blocks)
+
+			h2hat = jk.Hsq_aggregate(chisq, ref_ld, w_ld, N, M_annot, annot_matrix, args.num_blocks)
 			log.log(_print_hsq_nointercept(h2hat, ref_ld_colnames))
 		else:
 			h2hat = jk.Hsq(chisq, ref_ld, w_ld, N, M_annot, args.num_blocks,
@@ -910,7 +997,10 @@ if __name__ == '__main__':
 	parser.add_argument('--annot', default=None, type=str, 
 		help='Filename prefix for annotation file for partitioned LD Score estimation')
 	parser.add_argument('--cts-bin', default=None, type=str, 
-		help='Filename prefix for cts binned LD Score estimation')
+		help='Filenames for multiplicative cts binned LD Score estimation')
+	parser.add_argument('--cts-bin-add', default=None, type=str, 
+		help='Filenames for additive cts binned LD Score estimation')
+
 	parser.add_argument('--cts-breaks', default=None, type=str, 
 		help='Comma separated list of breaks for --cts-bin. Specify negative numbers with an N instead of a -')
 	parser.add_argument('--cts-names', default=None, type=str, 
@@ -1065,7 +1155,7 @@ if __name__ == '__main__':
 			raise ValueError('--cts-bin and --extract are currently incompatible.')
 		if args.annot is not None and args.cts_bin is not None:
 			raise ValueError('--annot and --cts-bin are currently incompatible.')	
-		if (args.cts_bin is not None) != (args.cts_breaks is not None):
+		if (args.cts_bin is not None or args.cts_bin_add is not None) != (args.cts_breaks is not None):
 			raise ValueError('Must set both or neither of --cts-bin and --cts-breaks.')
 		if args.per_allele and args.pq_exp is not None:
 			raise ValueError('Cannot set both --per-allele and --pq-exp (--per-allele is equivalent to --pq-exp 1).')
