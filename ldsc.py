@@ -241,6 +241,7 @@ def ldscore(args):
 	
 		cts_levs = []
 		full_labs = []
+		first_lev = np.zeros((m,))
 		for i,fh in enumerate(cts_fnames):
 			vec = ps.read_cts(cts_fnames[i], array_snps.df.SNP.values)
 			
@@ -274,8 +275,9 @@ def ldscore(args):
 			small_annot_matrix = pd.crosstab(small_annot_matrix.index, 
 				small_annot_matrix, dropna=False)
 			small_annot_matrix = small_annot_matrix[sorted(small_annot_matrix.columns, key=annot_sort_key)]
-			cts_levs.append(small_annot_matrix)
-
+			cts_levs.append(small_annot_matrix.ix[:,1:])
+			# first column defaults to no annotation
+			first_lev += small_annot_matrix.ix[:,0]
 	
 		if len(cts_colnames) == 1:
 			annot_colnames = [cts_colnames[0]+'_'+bin for bin in full_labs[0]]
@@ -284,14 +286,14 @@ def ldscore(args):
 			print full_labs
 			annot_colnames = []
 			for i,cname in enumerate(cts_colnames):
-				for bin in full_labs[i]:
+				for bin in full_labs[i][1:]:
 					annot_colnames.append(cts_colnames[i]+'_'+bin)
-			
-		#	annot_colnames = [cts_colnames[i]+'_'+bin for bin in full_labs[i] for i in xrange(len(cts_colnames))]
-	
+					
 		print annot_colnames
+		annot_colnames.insert(0, "BOTTOM_BINS")
+		first_lev = np.minimum(first_lev, 1)
+		cts_levs.insert(0, pd.DataFrame(first_lev))
 		annot_matrix = pd.concat(cts_levs, axis=1)
-		print annot_matrix.shape
 		annot_matrix = np.matrix(annot_matrix)
 		print annot_matrix
 		keep_snps = None
@@ -586,6 +588,15 @@ def ldscore(args):
 	log.log('')
 	log.log('MAF/LD Correlation Matrix')
 	log.log( df.ix[:,4:].corr() )
+	
+	
+	# print condition number
+	log.log('')
+	log.log('LD Score Matrix Condition Number')
+	cond_num = np.linalg.cond(df.ix[:,5:])
+	log.log( cond_num )
+	if cond_num > 10000:
+		log.log('WARNING: ill-conditioned LD Score Matrix!')
 		
 
 def sumstats(args):
@@ -739,13 +750,19 @@ def sumstats(args):
 	
 	# merge with reference panel LD Scores 
 	sumstats = pd.merge(sumstats, ref_ldscores, how="inner", on="SNP")
-	log_msg = 'After merging with reference panel LD, {N} SNPs remain.'
-	log.log(log_msg.format(N=len(sumstats)))
+	if len(sumstats) == 0:
+		raise ValueError('No SNPs remain after merging with reference panel LD')
+	else:
+		log_msg = 'After merging with reference panel LD, {N} SNPs remain.'
+		log.log(log_msg.format(N=len(sumstats)))
 
 	# merge with regression SNP LD Scores
 	sumstats = pd.merge(sumstats, w_ldscores, how="inner", on="SNP")
-	log_msg = 'After merging with regression SNP LD, {N} SNPs remain.'
-	log.log(log_msg.format(N=len(sumstats)))
+	if len(sumstats) == 0:
+		raise ValueError('No SNPs remain after merging with regression SNP LD')
+	else:
+		log_msg = 'After merging with regression SNP LD, {N} SNPs remain.'
+		log.log(log_msg.format(N=len(sumstats)))
 	
 	ref_ld_colnames = ref_ldscores.columns[1:len(ref_ldscores.columns)]	
 	w_ld_colname = sumstats.columns[-1]
@@ -776,6 +793,21 @@ def sumstats(args):
 	if len(sumstats) < 200000:
 		log.log('Note, # of SNPs < 200k; this is often bad.')
 
+	# check condition number of LD Score Matrix
+	if M_annot > 1:
+		cond_num = np.linalg.cond(sumstats[ref_ld_colnames])
+		if cond_num > 100000:
+			if args.invert_anyway:
+				warn = "WARNING: LD Score matrix condition number is {C}. "
+				warn += "Inverting anyway because the --invert-anyway flag is set."
+				log.log(warn)
+			else:
+				warn = "WARNING: LD Score matrix condition number is {C}. "
+				warn += "Remove collinear LD Scores or force inversion with "
+				warn += "the --invert-anyway flag."
+				log.log(warn)
+				raise ValueError(warn.format(C=cond_num))
+
 	# LD Score regression intercept
 	if args.sumstats_intercept:
 		log.log('Estimating LD Score regression intercept.')
@@ -803,8 +835,8 @@ def sumstats(args):
 		h2hat = jk.Hsq(chisq, ref_ld, w_ld, N, M_annot, args.num_blocks)				
 		log.log(_print_intercept(h2hat))
 		return h2hat
-
-
+		
+		
 	# LD Score regression to estimate h2
 	elif args.sumstats_h2:
 	
@@ -1081,6 +1113,8 @@ if __name__ == '__main__':
 	parser.add_argument('--w-ld-chr', default=None, type=str,
 		help='Filename prefix for file with LD Scores with sum r^2 taken over SNPs included in the regression, split across 22 chromosomes.')
 
+	parser.add_argument('--invert-anyway', default=False, action='store_true',
+		help="Force inversion of ill-conditioned matrices.")
 	parser.add_argument('--no-filter-chisq', default=False, action='store_true',
 		help='For use with --sumstats-intercept. Don\'t remove SNPs with large chi-square.')
 	parser.add_argument('--no-intercept', action='store_true',
