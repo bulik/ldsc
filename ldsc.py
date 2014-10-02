@@ -794,7 +794,7 @@ def sumstats(args):
 		log.log('Note, # of SNPs < 200k; this is often bad.')
 
 	# check condition number of LD Score Matrix
-	if M_annot > 1:
+	if len(M_annot) > 1:
 		cond_num = np.linalg.cond(sumstats[ref_ld_colnames])
 		if cond_num > 100000:
 			if args.invert_anyway:
@@ -805,7 +805,7 @@ def sumstats(args):
 				warn = "WARNING: LD Score matrix condition number is {C}. "
 				warn += "Remove collinear LD Scores or force inversion with "
 				warn += "the --invert-anyway flag."
-				log.log(warn)
+				log.log(warn.format(C=cond_num))
 				raise ValueError(warn.format(C=cond_num))
 
 	# LD Score regression intercept
