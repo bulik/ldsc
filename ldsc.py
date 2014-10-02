@@ -97,8 +97,8 @@ def _print_hsq(h2hat, ref_ld_colnames, no_intercept=False):
 	out.append( 'Coefficients: '+str(h2hat.coef))
 	out.append( 'Lambda GC: '+ str(h2hat.lambda_gc))
 	out.append( 'Mean Chi^2: '+ str(h2hat.mean_chisq))
-	if no_intercept:
-		out.append( 'Intercept: constrained to 1')
+	if h2hat.constrain_intercept is not None:
+		out.append( 'Intercept: constrained to {C}'.format(C=h2hat.constrain_intercept))
 	else:
 		out.append( 'Intercept: '+ str(h2hat.intercept)+' ('+str(h2hat.intercept_se)+')')
 
@@ -868,11 +868,23 @@ def sumstats(args):
 		N = np.matrix(sumstats.N).reshape((snp_count,1))
 		del sumstats
 
-		if args.no_intercept:
+		if args.constrain_intercept:
+			try:
+				intercept = float(args.constrain_intercept)
+			except e:
+				raise ValueError('Argument to --constrain-intercept must be a number when used with --sumstats-h2: '+str(e.args))
+
+			log.log('Constraining LD Score regression intercept = {C}.'.format(C=intercept))
+			h2hat = jk.Hsq(chisq, ref_ld, w_ld, N, M_annot, args.num_blocks,
+				args.non_negative, args.intercept)
+			log.log(_print_hsq(h2hat, ref_ld_colnames))
+			
+		elif args.no_intercept:
 			log.log('Constraining LD Score regression intercept = 1.' )
 			h2hat = jk.Hsq_nointercept(chisq, ref_ld, w_ld, N, M_annot, args.num_blocks,
 				args.non_negative)
 			log.log(_print_hsq_nointercept(h2hat, ref_ld_colnames))
+		
 		elif args.aggregate:
 			if args.annot:
 				annot = ps.AnnotFile(args.annot)
@@ -1131,6 +1143,8 @@ if __name__ == '__main__':
 		help='For use with --sumstats-intercept. Don\'t remove SNPs with large chi-square.')
 	parser.add_argument('--no-intercept', action='store_true',
 		help = 'Constrain the regression intercept to be 1.')
+	parser.add_argument('--constrain-intercept', type=str,
+		help = 'Constrain the regression intercept to be a fixed value (or a comma-separated list of 3 values for rg estimation).')
 	parser.add_argument('--non-negative', action='store_true',
 		help = 'Constrain the regression intercept to be 1.')
 	parser.add_argument('--aggregate', action='store_true',

@@ -290,6 +290,9 @@ class Hsq(object):
 		the regression).
 	num_blocks : int, default = 1000
 		Number of block jackknife blocks.
+	intercept : none or float
+		If none, fits LD Score regression w/ intercept. If float, constrains the intercept
+		to equal the given float.
 	
 	Attributes
 	----------
@@ -347,7 +350,8 @@ class Hsq(object):
 		
 	'''
 	
-	def __init__(self, chisq, ref_ld, w_ld, N, M, num_blocks=200, non_negative=False):
+	def __init__(self, chisq, ref_ld, w_ld, N, M, num_blocks=200, non_negative=False,
+		intercept=None):
 	
 		self.N = N
 		self.M = M
@@ -355,52 +359,61 @@ class Hsq(object):
 		self.n_annot = ref_ld.shape[1]
 		self.n_snp = ref_ld.shape[0]
 		self.mean_chisq = np.mean(chisq)
+		self.constrain_intercept = intercept
 		# median and matrix don't play nice?
 		self.lambda_gc = np.median(np.asarray(chisq)) / 0.4549 
-		
 		ref_ld_tot = np.sum(ref_ld, axis=1)
-		agg_hsq = self._aggregate(chisq, np.multiply(N, ref_ld_tot), self.M_tot)
+		
+		x = np.multiply(N, ref_ld)
+	
+		if intercept is None:
+			x = _append_intercept(x)
+			chisq_m_int = chisq - 1
+		else:
+			chisq_m_int = chisq - self.constrain_intercept
+			
+		agg_hsq = self._aggregate(chisq_m_int, np.multiply(N, ref_ld_tot), self.M_tot)
 		print agg_hsq
 		weights = _hsq_weights(ref_ld_tot, w_ld, N, self.M_tot, agg_hsq) 
 		if np.all(weights == 0):
 			raise ValueError('Something is wrong, all regression weights are zero.')	
 
-		x = np.multiply(N, ref_ld)
-		x = _append_intercept(x)
 		x = _weight(x, weights)
-		y = _weight(chisq, weights)
-		
+		y = _weight(chisq_m_int, weights)
 		self.w_mean_chisq = np.average(chisq, weights=weights)
+
 		if non_negative:
 			self._jknife = LstsqJackknifeNN(x, y, num_blocks)
 		else:
 			self._jknife = LstsqJackknife(x, y, num_blocks)
+			
 		self.autocor = self._jknife.autocor(1)
 		no_intercept_cov = self._jknife.jknife_cov[0:self.n_annot,0:self.n_annot]
 		self.hsq_cov = np.multiply(np.dot(self.M.T,self.M), no_intercept_cov)
 		self.coef = self._jknife.est
 		self.cat_hsq = np.multiply(self.M, self._jknife.est[0,0:self.n_annot])
 		self.cat_hsq_se = np.multiply(self.M, self._jknife.jknife_se[0,0:self.n_annot])
-		self.intercept = self._jknife.est[0,self.n_annot]
-		self.intercept_se = self._jknife.jknife_se[0,self.n_annot]
 		self.tot_hsq = np.sum(self.cat_hsq)
 		self.tot_hsq_se = np.sqrt(np.sum(M*self._jknife.jknife_cov[0:self.n_annot,\
 			0:self.n_annot]*self.M.T))
-		if self.mean_chisq > 1:
-			self.ratio_se = self.intercept_se / (self.mean_chisq - 1)
-			self.ratio = (self.intercept - 1) / (self.mean_chisq - 1)
-		else:
-			self.ratio = float('nan')
-			self.ratio_se = float('nan')
 
-		
+		if intercept is None:
+			self.intercept = self._jknife.est[0,self.n_annot] + 1
+			self.intercept_se = self._jknife.jknife_se[0,self.n_annot]
+			if self.mean_chisq > 1:
+				self.ratio_se = self.intercept_se / (self.mean_chisq - 1)
+				self.ratio = (self.intercept - 1) / (self.mean_chisq - 1)
+			else:
+				self.ratio = float('nan')
+				self.ratio_se = float('nan')
+
 		self.prop_hsq = self.cat_hsq / self.tot_hsq
 		self.M_prop = self.M / self.M_tot
 		self.enrichment = np.divide(self.cat_hsq, self.M) / (self.tot_hsq/self.M_tot)
 		
 	def _aggregate(self, y, x, M_tot):
 		'''Aggregate estimator. For use in regression weights.'''
-		numerator = np.mean(y) - 1.0
+		numerator = np.mean(y)
 		denominator = np.mean(x) / M_tot
 		agg = numerator / denominator
 		return agg
@@ -461,7 +474,7 @@ class Hsq_nointercept(object):
 class Hsq_aggregate(object):
 
 	'''
-	same as Hsq but w/o intercept
+	Aggregate estimator (equivalent to HE regression in multiple variance component case)
 
 	'''
 	
@@ -486,7 +499,7 @@ class Hsq_aggregate(object):
 		x = np.multiply(N, ref_ld)
 		x = _weight(x, weights)
 		y = _weight(chisq-1, weights)
-		
+
 		self._jknife = JackknifeAggregate(x, y, annot_matrix, num_blocks)
 		self.autocor = self._jknife.autocor(1)
 		self.hsq_cov = np.multiply(np.dot(self.M.T,self.M), self._jknife.jknife_cov)
@@ -498,7 +511,8 @@ class Hsq_aggregate(object):
 		self.prop_hsq = self.cat_hsq / self.tot_hsq
 		self.M_prop = self.M / self.M_tot
 		self.enrichment = np.divide(self.cat_hsq, self.M) / (self.tot_hsq/self.M_tot)
-		
+		self.coef = self._jknife.est
+
 	def _aggregate(self, y, x, M_tot):
 		'''Aggregate estimator. For use in regression weights.'''
 		numerator = np.mean(y) - 1.0
@@ -943,8 +957,7 @@ class LstsqJackknife(object):
 		
 class JackknifeAggregate(object):
 
-
-	def __init__(self, x, y, annot_matrix,num_blocks):
+	def __init__(self, x, y, annot_matrix, num_blocks):
 		if len(x.shape) <= 1:
 			x = np.atleast_2d(x).T
 		if len(y.shape) <= 1:
@@ -958,7 +971,8 @@ class JackknifeAggregate(object):
 		self.num_blocks = num_blocks		
 		if self.num_blocks > self.N:
 			raise ValueError('Number of blocks > number of data points.')
-
+		
+		print annot_matrix
 		x_small = np.dot(annot_matrix.T,x)
 		y_small = np.dot(annot_matrix.T,y)
 		self.est = np.dot(np.linalg.inv(x_small),y_small).T
