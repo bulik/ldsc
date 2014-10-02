@@ -373,10 +373,16 @@ def betaprod(fh):
 def ldscore_fromfile(flist,num=None):
 	f = open(flist,'r')
 	lines = f.readlines()
+	print 'Reading '+lines[0][0:-1]
 	x = ldscore(lines[0][0:-1],num)
+	i = 0
 	for fh in lines[1:]:
 		fh = fh[0:-1]
-		x = pd.merge(x,ldscore(fh,num),on='SNP',how='inner')
+		print 'Reading '+fh
+		y = ldscore(fh,num)
+		y.rename(columns={'L2':'L2_'+str(i)}, inplace=True)
+		i += 1
+		x = pd.merge(x,y,on='SNP',how='inner')
 	f.close()
 	return x
 

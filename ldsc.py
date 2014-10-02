@@ -390,6 +390,8 @@ def ldscore(args):
 		if np.any(np.sum(annot_matrix, axis=1) == 0):
  			# This exception should never be raised. For debugging only.
  			raise ValueError('Some SNPs have no annotation in --cts-bin. This is a bug!')
+
+
  	
 	else:
 		annot_matrix, annot_colnames, keep_snps = None, None, None, 
@@ -557,6 +559,16 @@ def ldscore(args):
 	log.log("Writing LD Scores for {N} SNPs to {f}.gz".format(f=out_fname, N=len(df)))
 	df.to_csv(out_fname, sep="\t", header=True, index=False)	
 	call(['gzip', '-f', out_fname])
+
+	# print annotMatrix
+	if args.cts_bin is not None:
+		out_fname = args.out + '.' + '.annot'
+		new_colnames = geno_array.colnames + ldscore_colnames
+		df = pd.DataFrame.from_records(np.c_[geno_array.df, annot_matrix])
+		df.columns = new_colnames	
+		del df['MAF']
+		log.log("Writing annotmatrix")
+		df.to_csv(out_fname, sep="\t", header=True, index=False)	
 
 	# print .M
 	if annot_matrix is not None:
