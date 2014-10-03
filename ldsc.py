@@ -1124,25 +1124,12 @@ if __name__ == '__main__':
 	# Summary Statistic Estimation Flags
 	
 	# Input for sumstats
-	parser.add_argument('--sumstats-intercept', default=None, type=str,
-		help='Path to file with summary statistics for LD Score regression estimation.')
-	parser.add_argument('--sumstats-h2', default=None, type=str,
-		help='Path to file with summary statistics for h2 estimation.')
-	parser.add_argument('--sumstats-gencor', default=None, type=str,
-		help='Path to file with summary statistics for genetic correlation estimation.')
-	parser.add_argument('--sumstats-gencor-fromchisq',default=False,action='store_true',
-		help='Make a betaprod dataframe from chisq1, chisq2, allele1, allele2.')
-	parser.add_argument('--gencor',default=False,type=str)
-	parser.add_argument('--chisq1',default=None,type=str,
-		help='For use with --sumstats-gencor-fromchisq.')
-	parser.add_argument('--chisq2',default=None,type=str,
-		help='For use with --sumstats-gencor-fromchisq.')
-	parser.add_argument('--allele1',default=None,type=str,
-		help='For use with --sumstats-gencor-fromchisq.')
-	parser.add_argument('--allele2',default=None,type=str,
-		help='For use with --sumstats-gencor-fromchisq.')
-	parser.add_argument('--intercept', default=False, action='store_true',
-		help='For use with --sumstats-h2. Performs the same analysis as --sumstats-h2, but the output is focused on the LD Score regression intercept.')
+	parser.add_argument('--intercept', default=None, type=str,
+		help='Path to .chisq file with summary statistics for LD Score regression estimation.')
+	parser.add_argument('--h2', default=None, type=str,
+		help='Path prefix to .chisq file with summary statistics for h2 estimation.')
+	parser.add_argument('--rg', default=None, type=str,
+		help='Comma-separated list of two prefixes of .chisq/.allele filesets with summary statistics for genetic correlation estimation.')
 	parser.add_argument('--ref-ld', default=None, type=str,
 		help='Filename prefix for file with reference panel LD Scores.')
 	parser.add_argument('--ref-ld-chr', default=None, type=str,
@@ -1151,9 +1138,6 @@ if __name__ == '__main__':
 		help='File with one line per reference ldscore file.')
 	parser.add_argument('--ref-ld-fromfile-chr', default=None, type=str,
 		help='File with one line per ref-ld-chr prefix.')
-	parser.add_argument('--regression-snp-ld', default=None, type=str,
-		help='Filename prefix for file with LD Scores with sum r^2 taken over SNPs included in the regression.')
-	parser.add_argument('--regression-snp-ld-chr', default=None, type=str,
 		help='Filename prefix for file with LD Scores with sum r^2 taken over SNPs included in the regression, split across 22 chromosomes.')
 	parser.add_argument('--w-ld', default=None, type=str,
 		help='Filename prefix for file with LD Scores with sum r^2 taken over SNPs included in the regression.')
@@ -1163,7 +1147,7 @@ if __name__ == '__main__':
 	parser.add_argument('--invert-anyway', default=False, action='store_true',
 		help="Force inversion of ill-conditioned matrices.")
 	parser.add_argument('--no-filter-chisq', default=False, action='store_true',
-		help='For use with --sumstats-intercept. Don\'t remove SNPs with large chi-square.')
+		help='Don\'t remove SNPs with large chi-square.')
 	parser.add_argument('--no-intercept', action='store_true',
 		help = 'Constrain the regression intercept to be 1.')
 	parser.add_argument('--constrain-intercept', action='store', default=False,
@@ -1176,11 +1160,8 @@ if __name__ == '__main__':
 		help='# of SNPs (if you don\'t want to use the .l2.M files that came with your .l2.ldscore.gz files)')
 	parser.add_argument('--M-file', default=None, type=str,
 		help='Alternate .M file (e.g., if you want to use .M_5_50).')
-	parser.add_argument('--M-5-50', default=False, action='store_true',
-		help='Deprecated. Now default behavior.')
 	parser.add_argument('--not-M-5-50', default=False, action='store_true',
 		help='Don\'t .M_5-50 file by default.')
-
 		
 	# Filtering for sumstats
 	parser.add_argument('--info-min', default=None, type=float,
