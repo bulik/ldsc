@@ -10,7 +10,6 @@ This is a command line application for estimating
 	
 	
 '''
-
 from __future__ import division
 import ldscore.ldscore as ld
 import ldscore.parse as ps
@@ -82,12 +81,12 @@ def _print_intercept(h2hat):
 	return out
 	
 	
-def _print_hsq(h2hat, ref_ld_colnames, no_intercept=False):
+def _print_hsq(h2hat, ref_ld_colnames):
 	'''Reusable code for printing output of jk.Hsq object'''
 	out = []
 	out.append('Total observed scale h2: '+str(h2hat.tot_hsq)+' ('+str(h2hat.tot_hsq_se)+')')
 	out.append( 'Categories: '+ str(' '.join(ref_ld_colnames)))
-	out.append( 'Observed scale h2: '+str(h2hat.cat_hsq))
+	out.append( 'Observed scale h2: '+ ' '.join([str(x) for x in h2hat.cat_hsq]))
 	out.append( 'Observed scale h2 SE: '+str(h2hat.cat_hsq_se))
 	if h2hat.n_annot > 1:
 		out.append( 'Proportion of SNPs: '+str(h2hat.M_prop))
@@ -106,24 +105,6 @@ def _print_hsq(h2hat, ref_ld_colnames, no_intercept=False):
 	return out
 
 
-def _print_hsq_nointercept(h2hat, ref_ld_colnames):
-	'''Reusable code for printing output of jk.Hsq object'''
-	out = []
-	out.append('Total observed scale h2: '+str(h2hat.tot_hsq)+' ('+str(h2hat.tot_hsq_se)+')')
-	out.append( 'Categories: '+ str(' '.join(ref_ld_colnames)))
-	out.append( 'Observed scale h2: '+str(h2hat.cat_hsq))
-	out.append( 'Observed scale h2 SE: '+str(h2hat.cat_hsq_se))
-	if h2hat.n_annot > 1:
-		out.append( 'Proportion of SNPs: '+str(h2hat.M_prop))
-		out.append( 'Proportion of h2g: ' +str(h2hat.prop_hsq))
-		out.append( 'Enrichment: '+str(h2hat.enrichment))		
-		
-	out.append( 'Coefficients: '+str(h2hat.coef))
-
-	out = '\n'.join(out)
-	return out
-	
-
 def _print_gencov(gencov, ref_ld_colnames, no_intercept=False):
 	'''Reusable code for printing output of jk.Gencov object'''
 	out = []
@@ -136,8 +117,9 @@ def _print_gencov(gencov, ref_ld_colnames, no_intercept=False):
 		out.append( 'Proportion of SNPs: '+str(gencov.M_prop))
 		out.append( 'Proportion of gencov: ' +str(gencov.prop_gencov))
 		out.append( 'Enrichment: '+str(gencov.enrichment))		
-	if no_intercept:
-		out.append( 'Intercept: constrained to zero.')
+	
+	if gencov.constrain_intercept is not None:
+		out.append( 'Intercept: constrained to {C}'.format(C=gencov.constrain_intercept))
 	else:
 		out.append( 'Intercept: '+ str(gencov.intercept)+' ('+str(gencov.intercept_se)+')')
 
@@ -868,23 +850,24 @@ def sumstats(args):
 		N = np.matrix(sumstats.N).reshape((snp_count,1))
 		del sumstats
 
+		if args.no_intercept:
+			args.constrain_intercept = 1
+
 		if args.constrain_intercept:
 			try:
 				intercept = float(args.constrain_intercept)
-			except e:
-				raise ValueError('Argument to --constrain-intercept must be a number when used with --sumstats-h2: '+str(e.args))
-
+			except Exception as e:
+				err_type = type(e).__name__
+				e = ' '.join([str(x) for x in e.args])
+				e = err_type+': '+e
+				msg = 'Could not coerce argument to --constrain-intercept to floats.\n '+e
+				raise ValueError(msg)
+				
 			log.log('Constraining LD Score regression intercept = {C}.'.format(C=intercept))
 			h2hat = jk.Hsq(chisq, ref_ld, w_ld, N, M_annot, args.num_blocks,
-				args.non_negative, args.intercept)
+				args.non_negative, intercept)
 			log.log(_print_hsq(h2hat, ref_ld_colnames))
-			
-		elif args.no_intercept:
-			log.log('Constraining LD Score regression intercept = 1.' )
-			h2hat = jk.Hsq_nointercept(chisq, ref_ld, w_ld, N, M_annot, args.num_blocks,
-				args.non_negative)
-			log.log(_print_hsq_nointercept(h2hat, ref_ld_colnames))
-		
+					
 		elif args.aggregate:
 			if args.annot:
 				annot = ps.AnnotFile(args.annot)
@@ -896,7 +879,7 @@ def sumstats(args):
 				raise ValueError("No annot file specified.")
 
 			h2hat = jk.Hsq_aggregate(chisq, ref_ld, w_ld, N, M_annot, annot_matrix, args.num_blocks)
-			log.log(_print_hsq_nointercept(h2hat, ref_ld_colnames))
+			log.log(_print_hsq(h2hat, ref_ld_colnames))
 		else:
 			h2hat = jk.Hsq(chisq, ref_ld, w_ld, N, M_annot, args.num_blocks,
 				args.non_negative)
@@ -947,25 +930,47 @@ def sumstats(args):
 		del sumstats
 		
 		if args.no_intercept:
-			log.log('Constraining LD Score regression intercept.' )
-			gchat = jk.Gencor(betahat1, betahat2, ref_ld, w_ld, N1, N2, M_annot, args.overlap,
-				args.rho, args.num_blocks, intercept=False)
+			args.constrain_intercept = "1,1,0"
+		
+		if args.constrain_intercept:
+			intercepts = args.constrain_intercept.split(',')
+			if len(intercepts) != 3:
+				msg = 'If using --constrain-intercept with --sumstats-gencor, must specify a ' 
+				msg += 'comma-separated list of three intercepts. '
+				msg += 'The first two for the h2 estimates; the third for the gencov estimate.'
+				raise ValueError(msg)
+	
+			try:
+				intercepts = [float(x) for x in intercepts]
+			except Exception as e:
+				err_type = type(e).__name__
+				e = ' '.join([str(x) for x in e.args])
+				e = err_type+': '+e
+				msg = 'Could not coerce arguments to --constrain-intercept to floats.\n '+e
+				raise ValueError(msg)
+			
+			log.log('Constraining intercept for first h2 estimate to {I}'.format(I=str(intercepts[0])))
+			log.log('Constraining intercept for second h2 estimate to {I}'.format(I=str(intercepts[1])))
+			log.log('Constraining intercept for gencov estimate to {I}'.format(I=str(intercepts[2])))
+
 		else:
-			gchat = jk.Gencor(betahat1, betahat2, ref_ld, w_ld, N1, N2, M_annot, args.overlap,
-				args.rho, args.num_blocks)
+			intercepts = [None, None, None]
+		
+		gchat = jk.Gencor(betahat1, betahat2, ref_ld, w_ld, N1, N2, M_annot, intercepts,
+			args.overlap,	args.rho, args.num_blocks)
 
 		log.log( '\n' )
 		log.log( 'Heritability of first phenotype' )
 		log.log( '-------------------------------' )
-		log.log( _print_hsq(gchat.hsq1, ref_ld_colnames, args.no_intercept) )
+		log.log( _print_hsq(gchat.hsq1, ref_ld_colnames) )
 		log.log( '\n' )
 		log.log( 'Heritability of second phenotype' )
 		log.log( '--------------------------------' )
-		log.log( _print_hsq(gchat.hsq2, ref_ld_colnames, args.no_intercept) )
+		log.log( _print_hsq(gchat.hsq2, ref_ld_colnames) )
 		log.log( '\n' )
 		log.log( 'Genetic Covariance' )
 		log.log( '------------------' )
-		log.log( _print_gencov(gchat.gencov, ref_ld_colnames, args.no_intercept) )
+		log.log( _print_gencov(gchat.gencov, ref_ld_colnames) )
 		log.log( '\n' )
 		log.log( 'Genetic Correlation' )
 		log.log( '-------------------' )
@@ -1143,7 +1148,7 @@ if __name__ == '__main__':
 		help='For use with --sumstats-intercept. Don\'t remove SNPs with large chi-square.')
 	parser.add_argument('--no-intercept', action='store_true',
 		help = 'Constrain the regression intercept to be 1.')
-	parser.add_argument('--constrain-intercept', type=str,
+	parser.add_argument('--constrain-intercept', action='store', default=False,
 		help = 'Constrain the regression intercept to be a fixed value (or a comma-separated list of 3 values for rg estimation).')
 	parser.add_argument('--non-negative', action='store_true',
 		help = 'Constrain the regression intercept to be 1.')
