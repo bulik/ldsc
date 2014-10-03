@@ -1272,4 +1272,4 @@ if __name__ == '__main__':
 	# bad flags
 	else:
 		print MASTHEAD
-		raise ValueError('No analysis selected.')
+		print 'Error: no analysis has been selected.'
