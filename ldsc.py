@@ -25,6 +25,7 @@ MASTHEAD += "* LD Score Regression (LDSC)\n"
 MASTHEAD += "* version 0.001\n"
 MASTHEAD += "* (C) 2014 Brendan Bulik-Sullivan and Hilary Finucane\n"
 MASTHEAD += "* Broad Institute of MIT and Harvard / MIT Department of Mathematics\n"
+MASTHEAD += "* GNU General Public License v3\n"
 MASTHEAD += "*********************************************************************\n"
 
 pd.set_option('display.max_rows', 500)
