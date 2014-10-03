@@ -20,6 +20,13 @@ import pandas as pd
 from subprocess import call
 from itertools import product
 
+MASTHEAD = "*********************************************************************\n"
+MASTHEAD += "* LD Score Regression (LDSC)\n"
+MASTHEAD += "* version 0.001\n"
+MASTHEAD += "* (C) 2014 Brendan Bulik-Sullivan and Hilary Finucane\n"
+MASTHEAD += "* Broad Institute of MIT and Harvard / MIT Department of Mathematics\n"
+MASTHEAD += "*********************************************************************\n"
+
 pd.set_option('display.max_rows', 500)
 pd.set_option('display.max_columns', 500)
 pd.set_option('display.width', 1000)
@@ -161,6 +168,8 @@ def ldscore(args):
 	
 	'''
 	log = logger(args.out+'.log')
+	log.log(MASTHEAD)
+	#log.log(args)
 	
 	if args.bin:
 		snp_file, snp_obj = args.bin+'.bim', ps.PlinkBIMFile
@@ -562,7 +571,7 @@ def ldscore(args):
 	fout_M_5_50.close()
 	
 	# print annot matrix
-	if args.cts_bin is not None and not args.no_print_annot:
+	if (args.cts_bin is not None or args.cts_bin_add is not None) and not args.no_print_annot:
 		out_fname = args.out + '.annot'
 		new_colnames = geno_array.colnames + ldscore_colnames
 		annot_df = pd.DataFrame(np.c_[geno_array.df, annot_matrix])
@@ -592,8 +601,6 @@ def ldscore(args):
 	log.log( cond_num )
 	if cond_num > 10000:
 		log.log('WARNING: ill-conditioned LD Score Matrix!')
-	
-
 		
 
 def sumstats(args):
@@ -609,7 +616,8 @@ def sumstats(args):
 	
 	# open output files
 	log = logger(args.out + ".log")
-	log.log(args)
+	log.log(MASTHEAD)
+	#log.log(args)
 	# read .chisq or betaprod
 	try:
 		if args.sumstats_h2:
@@ -1262,4 +1270,5 @@ if __name__ == '__main__':
 		
 	# bad flags
 	else:
+		print MASTHEAD
 		raise ValueError('No analysis selected.')
