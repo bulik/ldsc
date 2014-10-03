@@ -623,29 +623,21 @@ def sumstats(args, header=None):
 	
 	# read .chisq or betaprod
 	try:
-		if args.sumstats_h2:
-			log.log('Reading summary statistics from {S}.'.format(S=args.sumstats_h2))
-			sumstats = ps.chisq(args.sumstats_h2)
-		elif args.sumstats_intercept:
-			log.log('Reading summary statistics from {S}.'.format(S=args.sumstats_intercept))
-			sumstats = ps.chisq(args.sumstats_intercept)
-		elif args.sumstats_gencor:
-			log.log('Reading summary statistics from {S}.'.format(S=args.sumstats_gencor))
-			sumstats = ps.betaprod(args.sumstats_gencor)
-		elif args.sumstats_gencor_fromchisq:
-			if args.chisq1 and args.chisq2 and args.allele1 and args.allele2:
-				sumstats = ps.betaprod_fromchisq(args.chisq1, args.chisq2, args.allele1, 
-					args.allele2)
-			elif args.chisq1 and args.chisq2:
-				c1 = args.chisq1 + '.chisq.gz'
-				c2 = args.chisq2 + '.chisq.gz'
-				a1 = args.chisq1 + '.allele.gz'
-				a2 = args.chisq2 + '.allele.gz'
-				sumstats = ps.betaprod_fromchisq(c1, c2, a1, a2)
-			else:
-				raise ValueError('Must use --chisq1 and chisq2 flags with --sumstats-gencor-fromchisq.')
-		elif args.gencor:
-			(p1, p2) = args.gencor.split(',')
+		if args.h2:
+			chisq = args.h2+'.chisq.gz'
+			log.log('Reading summary statistics from {S}.'.format(S=chisq))
+			sumstats = ps.chisq(chisq)
+		elif args.intercept:
+			chisq = args.intercept+'.chisq.gz'
+			log.log('Reading summary statistics from {S}.'.format(S=chisq))
+			sumstats = ps.chisq(chisq)
+		elif args.rg:
+			try:
+				(p1, p2) = args.gencor.split(',')
+			except ValueError as e:
+				log.log('Error: argument to --rg must be two .chisq/.allele fileset prefixes separated by a comma.')
+				raise e
+				
 			chisq1 = p1 + '.chisq.gz'
 			chisq2 = p2 + '.chisq.gz'
 			allele1 = p1 + '.allele.gz'
@@ -741,10 +733,10 @@ def sumstats(args, header=None):
 
 	# read regression SNP LD Scores
 	try:
-		if args.regression_snp_ld:
-			w_ldscores = ps.ldscore(args.regression_snp_ld)
-		elif args.regression_snp_ld_chr:
-			w_ldscores = ps.ldscore(args.regression_snp_ld_chr, 22)
+		if args.w_ld:
+			w_ldscores = ps.ldscore(args.w_ld)
+		elif args.w_ld_chr:
+			w_ldscores = ps.ldscore(args.w_ld_chr, 22)
 
 	except ValueError as e:
 		log.log('Error parsing regression SNP LD')
@@ -778,7 +770,7 @@ def sumstats(args, header=None):
 	
 	err_msg = 'No SNPs retained for analysis after filtering on {C} {P} {F}.'
 	log_msg = 'After filtering on {C} {P} {F}, {N} SNPs remain.'
-	loop = ['1','2'] if args.sumstats_gencor else ['']
+	loop = ['1','2'] if args.rg else ['']
 	var_to_arg = {'infomax': args.info_max, 'infomin': args.info_min, 'maf': args.maf}
 	var_to_cname  = {'infomax': 'INFO', 'infomin': 'INFO', 'maf': 'MAF'}
 	var_to_pred = {'infomax': lambda x: x < args.info_max, 
@@ -817,7 +809,7 @@ def sumstats(args, header=None):
 				raise ValueError(warn.format(C=cond_num))
 
 	# LD Score regression intercept
-	if args.sumstats_intercept:
+	if args.intercept:
 		log.log('Estimating LD Score regression intercept.')
 		# filter out large-effect loci
 		max_N = np.max(sumstats['N'])
@@ -846,7 +838,7 @@ def sumstats(args, header=None):
 		
 		
 	# LD Score regression to estimate h2
-	elif args.sumstats_h2:
+	elif args.h2:
 	
 		log.log('Estimating heritability.')
 		max_N = np.max(sumstats['N'])
@@ -918,7 +910,7 @@ def sumstats(args, header=None):
 
 
 	# LD Score regression to estimate genetic correlation
-	elif args.sumstats_gencor or args.sumstats_gencor_fromchisq or args.gencor:
+	elif args.rg or args.rg or args.gencor:
 		log.log('Estimating genetic correlation.')
 
 		max_N1 = np.max(sumstats['N1'])
@@ -1077,7 +1069,6 @@ if __name__ == '__main__':
 		help='Filenames for multiplicative cts binned LD Score estimation')
 	parser.add_argument('--cts-bin-add', default=None, type=str, 
 		help='Filenames for additive cts binned LD Score estimation')
-
 	parser.add_argument('--cts-breaks', default=None, type=str, 
 		help='Comma separated list of breaks for --cts-bin. Specify negative numbers with an N instead of a -')
 	parser.add_argument('--cts-names', default=None, type=str, 
@@ -1095,13 +1086,13 @@ if __name__ == '__main__':
 	parser.add_argument('--ld-wind-cm', default=None, type=float,
 		help='LD Window in units of cM. Can only specify one --ld-wind-* option')
 	parser.add_argument('--chunk-size', default=50, type=int,
-		help='Chunk size for LD Score calculation. Use the default')
+		help='Chunk size for LD Score calculation. Use the default.')
 
 	# Output for LD Score
-	parser.add_argument('--l1', default=False, action='store_true',
-		help='Estimate l1 w.r.t. sample minor allele.')
-	parser.add_argument('--l1sq', default=False, action='store_true',
-		help='Estimate l1 ^ 2 w.r.t. sample minor allele.')
+	#parser.add_argument('--l1', default=False, action='store_true',
+	#	help='Estimate l1 w.r.t. sample minor allele.')
+	#parser.add_argument('--l1sq', default=False, action='store_true',
+	#	help='Estimate l1 ^ 2 w.r.t. sample minor allele.')
 	parser.add_argument('--l2', default=False, action='store_true',
 		help='Estimate l2. Compatible with both jackknife and non-jackknife.')
 	parser.add_argument('--per-allele', default=False, action='store_true',
@@ -1110,12 +1101,12 @@ if __name__ == '__main__':
 		help='Estimate l{N} with given scale factor. Default -1. Per-allele is equivalent to --pq-exp 1.')
 	parser.add_argument('--maf-exp', default=None, type=float,
 		help='Estimate l{N} with given MAF scale factor.')
-	parser.add_argument('--l4', default=False, action='store_true',
-		help='Estimate l4. Only compatible with jackknife.')
+	#parser.add_argument('--l4', default=False, action='store_true',
+	#	help='Estimate l4. Only compatible with jackknife.')
 	parser.add_argument('--print-snps', default=None, type=str,
 		help='Only print LD Scores for these SNPs.')
-	parser.add_argument('--se', action='store_true', 
-		help='Block jackknife SE? (Warning: somewhat slower)')
+	#parser.add_argument('--se', action='store_true', 
+	#	help='Block jackknife SE? (Warning: somewhat slower)')
 	parser.add_argument('--yes-really', default=False, action='store_true',
 		help='Yes, I really want to compute whole-chromosome LD Score')
 	parser.add_argument('--no-print-annot', default=False, action='store_true',
@@ -1138,7 +1129,6 @@ if __name__ == '__main__':
 		help='File with one line per reference ldscore file.')
 	parser.add_argument('--ref-ld-fromfile-chr', default=None, type=str,
 		help='File with one line per ref-ld-chr prefix.')
-		help='Filename prefix for file with LD Scores with sum r^2 taken over SNPs included in the regression, split across 22 chromosomes.')
 	parser.add_argument('--w-ld', default=None, type=str,
 		help='Filename prefix for file with LD Scores with sum r^2 taken over SNPs included in the regression.')
 	parser.add_argument('--w-ld-chr', default=None, type=str,
@@ -1205,9 +1195,9 @@ if __name__ == '__main__':
 	header += '\n'
 
 	if args.w_ld:
-		args.regression_snp_ld = args.w_ld
+		args.w_ld = args.w_ld
 	elif args.w_ld_chr:
-		args.regression_snp_ld_chr = args.w_ld_chr
+		args.w_ld_chr = args.w_ld_chr
 		
 	if args.freq:
 		if (args.bfile is not None) == (args.bin is not None):
@@ -1239,23 +1229,22 @@ if __name__ == '__main__':
 		ldscore(args, header)
 	
 	# Summary statistics
-	elif (args.sumstats_h2 or 
-		args.sumstats_gencor or 
-		args.sumstats_intercept or 
-		args.sumstats_gencor_fromchisq
-		or args.gencor) and\
+	elif (args.h2 or 
+		args.rg or 
+		args.intercept or 
+		args.rg) and\
 		(args.ref_ld or args.ref_ld_chr or args.ref_ld_fromfile or args.ref_ld_fromfile_chr) and\
-		(args.regression_snp_ld or args.regression_snp_ld_chr):
+		(args.w_ld or args.w_ld_chr):
 		
-		if np.sum(np.array((args.sumstats_intercept, args.sumstats_h2, args.sumstats_gencor, args.gencor, args.sumstats_gencor_fromchisq)).astype(bool)) > 1:	
-			raise ValueError('Cannot specify more than one of --sumstats-h2, --sumstats-gencor, --sumstats-intercept.')
+		if np.sum(np.array((args.intercept, args.h2, args.rg)).astype(bool)) > 1:	
+			raise ValueError('Cannot specify more than one of --h2, --rg, --intercept.')
 		if args.ref_ld and args.ref_ld_chr:
-			raise ValueError('Cannot specify both --ref-ld and --ref-ld-chr.')--pq-exp
-		if args.regression_snp_ld and args.regression_snp_ld_chr:
+			raise ValueError('Cannot specify both --ref-ld and --ref-ld-chr.')
+		if args.w_ld and args.w_ld_chr:
 			raise ValueError('Cannot specify both --regression-snp-ld and --regression-snp-ld-chr.')
 		if args.rho or args.overlap:
-			if not (args.sumstats_gencor or args.sumstats_gencor_fromchisq or args.gencor):
-				raise ValueError('--rho and --overlap can only be used with --sumstats-gencor.')
+			if not args.rg:
+				raise ValueError('--rho and --overlap can only be used with --rg.')
 			if not (args.rho and args.overlap):
 				raise ValueError('Must specify either both or neither of --rho and --overlap.')
 		
