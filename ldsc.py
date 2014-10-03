@@ -159,7 +159,7 @@ def annot_sort_key(s):
  	return s
 
 
-def ldscore(args):
+def ldscore(args, header=None):
 	'''
 	Wrapper function for estimating l1, l1^2, l2 and l4 (+ optionally standard errors) from
 	reference panel genotypes. 
@@ -169,7 +169,8 @@ def ldscore(args):
 	
 	'''
 	log = logger(args.out+'.log')
-	log.log(MASTHEAD)
+	if header:
+		log.log(header)
 	#log.log(args)
 	
 	if args.bin:
@@ -604,7 +605,7 @@ def ldscore(args):
 		log.log('WARNING: ill-conditioned LD Score Matrix!')
 		
 
-def sumstats(args):
+def sumstats(args, header=None):
 	'''
 	Wrapper function for estmating
 		1. h2 / partitioned h2
@@ -617,8 +618,9 @@ def sumstats(args):
 	
 	# open output files
 	log = logger(args.out + ".log")
-	log.log(MASTHEAD)
-	#log.log(args)
+	if header:
+		log.log(header)
+	
 	# read .chisq or betaprod
 	try:
 		if args.sumstats_h2:
@@ -1010,7 +1012,9 @@ def freq(args):
 	
 	'''
 	log = logger(args.out+'.log')
-	
+	if header:
+		log.log(header)
+		
 	if args.bin:
 		snp_file, snp_obj = args.bin+'.bim', ps.PlinkBIMFile
 		ind_file, ind_obj = args.bin+'.ind', ps.VcfINDFile
@@ -1208,7 +1212,17 @@ if __name__ == '__main__':
 	parser.add_argument('--print-delete-vals', default=False, action='store_true',
 		help='Print block jackknife delete-k values.')
 	args = parser.parse_args()
-		
+
+	defaults = vars(parser.parse_args(''))
+	opts = vars(args)
+	non_defaults = [x for x in opts.keys() if opts[x] != defaults[x]]
+	
+	header = MASTHEAD
+	header += "\nOptions: \n"
+	options = ['--'+x.replace('_','-')+' '+str(opts[x]) for x in non_defaults]
+	header += '\n'.join(options).replace('True','').replace('False','')
+	header += '\n'
+
 	if args.w_ld:
 		args.regression_snp_ld = args.w_ld
 	elif args.w_ld_chr:
@@ -1218,7 +1232,7 @@ if __name__ == '__main__':
 		if (args.bfile is not None) == (args.bin is not None):
 			raise ValueError('Must set exactly one of --bin or --bfile for use with --freq') 
 	
-		freq(args)
+		freq(args, header)
 
 	# LD Score estimation
 	elif (args.bin is not None or args.bfile is not None) and (args.l1 or args.l1sq or args.l2 or args.l4):
@@ -1241,7 +1255,7 @@ if __name__ == '__main__':
 		if args.per_allele:
 			args.pq_exp = 1
 		
-		ldscore(args)
+		ldscore(args, header)
 	
 	# Summary statistics
 	elif (args.sumstats_h2 or 
@@ -1267,9 +1281,11 @@ if __name__ == '__main__':
 		if args.block_size is None: # default jackknife block size for h2/gencor
 			args.block_size = 2000
 			
-		sumstats(args)
+		sumstats(args, header)
+		
 		
 	# bad flags
 	else:
-		print MASTHEAD
-		print 'Error: no analysis has been selected.'
+		print header
+		print 'Error: no analysis selected.'
+		print 'ldsc.py --help describes all options.'
