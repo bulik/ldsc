@@ -541,17 +541,7 @@ def ldscore(args):
 	log.log("Writing LD Scores for {N} SNPs to {f}.gz".format(f=out_fname, N=len(df)))
 	df.to_csv(out_fname, sep="\t", header=True, index=False)	
 	call(['gzip', '-f', out_fname])
-
-	# print annotMatrix
-	if args.cts_bin is not None:
-		out_fname = args.out + '.' + '.annot'
-		new_colnames = geno_array.colnames + ldscore_colnames
-		df = pd.DataFrame.from_records(np.c_[geno_array.df, annot_matrix])
-		df.columns = new_colnames	
-		del df['MAF']
-		log.log("Writing annotmatrix")
-		df.to_csv(out_fname, sep="\t", header=True, index=False)	
-
+		
 	# print .M
 	if annot_matrix is not None:
 		M = np.atleast_1d(np.squeeze(np.asarray(np.sum(annot_matrix, axis=0))))
@@ -570,7 +560,19 @@ def ldscore(args):
 	fout_M_5_50 = open(args.out + '.'+ file_suffix +'.M_5_50','wb')
 	print >>fout_M_5_50, '\t'.join(map(str,M_5_50))
 	fout_M_5_50.close()
-
+	
+	# print annot matrix
+	if args.cts_bin is not None and not args.no_print_annot:
+		out_fname = args.out + '.annot'
+		new_colnames = geno_array.colnames + ldscore_colnames
+		annot_df = pd.DataFrame(np.c_[geno_array.df, annot_matrix])
+		annot_df.columns = new_colnames	
+		del annot_df['MAF']
+		print annot_df.head()
+		log.log("\nWriting annot matrix produced by --cts-bin to {F}".format(F=out_fname+'.gz'))
+		annot_df.to_csv(out_fname, sep="\t", header=True, index=False)	
+		call(['gzip', '-f', out_fname])
+	
 	# print LD Score summary	
 	pd.set_option('display.max_rows', 200)
 	log.log('')
@@ -583,7 +585,6 @@ def ldscore(args):
 	log.log('MAF/LD Correlation Matrix')
 	log.log( df.ix[:,4:].corr() )
 	
-	
 	# print condition number
 	log.log('')
 	log.log('LD Score Matrix Condition Number')
@@ -591,6 +592,8 @@ def ldscore(args):
 	log.log( cond_num )
 	if cond_num > 10000:
 		log.log('WARNING: ill-conditioned LD Score Matrix!')
+	
+
 		
 
 def sumstats(args):
@@ -1102,6 +1105,8 @@ if __name__ == '__main__':
 		help='Block jackknife SE? (Warning: somewhat slower)')
 	parser.add_argument('--yes-really', default=False, action='store_true',
 		help='Yes, I really want to compute whole-chromosome LD Score')
+	parser.add_argument('--no-print-annot', default=False, action='store_true',
+		help='Do not print the annot matrix produced by --cts-bin.')
 
 	# Summary Statistic Estimation Flags
 	
