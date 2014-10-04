@@ -927,9 +927,8 @@ def sumstats(args, header=None):
 			_print_delete_k(rghat.hsq1, hsq1_delete_ofh, log)
 			hsq2_delete_ofh = args.out+'.hsq2.delete_k'
 			_print_delete_k(rghat.hsq2, hsq2_delete_ofh, log)
-			gencov_delete_ofh = args.out+'gencov.delete_k'
+			gencov_delete_ofh = args.out+'.gencov.delete_k'
 			_print_delete_k(rghat.gencov, gencov_delete_ofh, log)
-
 
 		log.log( '\n' )
 		log.log( 'Heritability of first phenotype' )
