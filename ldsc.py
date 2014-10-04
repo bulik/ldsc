@@ -20,9 +20,11 @@ import pandas as pd
 from subprocess import call
 from itertools import product
 
+__version__ = '0.0.1 (alpha)'
+
 MASTHEAD = "*********************************************************************\n"
 MASTHEAD += "* LD Score Regression (LDSC)\n"
-MASTHEAD += "* version 0.001\n"
+MASTHEAD += "* version {V}\n".format(V=__version__)
 MASTHEAD += "* (C) 2014 Brendan Bulik-Sullivan and Hilary Finucane\n"
 MASTHEAD += "* Broad Institute of MIT and Harvard / MIT Department of Mathematics\n"
 MASTHEAD += "* GNU General Public License v3\n"
@@ -73,22 +75,24 @@ def __filter__(fname, noun, verb, merge_obj):
 
 		return merged_list
 		
+
 def _print_cov(hsqhat, ofh, log):
 	'''Prints covariance matrix of slopes'''
-	log.log('Printing covariance matrix of the estimates to {F}.'.format(F=ofh))
+	log.log('Printing covariance matrix of the estimates to {F}'.format(F=ofh))
 	np.savetxt(ofh, hsqhat.hsq_cov)
+
 
 def _print_gencov_cov(hsqhat, ofh, log):
 	'''Prints covariance matrix of slopes'''
-	log.log('Printing covariance matrix of the estimates to {F}.'.format(F=ofh))
+	log.log('Printing covariance matrix of the estimates to {F}'.format(F=ofh))
 	np.savetxt(ofh, hsqhat.gencov_cov)
 
 
 def _print_delete_k(hsqhat, ofh, log):
 	'''Prints block jackknife delete-k values'''
-	log.log('Printing block jackknife delete-k values to {F}.'.format(F=ofh))
-	out_mat = np.vstack((hsqhat.coef, hsqhat._jknife.delete_values))
-	if hsqhat.intercept is None:
+	log.log('Printing block jackknife delete-k values to {F}'.format(F=ofh))
+	out_mat = hsqhat._jknife.delete_values
+	if hsqhat.constrain_intercept is None:
 		ncol = out_mat.shape[1]
 		out_mat = out_mat[:,0:ncol-1]
 		
@@ -758,7 +762,7 @@ def sumstats(args, header=None):
 
 	log.log('Estimating standard errors using a block jackknife with {N} blocks.'.format(N=args.num_blocks))
 	if len(sumstats) < 200000:
-		log.log('WARNING: number of SNPs less than 200k; this is usually bad.')
+		log.log('WARNING: number of SNPs less than 200k; this is almost always bad.')
 
 	# LD Score regression intercept
 	if args.intercept:
@@ -824,7 +828,6 @@ def sumstats(args, header=None):
 			log.log('Constraining LD Score regression intercept = {C}.'.format(C=intercept))
 			hsqhat = jk.Hsq(chisq, ref_ld, w_ld, N, M_annot, args.num_blocks,
 				args.non_negative, intercept)
-			log.log(hsqhat.summary(ref_ld_colnames))
 					
 		elif args.aggregate:
 			if args.annot:
@@ -841,15 +844,16 @@ def sumstats(args, header=None):
 		else:
 			hsqhat = jk.Hsq(chisq, ref_ld, w_ld, N, M_annot, args.num_blocks,
 				args.non_negative)
-			log.log(hsqhat.summary(ref_ld_colnames))
 		
-		if not args.human_only:
-			hsq_cov_ofh = args.out+'.hsq.jknife'
+		if not args.human_only and n_annot > 1:
+			hsq_cov_ofh = args.out+'.hsq.cov'
 			_print_cov(hsqhat, hsq_cov_ofh, log)
 					
 		if args.print_delete_vals:
 			hsq_delete_ofh = args.out+'.delete_k'
 			_print_delete_k(hsqhat, hsq_delete_ofh, log)
+	
+		log.log(hsqhat.summary(ref_ld_colnames))
 			
 		return [M_annot,hsqhat]
 
@@ -910,6 +914,23 @@ def sumstats(args, header=None):
 		rghat = jk.Gencor(betahat1, betahat2, ref_ld, w_ld, N1, N2, M_annot, intercepts,
 			args.overlap,	args.rho, args.num_blocks)
 
+		if not args.human_only and n_annot > 1:
+			gencov_jknife_ofh = args.out+'.gencov.cov'
+			hsq1_jknife_ofh = args.out+'.hsq1.cov'
+			hsq2_jknife_ofh = args.out+'.hsq2.cov'	
+			_print_cov(rghat.hsq1, hsq1_jknife_ofh, log)
+			_print_cov(rghat.hsq2, hsq2_jknife_ofh, log)
+			_print_gencov_cov(rghat.gencov, gencov_jknife_ofh, log)
+		
+		if args.print_delete_vals:
+			hsq1_delete_ofh = args.out+'.hsq1.delete_k'
+			_print_delete_k(rghat.hsq1, hsq1_delete_ofh, log)
+			hsq2_delete_ofh = args.out+'.hsq2.delete_k'
+			_print_delete_k(rghat.hsq2, hsq2_delete_ofh, log)
+			gencov_delete_ofh = args.out+'gencov.delete_k'
+			_print_delete_k(rghat.gencov, gencov_delete_ofh, log)
+
+
 		log.log( '\n' )
 		log.log( 'Heritability of first phenotype' )
 		log.log( '-------------------------------' )
@@ -926,16 +947,7 @@ def sumstats(args, header=None):
 		log.log( 'Genetic Correlation' )
 		log.log( '-------------------' )
 		log.log(rghat.summary() )
-		log.log('\n')
 		
-		if not args.human_only:
-			gencov_jknife_ofh = args.out+'.gencov.jknife'
-			hsq1_jknife_ofh = args.out+'.hsq1.jknife'
-			hsq2_jknife_ofh = args.out+'.hsq2.jknife'	
-			_print_cov(rghat.hsq1, hsq1_jknife_ofh, log)
-			_print_cov(rghat.hsq2, hsq2_jknife_ofh, log)
-			_print_gencov_cov(rghat.gencov, gencov_jknife_ofh, log)
-
 		return [M_annot,rghat]
 
 
