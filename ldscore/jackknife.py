@@ -27,6 +27,23 @@ import numpy as np
 from scipy.stats import norm
 from scipy.optimize import nnls
 
+
+def kill_brackets(x):
+	'''Get rid of annoying brackets in numpy arrayss'''
+	x = x.replace('[[  ','')
+	x = x.replace('  ]]','')
+	x = x.replace('[[ ','')
+	x = x.replace(' ]]','')
+	x = x.replace('[[','')
+	x = x.replace(']]','')
+	x = x.replace('[  ','')
+	x = x.replace('  ]','')
+	x = x.replace('[ ','')
+	x = x.replace(' ]','')
+	x = x.replace('[','')
+	x = x.replace(']','')
+	return(x)
+
 def _weight(x, w):
 	
 	'''
@@ -288,6 +305,10 @@ class Hsq(object):
 	-------
 	_aggregate(y, x, M_tot) :
 		Aggregate estimator. 
+	summary(ref_ld_colnames):
+		Returns a summary of the LD Score regression.
+	summary_intercept():
+		Returns a summary of the LD Score regression focused on the intercept.
 		
 	'''
 	
@@ -328,7 +349,7 @@ class Hsq(object):
 		self.autocor = self._jknife.autocor(1)
 		no_intercept_cov = self._jknife.jknife_cov[0:self.n_annot,0:self.n_annot]
 		self.hsq_cov = np.multiply(np.dot(self.M.T,self.M), no_intercept_cov)
-		self.coef = self._jknife.est
+		self.coef = self._jknife.est[0,0:self.n_annot]
 		self.cat_hsq = np.multiply(self.M, self._jknife.est[0,0:self.n_annot])
 		self.cat_hsq_se = np.multiply(self.M, self._jknife.jknife_se[0,0:self.n_annot])
 		self.tot_hsq = np.sum(self.cat_hsq)
@@ -356,8 +377,54 @@ class Hsq(object):
 		agg = numerator / denominator
 		return agg
 
+	def summary(self, ref_ld_colnames):
+		'''Print information about LD Score Regression'''
+		out = []
+		out.append('Total observed scale h2: '+str(np.matrix(self.tot_hsq))+\
+			' ('+str(np.matrix(self.tot_hsq_se))+')')
+		if self.n_annot > 1:
+			out.append( 'Categories: '+' '.join(ref_ld_colnames))
+			out.append( 'Observed scale h2: '+ str(np.matrix(self.cat_hsq)))
+			out.append( 'Observed scale h2 SE: '+str(np.matrix(self.cat_hsq_se)))
+			out.append( 'Proportion of SNPs: '+str(np.matrix(self.M_prop)))
+			out.append( 'Proportion of h2g: ' +str(np.matrix(self.prop_hsq)))
+			out.append( 'Enrichment: '+str(np.matrix(self.enrichment))		)
+	
+		out.append( 'Coefficients: '+str(self.coef))
+		out.append( 'Lambda GC: '+ str(np.matrix(self.lambda_gc)))
+		out.append( 'Mean Chi^2: '+ str(np.matrix(self.mean_chisq)))
+		if self.constrain_intercept is not None:
+			out.append( 'Intercept: constrained to {C}'.format(C=np.matrix(self.constrain_intercept)))
+		else:
+			out.append( 'Intercept: '+ str(np.matrix(self.intercept))+\
+				' ('+str(np.matrix(self.intercept_se))+')')
 
-class Hsq_aggregate(object):
+		out = '\n'.join(out)
+		return kill_brackets(out)
+	
+	def summary_intercept(self):
+		'''Print information about LD Score regression intercept.'''
+	
+		out = []
+		out.append( 'Observed scale h2: '+str(np.matrix(self.tot_hsq))+' ('+\
+			str(np.matrix(self.tot_hsq_se))+')')
+		out.append( 'Lambda GC: '+ str(np.matrix(self.lambda_gc)))
+		out.append( 'Mean Chi^2: '+ str(np.matrix(self.mean_chisq)))
+		out.append( 'Weighted Mean Chi^2: '+ str(np.matrix(self.w_mean_chisq)))
+		out.append( 'Intercept: '+ str(np.matrix(self.intercept))+\
+			' ('+str(np.matrix(self.intercept_se))+')')
+		
+		if self.mean_chisq > 1:
+			out.append( 'Ratio: '+str(np.matrix(self.ratio))+\
+				' ('+str(np.matrix(self.ratio_se))+')') 
+		else:
+			out.append( 'Ratio: NA (mean chi^2 < 1)' )
+			
+		out = '\n'.join(out)
+		return kill_brackets(out)
+
+
+class Hsq_aggregate(Hsq):
 
 	'''
 	Aggregate estimator (equivalent to HE regression in multiple variance component case)
@@ -400,14 +467,7 @@ class Hsq_aggregate(object):
 		self.M_prop = self.M / self.M_tot
 		self.enrichment = np.divide(self.cat_hsq, self.M) / (self.tot_hsq/self.M_tot)
 		self.coef = self._jknife.est
-
-	def _aggregate(self, y, x, M_tot):
-		'''Aggregate estimator. For use in regression weights.'''
-		numerator = np.mean(y) - 1.0
-		denominator = np.mean(x) / M_tot
-		agg = numerator / denominator
-		return agg
-
+	
 
 class Gencov(object):
 	
@@ -500,6 +560,7 @@ class Gencov(object):
 		ref_ld_tot = np.sum(ref_ld, axis=1)
 		n1n2 = float(np.dot(self.N1.T, self.N2))/self.n_snp
 		y = np.multiply(bhat1, bhat2)
+		self.mean_z1z2 = np.multiply(bhat1.T*N1, bhat2.T*N2)/self.n_snp
 		if intercept is None:
 			x = _append_intercept(ref_ld)
 		else:
@@ -520,6 +581,7 @@ class Gencov(object):
 		self.autocor = self._jknife.autocor(1)
 		no_intercept_cov = self._jknife.jknife_cov[0:self.n_annot,0:self.n_annot]
 		self.gencov_cov = np.multiply(np.dot(self.M.T,self.M), no_intercept_cov)
+		self.coef = self._jknife.est[0,0:self.n_annot]
 		self.cat_gencov = np.multiply(self.M, self._jknife.est[0,0:self.n_annot])
 		self.cat_gencov_se = np.multiply(self.M, self._jknife.jknife_se[0,0:self.n_annot])
 		self.tot_gencov = np.sum(self.cat_gencov)
@@ -543,6 +605,30 @@ class Gencov(object):
 		denominator = np.mean(x) / M_tot
 		agg = numerator / denominator
 		return agg
+	
+	def summary(self, ref_ld_colnames):
+		'''Reusable code for printing output of jk.Gencov object'''
+		out = []
+		out.append('Total observed scale gencov: '+str(np.matrix(self.tot_gencov))+' ('+\
+			str(np.matrix(self.tot_gencov_se))+')')
+		
+		if self.n_annot > 1:
+			out.append( 'Categories: '+ str(' '.join(ref_ld_colnames)))
+			out.append( 'Observed scale gencov: '+str(np.matrix(self.cat_gencov)))
+			out.append( 'Observed scale gencov SE: '+str(np.matrix(self.cat_gencov_se)))
+			out.append( 'Proportion of SNPs: '+str(np.matrix(self.M_prop)))
+			out.append( 'Proportion of gencov: ' +str(np.matrix(self.prop_gencov)))
+			out.append( 'Enrichment: '+str(np.matrix(self.enrichment)))
+		
+		out.append('Mean z1*z2: '+str(np.matrix(self.mean_z1z2)))
+		if self.constrain_intercept is not None:
+			out.append( 'Intercept: constrained to {C}'.format(C=np.matrix(self.constrain_intercept)))
+		else:
+			out.append( 'Intercept: '+ str(np.matrix(self.intercept))+\
+				' ('+str(np.matrix(self.intercept_se))+')')
+
+		out = '\n'.join(out)
+		return kill_brackets(out)
 
 
 class Gencor(object):
@@ -652,6 +738,14 @@ class Gencor(object):
 		'''Converts per-category pseudovalues to total pseudovalues.'''
 		return np.dot(x, M.T)
 	
+	def summary(self):
+		'''Reusable code for printing output of jk.Gencor object'''
+		out = []
+		out.append('Genetic Correlation: '+str(np.matrix(self.tot_gencor))+' ('+\
+			str(np.matrix(self.tot_gencor_se))+')')
+		out = '\n'.join(out)
+		return kill_brackets(out)
+
 
 class Jackknife(object):
 	
@@ -782,7 +876,9 @@ class LstsqJackknife(Jackknife):
 		self.output_dim = x.shape[1]
 		self.num_blocks = num_blocks		
 		if self.num_blocks > self.N:
-			raise ValueError('Number of blocks > number of data points.')
+			msg = 'Number of jackknife blocks ({N1}) > number of SNPs ({N2}). '
+			msg += 'Reduce the number of jackknife blocks with the --num-blocks flag.'
+			raise ValueError(msg.format(N1=self.num_blocks, N2=self.N))
 
 		self.block_vals = self.__compute_block_vals__(x, y, num_blocks)
 		self.est = self.__block_vals_to_est__(self.block_vals)

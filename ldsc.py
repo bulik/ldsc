@@ -31,7 +31,10 @@ MASTHEAD += "*******************************************************************
 pd.set_option('display.max_rows', 500)
 pd.set_option('display.max_columns', 500)
 pd.set_option('display.width', 1000)
+pd.set_option('precision', 4)
 np.set_printoptions(linewidth=1000)
+np.set_printoptions(precision=4)
+
 
 class logger(object):
 	'''
@@ -70,79 +73,27 @@ def __filter__(fname, noun, verb, merge_obj):
 
 		return merged_list
 		
+def _print_cov(hsqhat, ofh, log):
+	'''Prints covariance matrix of slopes'''
+	log.log('Printing covariance matrix of the estimates to {F}.'.format(F=ofh))
+	np.savetxt(ofh, hsqhat.hsq_cov)
+
+def _print_gencov_cov(hsqhat, ofh, log):
+	'''Prints covariance matrix of slopes'''
+	log.log('Printing covariance matrix of the estimates to {F}.'.format(F=ofh))
+	np.savetxt(ofh, hsqhat.gencov_cov)
+
+
+def _print_delete_k(hsqhat, ofh, log):
+	'''Prints block jackknife delete-k values'''
+	log.log('Printing block jackknife delete-k values to {F}.'.format(F=ofh))
+	out_mat = np.vstack((hsqhat.coef, hsqhat._jknife.delete_values))
+	if hsqhat.intercept is None:
+		ncol = out_mat.shape[1]
+		out_mat = out_mat[:,0:ncol-1]
 		
-def _print_intercept(h2hat):
-	'''
-	Reusable code for printing information about LD Score regression intercept 
-	from a jk.Hsq object
-	
-	'''
-	
-	out = []
-	out.append( 'Observed scale h2: '+str(h2hat.tot_hsq)+' ('+str(h2hat.tot_hsq_se)+')')
-	out.append( 'Lambda GC: '+ str(h2hat.lambda_gc))
-	out.append( 'Mean Chi^2: '+ str(h2hat.mean_chisq))
-	out.append( 'Weighted Mean Chi^2: '+ str(h2hat.w_mean_chisq))
-	out.append( 'Intercept: '+ str(h2hat.intercept)+' ('+str(h2hat.intercept_se)+')')
-	out.append( 'Ratio: '+str(h2hat.ratio)+' ('+str(h2hat.ratio_se)+')') 
-	out = '\n'.join(out)
-	return out
-	
-	
-def _print_hsq(h2hat, ref_ld_colnames):
-	'''Reusable code for printing output of jk.Hsq object'''
-	out = []
-	out.append('Total observed scale h2: '+str(h2hat.tot_hsq)+' ('+str(h2hat.tot_hsq_se)+')')
-	out.append( 'Categories: '+ str(' '.join(ref_ld_colnames)))
-	out.append( 'Observed scale h2: '+ ' '.join([str(x) for x in h2hat.cat_hsq]))
-	out.append( 'Observed scale h2 SE: '+str(h2hat.cat_hsq_se))
-	if h2hat.n_annot > 1:
-		out.append( 'Proportion of SNPs: '+str(h2hat.M_prop))
-		out.append( 'Proportion of h2g: ' +str(h2hat.prop_hsq))
-		out.append( 'Enrichment: '+str(h2hat.enrichment))		
-		
-	out.append( 'Coefficients: '+str(h2hat.coef))
-	out.append( 'Lambda GC: '+ str(h2hat.lambda_gc))
-	out.append( 'Mean Chi^2: '+ str(h2hat.mean_chisq))
-	if h2hat.constrain_intercept is not None:
-		out.append( 'Intercept: constrained to {C}'.format(C=h2hat.constrain_intercept))
-	else:
-		out.append( 'Intercept: '+ str(h2hat.intercept)+' ('+str(h2hat.intercept_se)+')')
+	np.savetxt(ofh, out_mat)
 
-	out = '\n'.join(out)
-	return out
-
-
-def _print_gencov(gencov, ref_ld_colnames, no_intercept=False):
-	'''Reusable code for printing output of jk.Gencov object'''
-	out = []
-	out.append('Total observed scale gencov: '+str(gencov.tot_gencov)+' ('+\
-		str(gencov.tot_gencov_se)+')')
-	out.append( 'Categories: '+ str(' '.join(ref_ld_colnames)))
-	out.append( 'Observed scale gencov: '+str(gencov.cat_gencov))
-	out.append( 'Observed scale gencov SE: '+str(gencov.cat_gencov_se))
-	if gencov.n_annot > 1:
-		out.append( 'Proportion of SNPs: '+str(gencov.M_prop))
-		out.append( 'Proportion of gencov: ' +str(gencov.prop_gencov))
-		out.append( 'Enrichment: '+str(gencov.enrichment))		
-	
-	if gencov.constrain_intercept is not None:
-		out.append( 'Intercept: constrained to {C}'.format(C=gencov.constrain_intercept))
-	else:
-		out.append( 'Intercept: '+ str(gencov.intercept)+' ('+str(gencov.intercept_se)+')')
-
-	out = '\n'.join(out)
-	return out
-
-	
-def _print_gencor(gencor):
-	'''Reusable code for printing output of jk.Gencor object'''
-	out = []
-	out.append('Genetic Correlation: '+str(gencor.tot_gencor)+' ('+\
-		str(gencor.tot_gencor_se)+')')
-	out = '\n'.join(out)
-	return out
-	
 	
 def annot_sort_key(s):
 	'''For use with --cts-bin. Fixes weird pandas crosstab column order.'''
@@ -275,20 +226,16 @@ def ldscore(args, header=None):
 		if len(cts_colnames) == 1:
 			annot_colnames = [cts_colnames[0]+'_'+bin for bin in full_labs[0]]
 		else:
-			print cts_colnames
-			print full_labs
 			annot_colnames = []
 			for i,cname in enumerate(cts_colnames):
 				for bin in full_labs[i][1:]:
 					annot_colnames.append(cts_colnames[i]+'_'+bin)
 					
-		print annot_colnames
 		annot_colnames.insert(0, "BOTTOM_BINS")
 		first_lev = np.minimum(first_lev, 1)
 		cts_levs.insert(0, pd.DataFrame(first_lev))
 		annot_matrix = pd.concat(cts_levs, axis=1)
 		annot_matrix = np.matrix(annot_matrix)
-		print annot_matrix
 		keep_snps = None
 		num_annots = annot_matrix.shape[1]
 
@@ -384,8 +331,6 @@ def ldscore(args, header=None):
  			# This exception should never be raised. For debugging only.
  			raise ValueError('Some SNPs have no annotation in --cts-bin. This is a bug!')
 
-
- 	
 	else:
 		annot_matrix, annot_colnames, keep_snps = None, None, None, 
 		num_annots = 1
@@ -460,68 +405,72 @@ def ldscore(args, header=None):
 		else:
 			annot_matrix = mf
 	
-	if args.se: # block jackknife
+# 	if args.se: # block jackknife
+# 
+# 		# block size
+# 		if args.block_size:
+# 			jSize = args.block_size 
+# 		elif n > 50:
+# 			jSize = 10
+# 		else:
+# 			jSize = 1
+# 		
+# 		jN = int(np.ceil(n / jSize))
+# 		if args.l1:
+# 			col_prefix = "L1"; file_suffix = "l1.jknife"
+# 			raise NotImplementedError('Sorry, havent implemented L1 block jackknife yet.')
+# 			
+# 		elif args.l1sq:
+# 			col_prefix = "L1SQ"; file_suffix = "l1sq.jknife"
+# 			raise NotImplementedError('Sorry, havent implemented L1^2 block jackknife yet.')
+# 			
+# 		elif args.l2:
+# 			col_prefix = "L2"; file_suffix = "l2.jknife"
+# 			c = "Computing LD Score (L2) and block jackknife standard errors with {n} blocks."
+# 			
+# 		elif args.l4:
+# 			col_prefix = "L4"; file_suffix = "l4.jknife"
+# 			c = "Computing L4 and block jackknife standard errors with {n} blocks."
+# 			
+# 		print c.format(n=jN)
+# 		(lN_est, lN_se) = geno_array.ldScoreBlockJackknife(block_left, args.chunk_size, jN=jN,
+# 			annot=annot_matrix)
+# 		lN = np.c_[lN_est, lN_se]
+# 		if num_annots == 1:
+# 			ldscore_colnames = [col_prefix+scale_suffix, 'SE('+col_prefix+scale_suffix+')']
+# 		else:
+# 			ldscore_colnames =  [x+col_prefix+scale_suffix for x in annot_colnames]
+# 			ldscore_colnames += ['SE('+x+scale_suffix+')' for x in ldscore_colnames]
 
-		# block size
-		if args.block_size:
-			jSize = args.block_size 
-		elif n > 50:
-			jSize = 10
-		else:
-			jSize = 1
+# 	else: # not block jackknife
+# 		if args.l1:
+# 			log.log("Estimating L1.")
+# 			lN = geno_array.l1VarBlocks(block_left, args.chunk_size, annot=annot_matrix)
+# 			col_prefix = "L1"; file_suffix = "l1"
+# 		
+# 		elif args.l1sq:
+# 			log.log("Estimating L1 ^ 2.")
+# 			lN = geno_array.l1sqVarBlocks(block_left, args.chunk_size, annot=annot_matrix)
+# 			col_prefix = "L1SQ"; file_suffix = "l1sq"
+# 		
+# 		elif args.l2:
+# 			log.log("Estimating LD Score (L2).")
+# 			lN = geno_array.ldScoreVarBlocks(block_left, args.chunk_size, annot=annot_matrix)
+# 			col_prefix = "L2"; file_suffix = "l2"
+# 				
+# 		elif args.l4:
+# 			col_prefix = "L4"; file_suffix = "l4"
+# 			raise NotImplementedError('Sorry, havent implemented L4 yet. Try the jackknife.')
+# 			lN = geno_array.l4VarBlocks(block_left, c, annot)
 		
-		jN = int(np.ceil(n / jSize))
-		if args.l1:
-			col_prefix = "L1"; file_suffix = "l1.jknife"
-			raise NotImplementedError('Sorry, havent implemented L1 block jackknife yet.')
-			
-		elif args.l1sq:
-			col_prefix = "L1SQ"; file_suffix = "l1sq.jknife"
-			raise NotImplementedError('Sorry, havent implemented L1^2 block jackknife yet.')
-			
-		elif args.l2:
-			col_prefix = "L2"; file_suffix = "l2.jknife"
-			c = "Computing LD Score (L2) and block jackknife standard errors with {n} blocks."
-			
-		elif args.l4:
-			col_prefix = "L4"; file_suffix = "l4.jknife"
-			c = "Computing L4 and block jackknife standard errors with {n} blocks."
-			
-		print c.format(n=jN)
-		(lN_est, lN_se) = geno_array.ldScoreBlockJackknife(block_left, args.chunk_size, jN=jN,
-			annot=annot_matrix)
-		lN = np.c_[lN_est, lN_se]
-		if num_annots == 1:
-			ldscore_colnames = [col_prefix+scale_suffix, 'SE('+col_prefix+scale_suffix+')']
-		else:
-			ldscore_colnames =  [x+col_prefix+scale_suffix for x in annot_colnames]
-			ldscore_colnames += ['SE('+x+scale_suffix+')' for x in ldscore_colnames]
+	log.log("Estimating LD Score.")
+	lN = geno_array.ldScoreVarBlocks(block_left, args.chunk_size, annot=annot_matrix)
+	col_prefix = "L2"; file_suffix = "l2"
 
-	else: # not block jackknife
-		if args.l1:
-			log.log("Estimating L1.")
-			lN = geno_array.l1VarBlocks(block_left, args.chunk_size, annot=annot_matrix)
-			col_prefix = "L1"; file_suffix = "l1"
-		
-		elif args.l1sq:
-			log.log("Estimating L1 ^ 2.")
-			lN = geno_array.l1sqVarBlocks(block_left, args.chunk_size, annot=annot_matrix)
-			col_prefix = "L1SQ"; file_suffix = "l1sq"
-		
-		elif args.l2:
-			log.log("Estimating LD Score (L2).")
-			lN = geno_array.ldScoreVarBlocks(block_left, args.chunk_size, annot=annot_matrix)
-			col_prefix = "L2"; file_suffix = "l2"
-				
-		elif args.l4:
-			col_prefix = "L4"; file_suffix = "l4"
-			raise NotImplementedError('Sorry, havent implemented L4 yet. Try the jackknife.')
-			lN = geno_array.l4VarBlocks(block_left, c, annot)
-		
-		if num_annots == 1:
-			ldscore_colnames = [col_prefix+scale_suffix]
-		else:
-			ldscore_colnames =  [x+col_prefix+scale_suffix for x in annot_colnames]
+	if num_annots == 1:
+		ldscore_colnames = [col_prefix+scale_suffix]
+	else:
+		ldscore_colnames =  [x+col_prefix+scale_suffix for x in annot_colnames]
 			
 	# print .ldscore
 	# output columns: CHR, BP, CM, RS, MAF, [LD Scores and optionally SEs]
@@ -579,8 +528,7 @@ def ldscore(args, header=None):
 		annot_df = pd.DataFrame(np.c_[geno_array.df, annot_matrix])
 		annot_df.columns = new_colnames	
 		del annot_df['MAF']
-		print annot_df.head()
-		log.log("\nWriting annot matrix produced by --cts-bin to {F}".format(F=out_fname+'.gz'))
+		log.log("Writing annot matrix produced by --cts-bin to {F}".format(F=out_fname+'.gz'))
 		annot_df.to_csv(out_fname, sep="\t", header=True, index=False)	
 		call(['gzip', '-f', out_fname])
 	
@@ -597,12 +545,13 @@ def ldscore(args, header=None):
 	log.log( df.ix[:,4:].corr() )
 	
 	# print condition number
-	log.log('')
-	log.log('LD Score Matrix Condition Number')
-	cond_num = np.linalg.cond(df.ix[:,5:])
-	log.log( cond_num )
-	if cond_num > 10000:
-		log.log('WARNING: ill-conditioned LD Score Matrix!')
+	if num_annots > 1: # condition number of a column vector w/ nonzero var is trivially one
+		log.log('')
+		log.log('LD Score Matrix Condition Number')
+		cond_num = np.linalg.cond(df.ix[:,5:])
+		log.log( jk.kill_brackets(str(np.matrix(cond_num))) )
+		if cond_num > 10000:
+			log.log('WARNING: ill-conditioned LD Score Matrix!')
 		
 
 def sumstats(args, header=None):
@@ -633,7 +582,7 @@ def sumstats(args, header=None):
 			sumstats = ps.chisq(chisq)
 		elif args.rg:
 			try:
-				(p1, p2) = args.gencor.split(',')
+				(p1, p2) = args.rg.split(',')
 			except ValueError as e:
 				log.log('Error: argument to --rg must be two .chisq/.allele fileset prefixes separated by a comma.')
 				raise e
@@ -718,7 +667,7 @@ def sumstats(args, header=None):
 			except IndexError as e:
 				raise IndexError('--keep-ld column numbers are out of bounds: '+str(e.args))
 		
-	log.log('Using M = '+str(M_annot))
+	log.log('Using M = '+str(np.array(M_annot)).replace('[','').replace(']','') ) # convert to np to use np printoptions
 	
 	ii = np.squeeze(np.array(ref_ldscores.iloc[:,1:len(ref_ldscores.columns)].var(axis=0) == 0))
 	if np.any(ii):
@@ -758,7 +707,7 @@ def sumstats(args, header=None):
 
 	# merge with regression SNP LD Scores
 	sumstats = pd.merge(sumstats, w_ldscores, how="inner", on="SNP")
-	if len(sumstats) == 0:
+	if len(sumstats) <= 1:
 		raise ValueError('No SNPs remain after merging with regression SNP LD')
 	else:
 		log_msg = 'After merging with regression SNP LD, {N} SNPs remain.'
@@ -789,10 +738,6 @@ def sumstats(args, header=None):
 				else:
 					log.log(log_msg.format(C=cname, F=arg, N=snp_count, P=pred_str))
 
-	log.log('Estimating standard errors using a block jackknife with {N} blocks.'.format(N=args.num_blocks))
-	if len(sumstats) < 200000:
-		log.log('Note, # of SNPs < 200k; this is often bad.')
-
 	# check condition number of LD Score Matrix
 	if len(M_annot) > 1:
 		cond_num = np.linalg.cond(sumstats[ref_ld_colnames])
@@ -807,6 +752,13 @@ def sumstats(args, header=None):
 				warn += "the --invert-anyway flag."
 				log.log(warn.format(C=cond_num))
 				raise ValueError(warn.format(C=cond_num))
+
+	if len(sumstats) < args.num_blocks:
+		args.num_blocks = len(sumstats)
+
+	log.log('Estimating standard errors using a block jackknife with {N} blocks.'.format(N=args.num_blocks))
+	if len(sumstats) < 200000:
+		log.log('WARNING: number of SNPs less than 200k; this is usually bad.')
 
 	# LD Score regression intercept
 	if args.intercept:
@@ -832,9 +784,9 @@ def sumstats(args, header=None):
 		chisq = np.matrix(sumstats.CHISQ).reshape((snp_count, 1))
 		N = np.matrix(sumstats.N).reshape((snp_count,1))
 		del sumstats
-		h2hat = jk.Hsq(chisq, ref_ld, w_ld, N, M_annot, args.num_blocks)				
-		log.log(_print_intercept(h2hat))
-		return h2hat
+		hsqhat = jk.Hsq(chisq, ref_ld, w_ld, N, M_annot, args.num_blocks)				
+		log.log(hsqhat.summary_intercept())
+		return hsqhat
 		
 		
 	# LD Score regression to estimate h2
@@ -870,9 +822,9 @@ def sumstats(args, header=None):
 				raise ValueError(msg)
 				
 			log.log('Constraining LD Score regression intercept = {C}.'.format(C=intercept))
-			h2hat = jk.Hsq(chisq, ref_ld, w_ld, N, M_annot, args.num_blocks,
+			hsqhat = jk.Hsq(chisq, ref_ld, w_ld, N, M_annot, args.num_blocks,
 				args.non_negative, intercept)
-			log.log(_print_hsq(h2hat, ref_ld_colnames))
+			log.log(hsqhat.summary(ref_ld_colnames))
 					
 		elif args.aggregate:
 			if args.annot:
@@ -884,33 +836,26 @@ def sumstats(args, header=None):
 			else:
 				raise ValueError("No annot file specified.")
 
-			h2hat = jk.Hsq_aggregate(chisq, ref_ld, w_ld, N, M_annot, annot_matrix, args.num_blocks)
-			log.log(_print_hsq(h2hat, ref_ld_colnames))
+			hsqhat = jk.Hsq_aggregate(chisq, ref_ld, w_ld, N, M_annot, annot_matrix, args.num_blocks)
+			log.log(hsqhat.summary(ref_ld_colnames))
 		else:
-			h2hat = jk.Hsq(chisq, ref_ld, w_ld, N, M_annot, args.num_blocks,
+			hsqhat = jk.Hsq(chisq, ref_ld, w_ld, N, M_annot, args.num_blocks,
 				args.non_negative)
-			log.log(_print_hsq(h2hat, ref_ld_colnames))
+			log.log(hsqhat.summary(ref_ld_colnames))
 		
-		if args.machine:
-			print "Printing block jackknife covariance matrix."
-			hsq_jknife_ofh = args.out+'.hsq.jknife'
-			np.savetxt(hsq_jknife_ofh, Hsq.hsq_cov)
-		
+		if not args.human_only:
+			hsq_cov_ofh = args.out+'.hsq.jknife'
+			_print_cov(hsqhat, hsq_cov_ofh, log)
+					
 		if args.print_delete_vals:
-			print "Printing block jackknife delete-a-block values."
-			hsq_jknife_ofh = args.out+'.delete_k'
-			out_mat = np.vstack((h2hat.coef, h2hat._jknife.delete_values))
-			if not args.no_intercept:
-				ncol = out_mat.shape[1]
-				out_mat = out_mat[:,0:ncol-1]
-				
-			np.savetxt(hsq_jknife_ofh, out_mat)
-
-		return [M_annot,h2hat]
+			hsq_delete_ofh = args.out+'.delete_k'
+			_print_delete_k(hsqhat, hsq_delete_ofh, log)
+			
+		return [M_annot,hsqhat]
 
 
 	# LD Score regression to estimate genetic correlation
-	elif args.rg or args.rg or args.gencor:
+	elif args.rg or args.rg or args.rg:
 		log.log('Estimating genetic correlation.')
 
 		max_N1 = np.max(sumstats['N1'])
@@ -922,7 +867,7 @@ def sumstats(args, header=None):
 			chisq2 = sumstats.BETAHAT2**2 * sumstats.N2
 			ii = np.logical_and(chisq1 < max_chisq1, chisq2 < max_chisq2)
 			sumstats = sumstats[ii]
-			log_msg = 'After filtering on chi^2 < {C},{D}, {N} SNPs remain.'
+			log_msg = 'After filtering on chi^2 < ({C},{D}), {N} SNPs remain.'
 			log.log(log_msg.format(C=max_chisq1, D=max_chisq2, N=np.sum(ii)))
 
 		snp_count = len(sumstats); n_annot = len(ref_ld_colnames)
@@ -962,35 +907,36 @@ def sumstats(args, header=None):
 		else:
 			intercepts = [None, None, None]
 		
-		gchat = jk.Gencor(betahat1, betahat2, ref_ld, w_ld, N1, N2, M_annot, intercepts,
+		rghat = jk.Gencor(betahat1, betahat2, ref_ld, w_ld, N1, N2, M_annot, intercepts,
 			args.overlap,	args.rho, args.num_blocks)
 
 		log.log( '\n' )
 		log.log( 'Heritability of first phenotype' )
 		log.log( '-------------------------------' )
-		log.log( _print_hsq(gchat.hsq1, ref_ld_colnames) )
+		log.log(rghat.hsq1.summary(ref_ld_colnames) )
 		log.log( '\n' )
 		log.log( 'Heritability of second phenotype' )
 		log.log( '--------------------------------' )
-		log.log( _print_hsq(gchat.hsq2, ref_ld_colnames) )
+		log.log(rghat.hsq2.summary(ref_ld_colnames) )
 		log.log( '\n' )
 		log.log( 'Genetic Covariance' )
 		log.log( '------------------' )
-		log.log( _print_gencov(gchat.gencov, ref_ld_colnames) )
+		log.log(rghat.gencov.summary(ref_ld_colnames) )
 		log.log( '\n' )
 		log.log( 'Genetic Correlation' )
 		log.log( '-------------------' )
-		log.log( _print_gencor(gchat) )
+		log.log(rghat.summary() )
+		log.log('\n')
 		
-		if args.machine:
-			gencor_jknife_ofh = args.out+'.gencor.jknife'
+		if not args.human_only:
+			gencov_jknife_ofh = args.out+'.gencov.jknife'
 			hsq1_jknife_ofh = args.out+'.hsq1.jknife'
 			hsq2_jknife_ofh = args.out+'.hsq2.jknife'	
-			np.savetxt(gencor_jknife_ofh, gchat.gencov.gencov_cov)
-			np.savetxt(hsq1_jknife_ofh, gchat.hsq1.hsq_cov)
-			np.savetxt(hsq2_jknife_ofh, gchat.hsq2.hsq_cov)
+			_print_cov(rghat.hsq1, hsq1_jknife_ofh, log)
+			_print_cov(rghat.hsq2, hsq2_jknife_ofh, log)
+			_print_gencov_cov(rghat.gencov, gencov_jknife_ofh, log)
 
-		return [M_annot,gchat]
+		return [M_annot,rghat]
 
 
 def freq(args):
@@ -1171,12 +1117,10 @@ if __name__ == '__main__':
 	# Flags for both LD Score estimation and h2/gencor estimation
 	parser.add_argument('--out', default='ldsc', type=str,
 		help='Output filename prefix')
-	parser.add_argument('--block-size', default=None, type=int, 
-		help='Block size for block jackknife')
 	parser.add_argument('--maf', default=None, type=float,
 		help='Minor allele frequency lower bound. Default is 0')
-	parser.add_argument('--machine', default=False, action='store_true',
-		help='Enable machine-readable output?')
+	parser.add_argument('--human-only', default=False, action='store_true',
+		help='Print only the human-readable .log file; do not print machine readable output.')
 	# frequency (useful for .bin files)
 	parser.add_argument('--freq', default=False, action='store_true',
 		help='Compute reference allele frequencies (useful for .bin files).')
@@ -1206,13 +1150,14 @@ if __name__ == '__main__':
 		freq(args, header)
 
 	# LD Score estimation
-	elif (args.bin is not None or args.bfile is not None) and (args.l1 or args.l1sq or args.l2 or args.l4):
-		if np.sum((args.l1, args.l2, args.l1sq, args.l4)) != 1:
-			raise ValueError('Must specify exactly one of --l1, --l1sq, --l2, --l4 for LD estimation.')
+	#elif (args.bin is not None or args.bfile is not None) and (args.l1 or args.l1sq or args.l2 or args.l4):
+	#	if np.sum((args.l1, args.l2, args.l1sq, args.l4)) != 1:
+	elif (args.bin is not None or args.bfile is not None):
+		if args.l2 is None:
+			#raise ValueError('Must specify exactly one of --l1, --l1sq, --l2, --l4 for LD estimation.')
+			raise ValueError('Must specify --l2 with --bfile.')
 		if args.bfile and args.bin:
 			raise ValueError('Cannot specify both --bin and --bfile.')
-		if args.block_size is None: # default jackknife block size for LD Score regression
-			args.block_size = 100
 		if args.annot is not None and args.extract is not None:
 			raise ValueError('--annot and --extract are currently incompatible.')
 		if args.cts_bin is not None and args.extract is not None:
@@ -1247,10 +1192,7 @@ if __name__ == '__main__':
 				raise ValueError('--rho and --overlap can only be used with --rg.')
 			if not (args.rho and args.overlap):
 				raise ValueError('Must specify either both or neither of --rho and --overlap.')
-		
-		if args.block_size is None: # default jackknife block size for h2/gencor
-			args.block_size = 2000
-			
+					
 		sumstats(args, header)
 		
 		
