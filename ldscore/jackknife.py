@@ -560,7 +560,6 @@ class Gencov(object):
 		ref_ld_tot = np.sum(ref_ld, axis=1)
 		n1n2 = float(np.dot(self.N1.T, self.N2))/self.n_snp
 		y = np.multiply(bhat1, bhat2)
-		self.mean_z1z2 = np.multiply(bhat1.T*N1, bhat2.T*N2)/self.n_snp
 		if intercept is None:
 			x = _append_intercept(ref_ld)
 		else:
@@ -620,7 +619,6 @@ class Gencov(object):
 			out.append( 'Proportion of gencov: ' +str(np.matrix(self.prop_gencov)))
 			out.append( 'Enrichment: '+str(np.matrix(self.enrichment)))
 		
-		out.append('Mean z1*z2: '+str(np.matrix(self.mean_z1z2)))
 		if self.constrain_intercept is not None:
 			out.append( 'Intercept: constrained to {C}'.format(C=np.matrix(self.constrain_intercept)))
 		else:
