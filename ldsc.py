@@ -1100,7 +1100,7 @@ if __name__ == '__main__':
 	parser.add_argument('--constrain-intercept', action='store', default=False,
 		help = 'Constrain the regression intercept to be a fixed value (or a comma-separated list of 3 values for rg estimation).')
 	parser.add_argument('--non-negative', action='store_true',
-		help = 'Constrain the regression intercept to be 1.')
+		help = 'Constrain the slopes to be non-negative.')
 	parser.add_argument('--aggregate', action='store_true',
 		help = 'Use the aggregate estimator.')
 	parser.add_argument('--M', default=None, type=str,
