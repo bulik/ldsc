@@ -630,20 +630,18 @@ def sumstats(args, header=None):
 		if args.ref_ld:
 			ref_ldscores = ps.ldscore(args.ref_ld)
 		elif args.ref_ld_chr:
-			ref_ldscores = ps.ldscore(args.ref_ld_chr,22)
+			ref_ldscores = ps.ldscore(args.ref_ld_chr, 22)
 		elif args.ref_ld_file:
 			ref_ldscores = ps.ldscore_fromfile(args.ref_ld_file)
 		elif args.ref_ld_file_chr:
-			ref_ldscores = ps.ldscore_fromfile(args.ref_ld_file,22)	
+			ref_ldscores = ps.ldscore_fromfile(args.ref_ld_file_chr, 22)	
 		elif args.ref_ld_list:
 			flist = args.ref_ld_list.split(',')
 			ref_ldscores = ps.ldscore_fromlist(flist)
 		elif args.ref_ld_list_chr:
 			flist = args.ref_ld_list_chr.split(',')
-			ref_ldscores = ps.ldscore_fromlist(flist,22)
+			ref_ldscores = ps.ldscore_fromlist(flist, 22)
 		
-		print ref_ldscores.head()
-
 	except ValueError as e:
 		log.log('Error parsing reference LD.')
 		raise e

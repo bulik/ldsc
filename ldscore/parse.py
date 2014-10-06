@@ -423,7 +423,6 @@ def ldscore(fh, num=None):
 				full_fh = fh + '1' + suffix
 	
 			x = open(full_fh, 'rb')
-			x.close()
 			compression = 'gzip'
 		except IOError:
 			suffix = '.l2.ldscore'
@@ -433,7 +432,6 @@ def ldscore(fh, num=None):
 			else:
 				full_fh = fh + '1' + suffix
 			x = open(full_fh, 'rb')
-			x.close()
 			compression = None			
 		
 		if '@' in fh:
