@@ -350,6 +350,7 @@ class Hsq(object):
 		no_intercept_cov = self._jknife.jknife_cov[0:self.n_annot,0:self.n_annot]
 		self.hsq_cov = np.multiply(np.dot(self.M.T,self.M), no_intercept_cov)
 		self.coef = self._jknife.est[0,0:self.n_annot]
+		self.coef_se = np.diag(no_intercept_cov)
 		self.cat_hsq = np.multiply(self.M, self._jknife.est[0,0:self.n_annot])
 		self.cat_hsq_se = np.multiply(self.M, self._jknife.jknife_se[0,0:self.n_annot])
 		self.tot_hsq = np.sum(self.cat_hsq)
@@ -377,20 +378,22 @@ class Hsq(object):
 		agg = numerator / denominator
 		return agg
 
-	def summary(self, ref_ld_colnames):
+	def summary(self, ref_ld_colnames, overlap=False):
 		'''Print information about LD Score Regression'''
 		out = []
 		out.append('Total observed scale h2: '+str(np.matrix(self.tot_hsq))+\
 			' ('+str(np.matrix(self.tot_hsq_se))+')')
 		if self.n_annot > 1:
 			out.append( 'Categories: '+' '.join(ref_ld_colnames))
-			out.append( 'Observed scale h2: '+ str(np.matrix(self.cat_hsq)))
-			out.append( 'Observed scale h2 SE: '+str(np.matrix(self.cat_hsq_se)))
-			out.append( 'Proportion of SNPs: '+str(np.matrix(self.M_prop)))
-			out.append( 'Proportion of h2g: ' +str(np.matrix(self.prop_hsq)))
-			out.append( 'Enrichment: '+str(np.matrix(self.enrichment))		)
+			if not overlap:
+				out.append( 'Observed scale h2: '+ str(np.matrix(self.cat_hsq)))
+				out.append( 'Observed scale h2 SE: '+str(np.matrix(self.cat_hsq_se)))
+				out.append( 'Proportion of SNPs: '+str(np.matrix(self.M_prop)))
+				out.append( 'Proportion of h2g: ' +str(np.matrix(self.prop_hsq)))
+				out.append( 'Enrichment: '+str(np.matrix(self.enrichment)))
 	
 		out.append( 'Coefficients: '+str(self.coef))
+		out.append( 'Coefficient SE: '+str(self.coef_se))
 		out.append( 'Lambda GC: '+ str(np.matrix(self.lambda_gc)))
 		out.append( 'Mean Chi^2: '+ str(np.matrix(self.mean_chisq)))
 		if self.constrain_intercept is not None:
@@ -401,7 +404,7 @@ class Hsq(object):
 
 		out = '\n'.join(out)
 		return kill_brackets(out)
-	
+		
 	def summary_intercept(self):
 		'''Print information about LD Score regression intercept.'''
 	
@@ -605,19 +608,20 @@ class Gencov(object):
 		agg = numerator / denominator
 		return agg
 	
-	def summary(self, ref_ld_colnames):
-		'''Reusable code for printing output of jk.Gencov object'''
+	def summary(self, ref_ld_colnames, overlap=False):
+		'''Print output of jk.Gencov object'''
 		out = []
 		out.append('Total observed scale gencov: '+str(np.matrix(self.tot_gencov))+' ('+\
 			str(np.matrix(self.tot_gencov_se))+')')
 		
 		if self.n_annot > 1:
 			out.append( 'Categories: '+ str(' '.join(ref_ld_colnames)))
-			out.append( 'Observed scale gencov: '+str(np.matrix(self.cat_gencov)))
-			out.append( 'Observed scale gencov SE: '+str(np.matrix(self.cat_gencov_se)))
-			out.append( 'Proportion of SNPs: '+str(np.matrix(self.M_prop)))
-			out.append( 'Proportion of gencov: ' +str(np.matrix(self.prop_gencov)))
-			out.append( 'Enrichment: '+str(np.matrix(self.enrichment)))
+			if not overlap:
+				out.append( 'Observed scale gencov: '+str(np.matrix(self.cat_gencov)))
+				out.append( 'Observed scale gencov SE: '+str(np.matrix(self.cat_gencov_se)))
+				out.append( 'Proportion of SNPs: '+str(np.matrix(self.M_prop)))
+				out.append( 'Proportion of gencov: ' +str(np.matrix(self.prop_gencov)))
+				out.append( 'Enrichment: '+str(np.matrix(self.enrichment)))
 		
 		if self.constrain_intercept is not None:
 			out.append( 'Intercept: constrained to {C}'.format(C=np.matrix(self.constrain_intercept)))
@@ -627,8 +631,8 @@ class Gencov(object):
 
 		out = '\n'.join(out)
 		return kill_brackets(out)
-
-
+	
+	
 class Gencor(object):
 
 	'''

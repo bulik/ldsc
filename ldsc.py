@@ -862,10 +862,8 @@ def sumstats(args, header=None):
 				raise ValueError("No annot file specified.")
 
 			hsqhat = jk.Hsq_aggregate(chisq, ref_ld, w_ld, N, M_annot, annot_matrix, args.num_blocks)
-			log.log(hsqhat.summary(ref_ld_colnames))
 		else:
-			hsqhat = jk.Hsq(chisq, ref_ld, w_ld, N, M_annot, args.num_blocks,
-				args.non_negative)
+			hsqhat = jk.Hsq(chisq, ref_ld, w_ld, N, M_annot, args.num_blocks, args.non_negative)
 		
 		if not args.human_only and n_annot > 1:
 			hsq_cov_ofh = args.out+'.hsq.cov'
@@ -875,8 +873,7 @@ def sumstats(args, header=None):
 			hsq_delete_ofh = args.out+'.delete_k'
 			_print_delete_k(hsqhat, hsq_delete_ofh, log)
 	
-		log.log(hsqhat.summary(ref_ld_colnames))
-			
+		log.log(hsqhat.summary(ref_ld_colnames, args.overlap_annot))
 		return [M_annot,hsqhat]
 
 
@@ -955,15 +952,15 @@ def sumstats(args, header=None):
 		log.log( '\n' )
 		log.log( 'Heritability of first phenotype' )
 		log.log( '-------------------------------' )
-		log.log(rghat.hsq1.summary(ref_ld_colnames) )
+		log.log(rghat.hsq1.summary(ref_ld_colnames, args.overlap_annot))
 		log.log( '\n' )
 		log.log( 'Heritability of second phenotype' )
 		log.log( '--------------------------------' )
-		log.log(rghat.hsq2.summary(ref_ld_colnames) )
+		log.log(rghat.hsq2.summary(ref_ld_colnames, args.overlap_annot))
 		log.log( '\n' )
 		log.log( 'Genetic Covariance' )
 		log.log( '------------------' )
-		log.log(rghat.gencov.summary(ref_ld_colnames) )
+		log.log(rghat.gencov.summary(ref_ld_colnames, args.overlap_annot))
 		log.log( '\n' )
 		log.log( 'Genetic Correlation' )
 		log.log( '-------------------' )
@@ -1112,7 +1109,8 @@ if __name__ == '__main__':
 		help='Filename prefix for file with LD Scores with sum r^2 taken over SNPs included in the regression.')
 	parser.add_argument('--w-ld-chr', default=None, type=str,
 		help='Filename prefix for file with LD Scores with sum r^2 taken over SNPs included in the regression, split across 22 chromosomes.')
-
+	parser.add_argument('--overlap-annot', default=False, action='store_true',
+		help='Let ldsc know that some categories overlap; adjust ouput accordingly.')
 	parser.add_argument('--invert-anyway', default=False, action='store_true',
 		help="Force inversion of ill-conditioned matrices.")
 	parser.add_argument('--no-filter-chisq', default=False, action='store_true',
