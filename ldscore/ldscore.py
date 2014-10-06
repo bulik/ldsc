@@ -7,6 +7,9 @@ import pandas as pd
 
 def getBlockLefts(coords, max_dist):
 	'''
+	Converts coordinates + max block length to the a list of coordinates of the leftmost
+	SNPs to be included in blocks.
+	
 	Parameters
 	----------
 	coords : array
@@ -33,6 +36,8 @@ def getBlockLefts(coords, max_dist):
 	
 def block_left_to_right(block_left):
 	'''
+	Converts block lefts to block rights.
+	
 	Parameters
 	----------
 	block_left : array
@@ -204,8 +209,7 @@ class __GenotypeArrayInMemory__(object):
 		denom = n-2 if n>2 else n # allow n<2 for testing purposes
 		sq = np.square(x)
 		return sq - (1-sq) / denom
-		
-		
+				
 	### L4
 	def l4VarBlocks(self, block_left, c, annot=None, jN=10):
 		'''
@@ -331,6 +335,20 @@ class __GenotypeArrayInMemory__(object):
 	
 # 	def __corSumBlockJackknife__(self, block_left, c, func1, snp_getter, annot=None, jN=10,
 # 		func2=np.dot):
+#		'''
+#		Estimates LD Score and standard error using a block jackknife.
+#		
+#		Parameters
+#		----------
+#		
+#		Returns
+#		-------
+#		
+#		Notes
+#		-----
+#		
+#		'''
+#
 # 		M, N = self.m, self.n; 
 # 		if jN > N:
 # 			raise ValueError('jN must be <= N')
@@ -569,8 +587,26 @@ class PlinkBEDFile(__GenotypeArrayInMemory__):
 		
 	def nextSNPs(self, b, minorRef=None):
 		'''
-		return an n x b matrix of the next b SNPs
+		Unpacks the binary array of genotypes and returns an n x b matrix of floats of 
+		normalized genotypes for the next b SNPs, where n := number of samples.
+		
+		Parameters
+		----------
+		b : int
+			Number of SNPs to return.
+		minorRef: bool, default None
+			Should we flip reference alleles so that the minor allele is the reference?
+			(This is useful for computing l1 w.r.t. minor allele).
+		
+		Returns
+		-------
+		X : np.array with dtype float64 with shape (n, b), where n := number of samples
+			Matrix of genotypes normalized to mean zero and variance one. If minorRef is
+			not None, then the minor allele will be the positive allele (i.e., two copies
+			of the minor allele --> a positive number).
+		
 		'''
+		
 		try:
 			b = int(b)
 			if b <= 0:
@@ -609,7 +645,27 @@ class PlinkBEDFile(__GenotypeArrayInMemory__):
 		
 class VcfBINFile(__GenotypeArrayInMemory__):
 	'''
-	Interface for genotypes stored as a python bitarray
+	Interface for genotypes stored as a python bitarray.
+	
+	Parameters
+	----------
+	Inherits __init__ from parent class.	
+	
+	Methods
+	-------
+	__read__(fname, m, n)
+		Reads genotypes from file.
+	__filter_indivs__(geno, keep_indivs, n)
+		Filters individuals.
+	__filter_snps_maf__(geno, m, mafMin, keep_snps)
+		Filters SNPs and removes low-MAF SNPs.
+	nextSNPs(b, minorRef)
+		Returns an (n, b) array of genotypes at the next b SNPs.
+	
+	Attributes
+	----------
+	Same as parent class.
+	
 	'''
 	def __read__(self, fname, m, n):
 		if not fname.endswith('.bin'):
@@ -635,6 +691,27 @@ class VcfBINFile(__GenotypeArrayInMemory__):
 		return (n, geno)
 		
 	def __filter_indivs__(self, geno, keep_indivs, m, n):
+		'''
+		Filters the genotype matrix to retain only those individuals in keep_indivs.
+		
+		Parameters
+		----------
+		geno : ba.bitarray
+			Genotype array before filtering.
+		keep_indivs : np.array of ints
+			Array of indices of individuals to retain.
+		n : int
+			Number of individuals before filtering.
+		
+		Returns
+		-------
+		z : ba.bitarray
+			Filtered genotype matrix.
+		n_new : int
+			Number of individuals retained after filtering.
+		
+		'''
+		
 		n_new = len(keep_indivs)
 		z = ba.bitarray(m*n_new, endian="big")
 		#pbar = self.__filter_indivs_pbar__(len(keep_indivs))
@@ -646,6 +723,37 @@ class VcfBINFile(__GenotypeArrayInMemory__):
 		return (z, m, n_new)
 
 	def __filter_snps_maf__(self, geno, m, n, mafMin, keep_snps):
+		'''
+		Removes low-MAF SNPs + SNPs not in keep_snps from the gentotype matrix.
+	
+		A SNP is retained if the SNP index is included in keep_snps AND the SNP has MAF 
+		above mafMin. 
+		
+		Parameters
+		----------
+		geno : ba.bitarray
+			Genotype array.
+		m : int 
+			Number of SNPs.
+		mafMin : float in [0, 0.5)
+			Minimum minor allele frequency required for inclusion. 
+		keep_snps : np.array of ints
+			Indices of SNPs to keep. 
+			
+		Returns
+		-------
+		y[0:m_poly*n] : ba.bitarary
+			Bitarray with genotypes at SNPs that passed filters.
+		m_poly : int
+			Number of SNPs that passed filters.
+		kept_snps : np.array of ints
+			Indices of SNPs that passed filters.
+		freq : np.array of floats
+			Genotype frequencies (NB: not minor allele frequency, frequency of the 
+			allele coded 1). 
+			
+		'''
+
 		y = ba.bitarray(m*n, endian="big")
 		m_poly = 0; freq =  []
 		if keep_snps is None: keep_snps = xrange(m)
@@ -666,8 +774,26 @@ class VcfBINFile(__GenotypeArrayInMemory__):
 		
 	def nextSNPs(self, b, minorRef=None):
 		'''
-		returns an n x b matrix of normalized genotypes for the next b SNPs
+		Unpacks the binary array of genotypes and returns an n x b matrix of floats of 
+		normalized genotypes for the next b SNPs, where n := number of samples.
+		
+		Parameters
+		----------
+		b : int
+			Number of SNPs to return.
+		minorRef: bool, default None
+			Should we flip reference alleles so that the minor allele is the reference?
+			(This is useful for computing l1 w.r.t. minor allele).
+		
+		Returns
+		-------
+		X : np.array with dtype float64 with shape (n, b), where n := number of samples
+			Matrix of genotypes normalized to mean zero and variance one. If minorRef is
+			not None, then the minor allele will be the positive allele (i.e., two copies
+			of the minor allele --> a positive number).
+		
 		'''
+	
 		b = int(b)
 		if b <= 0:
 			raise ValueError("b must be > 0")

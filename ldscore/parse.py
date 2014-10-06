@@ -2,6 +2,7 @@ from __future__ import division
 import numpy as np
 import pandas as pd
 from scipy.special import chdtri
+import gzip
 
 
 def filter_df(df, colname, pred):
@@ -132,18 +133,25 @@ def chisq(fh):
 #		'BP': int,
 		'P': float,
 		'CHISQ': float,
-		'N': int, # cast to int for typechecking, then switch to float for division
+		'N': float,
 		'MAF': float,
 		'INFO': float,
 	}
-	colnames = open(fh,'rb').readline().split()
+	if fh.endswith('gz'):
+		openfunc = gzip.open
+		compression='gzip'
+	else:
+		openfunc = open
+		compression=None
+		
+	colnames = openfunc(fh,'rb').readline().split()
 	usecols = ['SNP','P','CHISQ','N','MAF','INFO']	
 	usecols = [x for x in usecols if x in colnames]
 	try:
 		x = pd.read_csv(fh, header=0, delim_whitespace=True, usecols=usecols, 
-			dtype=dtype_dict)
+			dtype=dtype_dict, compression=compression)
 	except AttributeError as e:
-		raise AttributeError('Improperly formatted chisq file: '+e.args)
+		raise AttributeError('Improperly formatted chisq file: '+str(e.args))
 
 	try:
 		check_N(x['N'])	
@@ -196,13 +204,20 @@ def betaprod(fh):
 		'MAF1': float,
 		'MAF2': float
 	}
-	colnames = open(fh,'rb').readline().split()
+	if fh.endswith('gz'):
+		openfunc = gzip.open
+		compression='gzip'
+	else:
+		openfunc = open
+		compression=None
+
+	colnames = openfunc(fh,'rb').readline().split()
 	usecols = [x+str(i) for i in xrange(1,3) for x in ['DIR','P','CHISQ','N','MAF','INFO']]
 	usecols.append('SNP')
 	usecols = [x for x in usecols if x in colnames]
 	try:
 		x = pd.read_csv(fh, header=0, delim_whitespace=True, usecols=usecols, 
-			dtype=dtype_dict)
+			dtype=dtype_dict, compression=compression)
 	except AttributeError as e:
 		raise AttributeError('Improperly formatted betaprod file: '+str(e.args))
 		
@@ -240,7 +255,7 @@ def betaprod(fh):
 		del x[DIR]
 		if MAF in x.columns:
 			check_maf(x[MAF])
-			x[MAF]  = np.min(x[MAF], 1-x[MAF])
+			x[MAF]  = np.minimum(x[MAF], 1-x[MAF])
 		
 	return x
 
@@ -260,16 +275,30 @@ def ldscore(fh, num=None):
 	if num is not None:
 		try:
 			suffix = '.l2.ldscore.gz'
-			full_fh = fh + '1' + suffix
-			open(full_fh, 'rb')
+			if '@' in fh:
+				full_fh = fh.replace('@', '1') + suffix
+			else:
+				full_fh = fh + '1' + suffix
+	
+			x = open(full_fh, 'rb')
+			x.close()
 			compression = 'gzip'
 		except IOError:
 			suffix = '.l2.ldscore'
-			full_fh = fh + '1' + suffix
-			open(full_fh, 'rb')
+
+			if '@' in fh:
+				full_fh = fh.replace('@', '1') + suffix
+			else:
+				full_fh = fh + '1' + suffix
+			x = open(full_fh, 'rb')
+			x.close()
 			compression = None			
 		
-		chr_ld = [parsefunc(fh + str(i) + suffix, compression) for i in xrange(1,num+1)]
+		if '@' in fh:
+			chr_ld = [parsefunc(fh.replace('@',str(i))+suffix, compression) for i in xrange(1,num+1)]
+		else:
+			chr_ld = [parsefunc(fh + str(i) + suffix, compression) for i in xrange(1,num+1)]
+
 		x = pd.concat(chr_ld)
 	
 	else:
@@ -303,7 +332,10 @@ def M(fh, num=None):
 	'''
 	parsefunc = lambda y : [float(z) for z in open(y, 'r').readline().split()]
 	if num is not None:
-		x = np.sum([parsefunc(fh+str(i)+'.l2.M') for i in xrange(1,num+1)], axis=0)
+		if '@' in fh:
+			x = np.sum([parsefunc(fh.replace('@',str(i))+'.l2.M') for i in xrange(1,num+1)], axis=0)
+		else:
+			x = np.sum([parsefunc(fh+str(i)+'.l2.M') for i in xrange(1,num+1)], axis=0)
 	else:
 		x = parsefunc(fh + '.l2.M')
 		
@@ -337,8 +369,10 @@ def __ID_List_Factory__(colnames, keepcol, fname_end, header=None, usecols=None)
 			#if np.any(self.df.duplicated(self.df.columns[self.__keepcol__])):
 			#	raise ValueError('Duplicate Entries in Filter File')
 
-			if self.__colnames__: self.df.columns = self.__colnames__
-			self.IDList = self.df.iloc[:,[self.__keepcol__]]
+			if self.__colnames__: 
+				self.df.columns = self.__colnames__
+
+			self.IDList = self.df.iloc[:,[self.__keepcol__]].astype('object')
 		
 		def loj(self, externalDf):
 			'''
@@ -356,7 +390,7 @@ def __ID_List_Factory__(colnames, keepcol, fname_end, header=None, usecols=None)
 	return IDContainer
 
 
-PlinkBIMFile = __ID_List_Factory__(['CHR', 'SNP','CM','BP'],1,'.bim',usecols=[0,1,2,3])
+PlinkBIMFile = __ID_List_Factory__(['CHR', 'SNP','CM','BP','A1','A2'],1,'.bim',usecols=[0,1,2,3,4,5])
 VcfSNPFile = __ID_List_Factory__(['CHR','BP','SNP','CM'],2,'.snp',usecols=[0,1,2,3])
 PlinkFAMFile = __ID_List_Factory__(['IID'],0,'.fam',usecols=[1])
 VcfINDFile = __ID_List_Factory__(['IID'],0,'.ind',usecols=[0])

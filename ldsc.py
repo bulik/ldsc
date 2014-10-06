@@ -20,6 +20,10 @@ import numpy as np
 import pandas as pd
 from subprocess import call
 
+pd.set_option('display.max_rows', 500)
+pd.set_option('display.max_columns', 500)
+pd.set_option('display.width', 1000)
+
 class logger(object):
 	'''
 	Lightweight logging.
@@ -53,7 +57,7 @@ def __filter__(fname, noun, verb, merge_obj):
 			print f(c, len_merged_list)
 		else:
 			error_msg = 'No {noun} retained for analysis'
-			raise ValueError(f(error_msg))
+			raise ValueError(f(error_msg, 0))
 
 		return merged_list
 		
@@ -127,7 +131,7 @@ def ldscore(args):
 	log = logger(args.out+'.log')
 	
 	if args.bin:
-		snp_file, snp_obj = args.bin+'.snp', ps.VcfSNPFile
+		snp_file, snp_obj = args.bin+'.bim', ps.PlinkBIMFile
 		ind_file, ind_obj = args.bin+'.ind', ps.VcfINDFile
 		array_file, array_obj = args.bin+'.bin', ld.VcfBINFile
 	elif args.bfile:
@@ -139,21 +143,86 @@ def ldscore(args):
 	array_snps = snp_obj(snp_file)
 	m = len(array_snps.IDList)
 	log.log('Read list of {m} SNPs from {f}'.format(m=m, f=snp_file))
-	
-	# read annot
-	if args.annot and args.keep:
-		raise ValueError('--annot and --keep are currently incompatible.')
-	elif args.annot:
+
+	# read --annot
+	if args.annot is not None:
 		annot = ps.AnnotFile(args.annot)
-		num_annots,ma = len(annot.df.columns) - 4, len(annot.df)
-		log.log("Read {A} annotations for {M} SNPs from {f}".format(f=args.annot,A=num_annots,
-			M=ma))
+		num_annots, ma = len(annot.df.columns) - 4, len(annot.df)
+		log.log("Read {A} annotations for {M} SNPs from {f}".format(f=args.annot,
+			A=num_annots, M=ma))
 		annot_matrix = np.array(annot.df.iloc[:,4:])
 		annot_colnames = annot.df.columns[4:]
 		keep_snps = None
-	elif args.keep:
-		keep_snps = __filter__(args.keep, 'SNPs', 'include', array_snps)
+		if np.any(annot.df.SNP.values != array_snps.df.SNP.values):
+			raise ValueError('The .annot file must contain the same SNPs in the same'+\
+				' order as the .bim or .snp file')
+	# read --extract
+	elif args.extract is not None:
+		keep_snps = __filter__(args.extract, 'SNPs', 'include', array_snps)
 		annot_matrix, annot_colnames, num_annots = None, None, 1
+	
+	# read --cts-bin plus --cts-breaks
+	elif args.cts_bin is not None and args.cts_breaks is not None:
+			
+		# read breaks
+		args.cts_breaks = args.cts_breaks.replace('N','-')
+		try:
+			breaks = [float(x) for x in args.cts_breaks.split(',')]
+		except ValueError as e:
+			raise ValueError('--cts-breaks must be a comma-separated list of numbers: '+str(e.args))
+					
+		# read cts variable
+		log.log('Reading numbers with which to bin SNPs from {F}'.format(F=args.cts_bin))
+		if args.cts_bin.endswith('gz'):
+			comp = 'gzip'
+		else:
+			comp = None
+			
+		cts = pd.read_csv(args.cts_bin, header=None, delim_whitespace=True, compression=comp)
+		cts.rename( columns={0: 'SNP', 1: 'ANNOT'}, inplace=True)
+		ps.check_rsid(cts.SNP)
+		if len(cts.SNP.values) != len(array_snps.df.SNP.values) or\
+			np.any(cts.SNP.values != array_snps.df.SNP.values):
+			ii = cts.SNP != array_snps.IDList
+			raise ValueError('The --cts-bin file must contain the same SNPs in the same'+\
+				' order as the .bim or .snp file')
+		
+		max_cts = max(cts.ANNOT)
+		min_cts = min(cts.ANNOT)
+		name_breaks = list(breaks)
+		if np.all(breaks >= max_cts) or np.all(breaks <= min_cts):
+			raise ValueError('All breaks lie outside the range of the cts variable.')
+			
+		if np.all(breaks <= max_cts):
+			name_breaks.append(max_cts)
+			breaks.append(max_cts+1)
+		
+		if np.all(breaks >= min_cts):	
+			name_breaks.append(min_cts)
+			breaks.append(min_cts-1)
+		
+		name_breaks.sort()
+		breaks.sort()
+		log.log('Binning SNPs based on {F} with breakpoints {B}'.format(F=args.cts_bin,
+			B=breaks))	
+		num_annots = len(breaks) - 1
+		annot_colnames = ['bin_'+str(name_breaks[i])+'_'+str(name_breaks[i+1]) 
+			for i in xrange(num_annots) ] 
+		
+		# bin and produce annot matrix
+		annot_matrix = np.matrix(np.zeros((m, num_annots)))
+		for i in xrange(num_annots):
+			# this works because we have added a little padding to the first and last 
+			# entries in breaks
+			ii = np.logical_and(cts.ANNOT >= breaks[i], cts.ANNOT < breaks[i+1] ).values
+			annot_matrix[ii, i] = 1
+			
+		if np.any(np.sum(annot_matrix, axis=1) == 0):
+			# This exception should never be raised. For debugging only.
+			raise ValueError('Some SNPs have no annotation in --cts-bin. This is a bug!')
+						
+		keep_snps = None
+			
 	else:
 		annot_matrix, annot_colnames, keep_snps = None, None, None, 
 		num_annots = 1
@@ -163,8 +232,8 @@ def ldscore(args):
 	n = len(array_indivs.IDList)	 
 	log.log('Read list of {n} individuals from {f}'.format(n=n, f=ind_file))
 	# read keep_indivs
-	if args.extract:
-		keep_indivs = __filter__(args.extract, 'individuals', 'include', array_indivs)
+	if args.keep:
+		keep_indivs = __filter__(args.keep, 'individuals', 'include', array_indivs)
 	else:
 		keep_indivs = None
 	
@@ -199,6 +268,20 @@ def ldscore(args):
 		error_msg += '--yes-really flag (warning: it will use a lot of time / memory)'
 		raise ValueError(error_msg)
 
+	scale_suffix = ''
+	if args.pq_exp is not None:
+		log.log('Computing LD with pq ^ {S}.'.format(S=args.pq_exp))
+		log.log('Note that LD Scores with pq raised to a nonzero power are not directly comparable to normal LD Scores')
+		scale_suffix = '_S{S}'.format(S=args.pq_exp)
+		pq = np.matrix(geno_array.maf*(1-geno_array.maf)).reshape((geno_array.m,1))
+		pq = np.power(pq, args.pq_exp)
+
+		if annot_matrix is not None:
+			annot_matrix = np.multiply(annot_matrix, pq)
+		else:
+			annot_matrix = pq
+	
+
 	if args.se: # block jackknife
 
 		# block size
@@ -231,10 +314,10 @@ def ldscore(args):
 			annot=annot_matrix)
 		lN = np.c_[lN_est, lN_se]
 		if num_annots == 1:
-			ldscore_colnames = [col_prefix, 'SE('+col_prefix+')']
+			ldscore_colnames = [col_prefix+scale_suffix, 'SE('+col_prefix+scale_suffix+')']
 		else:
-			ldscore_colnames =  [x+col_prefix for x in annot_colnames]
-			ldscore_colnames += ['SE('+x+')' for x in ldscore_colnames]
+			ldscore_colnames =  [x+col_prefix+scale_suffix for x in annot_colnames]
+			ldscore_colnames += ['SE('+x+scale_suffix+')' for x in ldscore_colnames]
 
 	else: # not block jackknife
 		if args.l1:
@@ -251,35 +334,49 @@ def ldscore(args):
 			log.log("Estimating LD Score (L2).")
 			lN = geno_array.ldScoreVarBlocks(block_left, args.chunk_size, annot=annot_matrix)
 			col_prefix = "L2"; file_suffix = "l2"
-	
+				
 		elif args.l4:
 			col_prefix = "L4"; file_suffix = "l4"
 			raise NotImplementedError('Sorry, havent implemented L4 yet. Try the jackknife.')
 			lN = geno_array.l4VarBlocks(block_left, c, annot)
 		
 		if num_annots == 1:
-			ldscore_colnames = [col_prefix]
+			ldscore_colnames = [col_prefix+scale_suffix]
 		else:
-			ldscore_colnames =  [x+col_prefix for x in annot_colnames]
+			ldscore_colnames =  [x+col_prefix+scale_suffix for x in annot_colnames]
 			
 	# print .ldscore
 	# output columns: CHR, BP, CM, RS, MAF, [LD Scores and optionally SEs]
 	out_fname = args.out + '.' + file_suffix + '.ldscore'
 	new_colnames = geno_array.colnames + ldscore_colnames
-	df = pd.DataFrame(np.c_[geno_array.df, lN])
+	df = pd.DataFrame.from_records(np.c_[geno_array.df, lN])
 	df.columns = new_colnames
 	log.log("Writing results to {f}.gz".format(f=out_fname))
 	df.to_csv(out_fname, sep="\t", header=True, index=False)	
-	call(['gzip',out_fname])
+	call(['gzip', '-f', out_fname])
+
 	# print .M
 	fout_M = open(args.out + '.'+ file_suffix +'.M','wb')
-	if num_annots == 1:
-		print >> fout_M, geno_array.m
+	if annot_matrix is not None:
+		M = np.atleast_1d(np.squeeze(np.asarray(np.sum(annot_matrix, axis=0))))
 	else:
-		M = np.squeeze(np.sum(annot_matrix, axis=0))
-		print >> fout_M, '\t'.join(map(str,M))
-
+		M = [geno_array.m]
+	
+	print >>fout_M, '\t'.join(map(str,M))
 	fout_M.close()
+	pd.set_option('display.max_rows', 200)
+
+	# print LD Score summary
+	log.log('')
+	log.log('Summary of {F}:'.format(F=out_fname))
+	t = df.ix[:,4:].describe()
+	log.log( t.ix[1:,:] )
+	
+	# print correlation matrix including all LD Scores and sample MAF
+	log.log('')
+	log.log('MAF/LD Correlation Matrix')
+	log.log( df.ix[:,4:].corr() )
+		
 
 	
 def sumstats(args):
@@ -299,10 +396,13 @@ def sumstats(args):
 	# read .chisq or betaprod
 	try:
 		if args.sumstats_h2:
+			log.log('Reading summary statistics from {S}.'.format(S=args.sumstats_h2))
 			sumstats = ps.chisq(args.sumstats_h2)
 		elif args.sumstats_intercept:
+			log.log('Reading summary statistics from {S}.'.format(S=args.sumstats_intercept))
 			sumstats = ps.chisq(args.sumstats_intercept)
 		elif args.sumstats_gencor:
+			log.log('Reading summary statistics from {S}.'.format(S=args.sumstats_gencor))
 			sumstats = ps.betaprod(args.sumstats_gencor)
 	except ValueError as e:
 		log.log('Error parsing summary statistics.')
@@ -311,22 +411,54 @@ def sumstats(args):
 	log_msg = 'Read summary statistics for {N} SNPs.'
 	log.log(log_msg.format(N=len(sumstats)))
 	
-	# read reference panel LD Scores and .M 
+	# read reference panel LD Scores
 	try:
 		if args.ref_ld:
 			ref_ldscores = ps.ldscore(args.ref_ld)
-			M_annot = ps.M(args.ref_ld)
-	
 		elif args.ref_ld_chr:
 			ref_ldscores = ps.ldscore(args.ref_ld_chr,22)
-			M_annot = ps.M(args.ref_ld_chr, 22)
+
 	except ValueError as e:
 		log.log('Error parsing reference LD.')
 		raise e
 		
+	# filter ref LD down to those columns specified by --keep-ld
+	if args.keep_ld is not None:
+		try:
+			keep_ld_colnums = [int(x)+1 for x in args.keep_ld.split(',')]
+		except ValueError as e:
+			raise ValueError('--keep-ld must be a comma-separate list of column numbers: '+str(e.args))
+	
+		if len(keep_ld_colnums) == 0:
+			raise ValueError('No reference LD columns retained by --keep-ld')
+	
+		keep_ld_colnums = [0] + keep_ld_colnums
+		try:
+			ref_ldscores = ref_ldscores.ix[:,keep_ld_colnums]
+		except IndexError as e:
+			raise IndexError('--keep-ld column numbers are out of bounds: '+str(e.args))
+		
+		
+	# read .M or --M
+	if args.M is None:
+		if args.ref_ld:
+			M_annot = ps.M(args.ref_ld)	
+		elif args.ref_ld_chr:
+			M_annot = ps.M(args.ref_ld_chr, 22)
+
+	elif args.M is not None:
+		try:
+			M_annot = [float(x) for x in args.M.split(',')]
+		except TypeError as e:
+			raise TypeError('Count not case --M to float: ' + str(e.args))
+		
+		if len(M_annot) != len(ref_ldscores.columns) - 1:
+			raise ValueError('Number of comma-separated terms in --M must match the number of partitioned LD Scores in --ref-ld')
+					
+	log.log('Using M = '+str(M_annot))
 	if np.any(ref_ldscores.iloc[:,1:len(ref_ldscores.columns)].var(axis=0) == 0):
 		raise ValueError('Zero-variance LD Score. Possibly an empty column?')
-
+	
 	log_msg = 'Read reference panel LD Scores for {N} SNPs.'
 	log.log(log_msg.format(N=len(ref_ldscores)))
 
@@ -339,8 +471,9 @@ def sumstats(args):
 	except ValueError as e:
 		log.log('Error parsing regression SNP LD')
 		raise e
-		
-	w_ldscores.columns = ['SNP','LD_weights'] #to keep the column names from being the same
+	
+	# to keep the column names from being the same
+	w_ldscores.columns = ['SNP','LD_weights'] 
 
 	log_msg = 'Read LD Scores for {N} SNPs to be retained for regression.'
 	log.log(log_msg.format(N=len(w_ldscores)))
@@ -355,10 +488,6 @@ def sumstats(args):
 	log_msg = 'After merging with regression SNP LD, {N} SNPs remain.'
 	log.log(log_msg.format(N=len(sumstats)))
 	
-	# this has to be here, because pandas will modify duplicate column names on merge
-	### TODO still not quite satisfactory -- what if user accidentally submits
-	# the same file for ref_ld and w_ld? 
-	# maybe don't merge, but just get the row numbers to prevent modification of colnames??
 	ref_ld_colnames = ref_ldscores.columns[1:len(ref_ldscores.columns)]	
 	w_ld_colname = sumstats.columns[-1]
 	del(ref_ldscores); del(w_ldscores)
@@ -405,7 +534,6 @@ def sumstats(args):
 		chisq = np.matrix(sumstats.CHISQ).reshape((snp_count, 1))
 		N = np.matrix(sumstats.N).reshape((snp_count,1))
 		del sumstats
-
 		h2hat = jk.Hsq(chisq, ref_ld, w_ld, N, M_annot, args.num_blocks)
 		log.log(_print_intercept(h2hat))
 		return h2hat
@@ -422,7 +550,6 @@ def sumstats(args):
 		chisq = np.matrix(sumstats.CHISQ).reshape((snp_count, 1))
 		N = np.matrix(sumstats.N).reshape((snp_count,1))
 		del sumstats
-		
 		h2hat = jk.Hsq(chisq, ref_ld, w_ld, N, M_annot, args.num_blocks)
 		log.log(_print_hsq(h2hat, ref_ld_colnames))
 		return [M_annot,h2hat]
@@ -463,7 +590,66 @@ def sumstats(args):
 		log.log( _print_gencor(gchat) )
 		
 		return [M_annot,gchat]
-		
+
+
+def freq(args):
+	'''
+	Computes and prints reference allele frequencies. Identical to plink --freq. In fact,
+	use plink --freq instead with .bed files; it's faster. This is useful for .bin files,
+	which are a custom LDSC format.
+	
+	TODO: the MAF computation is inefficient, because it also filters the genotype matrix
+	on MAF. It isn't so slow that it really matters, but fix this eventually. 
+	
+	'''
+	log = logger(args.out+'.log')
+	
+	if args.bin:
+		snp_file, snp_obj = args.bin+'.bim', ps.PlinkBIMFile
+		ind_file, ind_obj = args.bin+'.ind', ps.VcfINDFile
+		array_file, array_obj = args.bin+'.bin', ld.VcfBINFile
+	elif args.bfile:
+		snp_file, snp_obj = args.bfile+'.bim', ps.PlinkBIMFile
+		ind_file, ind_obj = args.bfile+'.fam', ps.PlinkFAMFile
+		array_file, array_obj = args.bfile+'.bed', ld.PlinkBEDFile
+
+	# read bim/snp
+	array_snps = snp_obj(snp_file)
+	m = len(array_snps.IDList)
+	log.log('Read list of {m} SNPs from {f}'.format(m=m, f=snp_file))
+	
+	# read fam/ind
+	array_indivs = ind_obj(ind_file)
+	n = len(array_indivs.IDList)	 
+	log.log('Read list of {n} individuals from {f}'.format(n=n, f=ind_file))
+	
+	# read --extract
+	if args.extract is not None:
+		keep_snps = __filter__(args.extract, 'SNPs', 'include', array_snps)
+	else:
+		keep_snps = None
+	
+	# read keep_indivs
+	if args.keep:
+		keep_indivs = __filter__(args.keep, 'individuals', 'include', array_indivs)
+	else:
+		keep_indivs = None
+	
+	# read genotype array
+	log.log('Reading genotypes from {fname}'.format(fname=array_file))
+	geno_array = array_obj(array_file, n, array_snps, keep_snps=keep_snps,
+		keep_indivs=keep_indivs)
+	
+	frq_df = array_snps.df.ix[:,['CHR', 'SNP', 'A1', 'A2']]
+	frq_array = np.zeros(len(frq_df))
+	frq_array[geno_array.kept_snps] = geno_array.freq
+	frq_df['FRQ'] = frq_array
+	out_fname = args.out + '.frq'
+	log.log('Writing reference allele frequencies to {O}.gz'.format(O=out_fname))
+	frq_df.to_csv(out_fname, sep="\t", header=True, index=False)	
+	call(['gzip', '-f', out_fname])
+
+
 if __name__ == '__main__':
 	parser = argparse.ArgumentParser()
 		
@@ -476,12 +662,16 @@ if __name__ == '__main__':
 		help='Prefix for Plink .bed/.bim/.fam file')
 	parser.add_argument('--annot', default=None, type=str, 
 		help='Filename prefix for annotation file for partitioned LD Score estimation')
-
+	parser.add_argument('--cts-bin', default=None, type=str, 
+		help='Filename prefix for cts binned LD Score estimation')
+	parser.add_argument('--cts-breaks', default=None, type=str, 
+		help='Comma separated list of breaks for --cts-bin. Specify negative numbers with an N instead of a -')
+		
 	# Filtering / Data Management for LD Score
 	parser.add_argument('--extract', default=None, type=str, 
-		help='File with individuals to include in LD Score analysis, one ID per row.')
-	parser.add_argument('--keep', default=None, type=str, 
 		help='File with SNPs to include in LD Score analysis, one ID per row.')
+	parser.add_argument('--keep', default=None, type=str, 
+		help='File with individuals to include in LD Score analysis, one ID per row.')
 	parser.add_argument('--ld-wind-snps', default=None, type=int,
 		help='LD Window in units of SNPs. Can only specify one --ld-wind-* option')
 	parser.add_argument('--ld-wind-kb', default=None, type=float,
@@ -498,6 +688,10 @@ if __name__ == '__main__':
 		help='Estimate l1 ^ 2 w.r.t. sample minor allele.')
 	parser.add_argument('--l2', default=False, action='store_true',
 		help='Estimate l2. Compatible with both jackknife and non-jackknife.')
+	parser.add_argument('--per-allele', default=False, action='store_true',
+		help='Estimate per-allele l{N}. Same as --pq-exp 0. ')
+	parser.add_argument('--pq-exp', default=None, type=float,
+		help='Estimate l{N} with given scale factor. Default -1. Per-allele is equivalent to --pq-exp 1.')
 	parser.add_argument('--l4', default=False, action='store_true',
 		help='Estimate l4. Only compatible with jackknife.')
 	
@@ -505,7 +699,6 @@ if __name__ == '__main__':
 		help='Block jackknife SE? (Warning: somewhat slower)')
 	parser.add_argument('--yes-really', default=False, action='store_true',
 		help='Yes, I really want to compute whole-chromosome LD Score')
-	
 	
 	# Summary Statistic Estimation Flags
 	
@@ -526,12 +719,16 @@ if __name__ == '__main__':
 		help='Filename prefix for file with LD Scores with sum r^2 taken over SNPs included in the regression.')
 	parser.add_argument('--regression-snp-ld-chr', default=None, type=str,
 		help='Filename prefix for file with LD Scores with sum r^2 taken over SNPs included in the regression, split across 22 chromosomes.')
-	
+	parser.add_argument('--M', default=None, type=str,
+		help='# of SNPs (if you don\'t want to use the .l2.M files that came with your .l2.ldscore.gz files)')
+
 	# Filtering for sumstats
 	parser.add_argument('--info-min', default=None, type=float,
 		help='Minimum INFO score for SNPs included in the regression.')
 	parser.add_argument('--info-max', default=None, type=float,
 		help='Maximum INFO score for SNPs included in the regression.')
+	parser.add_argument('--keep-ld', default=None, type=str,
+		help='Zero-indexed column numbers of LD Scores to keep for LD Score regression.')
 		
 	# Optional flags for genetic correlation
 	parser.add_argument('--overlap', default=0, type=int,
@@ -548,17 +745,52 @@ if __name__ == '__main__':
 		help='Block size for block jackknife')
 	parser.add_argument('--maf', default=None, type=float,
 		help='Minor allele frequency lower bound. Default is 0')
-	args = parser.parse_args()
 	
+	# frequency (useful for .bin files)
+	parser.add_argument('--freq', default=False, action='store_true',
+		help='Compute reference allele frequencies (useful for .bin files).')
+		
+
+	
+	args = parser.parse_args()
+		
+	
+	
+	if args.freq:
+		
+		if (args.bfile is not None) == (args.bin is not None):
+			raise ValueError('Must set exactly one of --bin or --bfile for use with --freq') 
+	
+		freq(args)
+
 	# LD Score estimation
-	if (args.bin or args.bfile) and (args.l1 or args.l1sq or args.l2 or args.l4):
+	elif (args.bin is not None or args.bfile is not None) and (args.l1 or args.l1sq or args.l2 or args.l4):
+		
 		if np.sum((args.l1, args.l2, args.l1sq, args.l4)) != 1:
-			raise ValueError('Must specify exactly one of --l1, --l1sq, --l2, --l4 for LN estimation.')
+			raise ValueError('Must specify exactly one of --l1, --l1sq, --l2, --l4 for LD estimation.')
 		if args.bfile and args.bin:
 			raise ValueError('Cannot specify both --bin and --bfile.')
 		
 		if args.block_size is None: # default jackknife block size for LD Score regression
 			args.block_size = 100
+		
+		if args.annot is not None and args.extract is not None:
+			raise ValueError('--annot and --extract are currently incompatible.')
+		
+		if args.cts_bin is not None and args.extract is not None:
+			raise ValueError('--cts-bin and --extract are currently incompatible.')
+		
+		if args.annot is not None and args.cts_bin is not None:
+			raise ValueError('--annot and --cts-bin are currently incompatible.')
+		
+		if (args.cts_bin is not None) != (args.cts_breaks is not None):
+			raise ValueError('Must set both or neither of --cts-bin and --cts-breaks.')
+		
+		if args.per_allele and args.pq_exp is not None:
+			raise ValueError('Cannot set both --per-allele and --pq-exp (--per-allele is equivalent to --pq-exp 1).')
+			
+		if args.per_allele:
+			args.pq_exp = 1
 		
 		ldscore(args)
 	
@@ -569,10 +801,13 @@ if __name__ == '__main__':
 	
 		if np.sum(np.array((args.sumstats_intercept, args.sumstats_h2, args.sumstats_gencor)).astype(bool)) > 1:	
 			raise ValueError('Cannot specify more than one of --sumstats-h2, --sumstats-gencor, --sumstats-intercept.')
+		
 		if args.ref_ld and args.ref_ld_chr:
-			raise ValueError('Cannot specify both --ref-ld and --ref-ld-chr.')
+			raise ValueError('Cannot specify both --ref-ld and --ref-ld-chr.')--pq-exp
+		
 		if args.regression_snp_ld and args.regression_snp_ld_chr:
 			raise ValueError('Cannot specify both --regression-snp-ld and --regression-snp-ld-chr.')
+		
 		if args.rho or args.overlap:
 			if not args.sumstats_gencor:
 				raise ValueError('--rho and --overlap can only be used with --sumstats-gencor.')
@@ -583,7 +818,7 @@ if __name__ == '__main__':
 			args.block_size = 2000
 			
 		sumstats(args)
-	
+		
 	# bad flags
 	else:
 		raise ValueError('No analysis selected.')
