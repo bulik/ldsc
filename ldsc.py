@@ -631,10 +631,18 @@ def sumstats(args, header=None):
 			ref_ldscores = ps.ldscore(args.ref_ld)
 		elif args.ref_ld_chr:
 			ref_ldscores = ps.ldscore(args.ref_ld_chr,22)
-		elif args.ref_ld_fromfile:
-			ref_ldscores = ps.ldscore_fromfile(args.ref_ld_fromfile)
-		elif args.ref_ld_fromfile_chr:
-			ref_ldscores = ps.ldscore_fromfile(args.ref_ld_fromfile,22)
+		elif args.ref_ld_file:
+			ref_ldscores = ps.ldscore_fromfile(args.ref_ld_file)
+		elif args.ref_ld_file_chr:
+			ref_ldscores = ps.ldscore_fromfile(args.ref_ld_file,22)	
+		elif args.ref_ld_list:
+			flist = args.ref_ld_list.split(',')
+			ref_ldscores = ps.ldscore_fromlist(flist)
+		elif args.ref_ld_list_chr:
+			flist = args.ref_ld_list_chr.split(',')
+			ref_ldscores = ps.ldscore_fromlist(flist,22)
+		
+		print ref_ldscores.head()
 
 	except ValueError as e:
 		log.log('Error parsing reference LD.')
@@ -669,10 +677,16 @@ def sumstats(args, header=None):
 				M_annot = ps.M(args.ref_ld, common=True)	
 			elif args.ref_ld_chr:
 				M_annot = ps.M(args.ref_ld_chr, 22, common=True)
-			elif args.ref_ld_fromfile:
-				M_annot = ps.M_fromfile(args.ref_ld_fromfile)
-			elif args.ref_ld_fromfile_chr:
-				M_annot = ps.M_fromfile(args.ref_ld_fromfile_chr, 22)
+			elif args.ref_ld_file:
+				M_annot = ps.M_fromfile(args.ref_ld_file)
+			elif args.ref_ld_file_chr:
+				M_annot = ps.M_fromfile(args.ref_ld_file_chr, 22)
+			elif args.ref_ld_list:
+				flist = args.ref_ld_list.split(',')
+				M_annot = ps.M_fromlist(flist)
+			elif args.ref_ld_list_chr:
+				flist = args.ref_ld_list_chr.split(',')
+				M_annot = ps.M_fromlist(flist, 22)
 				
 		# filter ref LD down to those columns specified by --keep-ld
 		if args.keep_ld is not None:
@@ -680,7 +694,7 @@ def sumstats(args, header=None):
 				keep_M_indices = [int(x) for x in args.keep_ld.split(',')]
 				keep_ld_colnums = [int(x)+1 for x in args.keep_ld.split(',')]
 			except ValueError as e:
-				raise ValueError('--keep-ld must be a comma-separate list of column numbers: '\
+				raise ValueError('--keep-ld must be a comma-separated list of column numbers: '\
 					+str(e.args))
 	
 			if len(keep_ld_colnums) == 0:
@@ -694,7 +708,6 @@ def sumstats(args, header=None):
 				raise IndexError('--keep-ld column numbers are out of bounds: '+str(e.args))
 		
 	log.log('Using M = '+str(np.array(M_annot)).replace('[','').replace(']','') ) # convert to np to use np printoptions
-	
 	ii = np.squeeze(np.array(ref_ldscores.iloc[:,1:len(ref_ldscores.columns)].var(axis=0) == 0))
 	if np.any(ii):
 		log.log('Removing partitioned LD Scores with zero variance')
@@ -813,7 +826,6 @@ def sumstats(args, header=None):
 		hsqhat = jk.Hsq(chisq, ref_ld, w_ld, N, M_annot, args.num_blocks)				
 		log.log(hsqhat.summary_intercept())
 		return hsqhat
-		
 		
 	# LD Score regression to estimate h2
 	elif args.h2:
@@ -1101,10 +1113,15 @@ if __name__ == '__main__':
 		help='Filename prefix for file with reference panel LD Scores.')
 	parser.add_argument('--ref-ld-chr', default=None, type=str,
 		help='Filename prefix for files with reference panel LD Scores split across 22 chromosomes.')
-	parser.add_argument('--ref-ld-fromfile', default=None, type=str,
-		help='File with one line per reference ldscore file.')
-	parser.add_argument('--ref-ld-fromfile-chr', default=None, type=str,
-		help='File with one line per ref-ld-chr prefix.')
+	parser.add_argument('--ref-ld-file', default=None, type=str,
+		help='File with one line per reference ldscore file, to be concatenated sideways.')
+	parser.add_argument('--ref-ld-file-chr', default=None, type=str,
+		help='File with one line per ref-ld-chr prefix, to be concatenated sideways.')
+	parser.add_argument('--ref-ld-list', default=None, type=str,
+		help='Comma-separated list of reference ldscore files, to be concatenated sideways.')
+	parser.add_argument('--ref-ld-list-chr', default=None, type=str,
+		help='Comma-separated list of ref-ld-chr prefix, to be concatenated sideways.')
+
 	parser.add_argument('--w-ld', default=None, type=str,
 		help='Filename prefix for file with LD Scores with sum r^2 taken over SNPs included in the regression.')
 	parser.add_argument('--w-ld-chr', default=None, type=str,
@@ -1209,15 +1226,20 @@ if __name__ == '__main__':
 		args.rg or 
 		args.intercept or 
 		args.rg) and\
-		(args.ref_ld or args.ref_ld_chr or args.ref_ld_fromfile or args.ref_ld_fromfile_chr) and\
+		(args.ref_ld or args.ref_ld_chr or args.ref_ld_file or args.ref_ld_file_chr\
+		 or args.ref_ld_list or args.ref_ld_list_chr) and\
 		(args.w_ld or args.w_ld_chr):
 		
 		if np.sum(np.array((args.intercept, args.h2, args.rg)).astype(bool)) > 1:	
 			raise ValueError('Cannot specify more than one of --h2, --rg, --intercept.')
 		if args.ref_ld and args.ref_ld_chr:
 			raise ValueError('Cannot specify both --ref-ld and --ref-ld-chr.')
+		if args.ref_ld_list and args.ref_ld_list_chr:
+			raise ValueError('Cannot specify both --ref-ld-list and --ref-ld-list-chr.')
+		if args.ref_ld_file and args.ref_ld_file_chr:
+			raise ValueError('Cannot specify both --ref-ld-list and --ref-ld-list-chr.')
 		if args.w_ld and args.w_ld_chr:
-			raise ValueError('Cannot specify both --regression-snp-ld and --regression-snp-ld-chr.')
+			raise ValueError('Cannot specify both --w-ld and --w-ld-chr.')
 		if args.rho or args.overlap:
 			if not args.rg:
 				raise ValueError('--rho and --overlap can only be used with --rg.')

@@ -235,6 +235,7 @@ def chisq(fh):
 		raise ValueError('.chisq file must have a column labeled either P or CHISQ.')
 
 	return x
+
 	
 def betaprod_fromchisq(chisq1, chisq2, allele1, allele2):
 	''' 
@@ -370,21 +371,36 @@ def betaprod(fh):
 		
 	return x
 
-def ldscore_fromfile(flist,num=None):
-	f = open(flist,'r')
-	lines = f.readlines()
-	print 'Reading '+lines[0][0:-1]
-	x = ldscore(lines[0][0:-1],num)
-	i = 0
-	for fh in lines[1:]:
-		fh = fh[0:-1]
-		print 'Reading '+fh
-		y = ldscore(fh,num)
-		y.rename(columns={'L2':'L2_'+str(i)}, inplace=True)
-		i += 1
-		x = pd.merge(x,y,on='SNP',how='inner')
-	f.close()
+
+def ldscore_fromfile(fh, num=None):
+	'''Sideways concatenation of a list of LD Scores from a file.'''
+	f = open(fh,'r')
+	lines = [x.rstrip('\n') for x in f.readlines()]
+	return ldscore_fromlist(lines, num)
+
+
+def ldscore_fromlist(flist, num=None):
+	'''Sideways concatenation of a list of LD Score files.'''
+	ldscore_array = []
+	for i,fh in enumerate(flist):			
+		fh = fh.rstrip('\n')
+		y = ldscore(fh, num)
+		if i > 0:
+			if not np.all(y.SNP == ldscore_array[0].SNP):
+				msg = 'All files in --ref-ld-list or --ref-ld-file must contain the same SNPs '
+				msg += 'in the same order.'
+				raise ValueError(msg)
+				
+			y = y.ix[:,1:len(y.columns)] # remove SNP column
+		
+		# force unique column names
+		new_col_dict = {c: c+'_'+str(i) for c in y.columns if c != 'SNP'}
+		y.rename(columns=new_col_dict, inplace=True)
+		ldscore_array.append(y) 
+		
+	x = pd.concat(ldscore_array, axis=1) 
 	return x
+
 
 def ldscore(fh, num=None):
 	'''
@@ -533,13 +549,17 @@ def M(fh, num=None, N=2, common=None):
 		
 	return x
 
-def M_fromfile(flist,num=None):
+
+def M_fromfile(flist, num=None):
 	f = open(flist,'r')
-	lines = [l[0:-1] for l in f.readlines()]
-	M_annot = np.hstack([M(fh,num) for fh in lines])
-	f.close()
-	return M_annot
+	flist = [x.rstrip('\n') for x in f.readlines()]
+	return M_fromlist	(flist, num)
 	
+
+def M_fromlist(flist, num=None):
+	M_annot = np.hstack([M(fh.rstrip('\n'), num) for fh in flist])
+	return M_annot
+
 
 def __ID_List_Factory__(colnames, keepcol, fname_end, header=None, usecols=None):
 	
