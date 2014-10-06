@@ -4,49 +4,49 @@ import scipy.stats as spstats
 #import progressbar as pb
 
 def rnorm(N, mean, var):
-    '''
-    Wrapper around np.random.normal and np.random.multivariate_normal that does the right 
-    thing depending on the dimensions of the input covariance matrix
-    
-    Additionally, handles the 1D case when var == 0 correctly (by returning a vector of 
-    zeros). 
-    
-    Parameters
-    ----------
-    
-    N : int
-        Number of draws from the distribution.
-    mean : ndarray of floats
-        Mean of the distribution.
-    var : square symmetric ndarray of floats
-        Variance-covariance matrix of the distribution. The 1x1 case is handled sensibly.
-    
-    Returns
-    -------
-    
-    output : ndarray of floats
-        The drawn samples, with shape (N, ) if univariate or (N, # of dimensions) if
-        multivariate.
-    
-    ''' 
-    # convert to matrix to make keeping track of shape easier
-    var = np.matrix(var)
-    mean = np.matrix(mean)
+	'''
+	Wrapper around np.random.normal and np.random.multivariate_normal that does the right 
+	thing depending on the dimensions of the input covariance matrix
+	
+	Additionally, handles the 1D case when var == 0 correctly (by returning a vector of 
+	zeros). 
+	
+	Parameters
+	----------
+	
+	N : int
+		Number of draws from the distribution.
+	mean : ndarray of floats
+		Mean of the distribution.
+	var : square symmetric ndarray of floats
+		Variance-covariance matrix of the distribution. The 1x1 case is handled sensibly.
+	
+	Returns
+	-------
+	
+	output : ndarray of floats
+		The drawn samples, with shape (N, ) if univariate or (N, # of dimensions) if
+		multivariate.
+	
+	'''	
+	# convert to matrix to make keeping track of shape easier
+	var = np.matrix(var)
+	mean = np.matrix(mean)
+	
+	if (var.shape == (1,1) and mean.shape == (1,1)):
+		if var == 0:
+			output = np.repeat(mean, int(N))
+		else: 
+			output = np.random.normal(loc=mean, scale=np.sqrt(var), size=int(N))
+	
+	elif mean.shape[1] == var.shape[0] == var.shape[1]: # MVN
+		# mean must be one-dimensional --> convert back to array
+		mean = np.squeeze(np.asarray(mean))
+		output =  np.random.multivariate_normal(mean=mean, cov=var, size=int(N))
+	else:
+		raise ValueError('Dimensions of input not understood')
 
-    if (var.shape == (1,1) and mean.shape == (1,1)):
-        if var == 0:
-            output = np.repeat(mean, N)
-        else: 
-            output = np.random.normal(loc=mean, scale=np.sqrt(var), size=N)
-    
-    elif mean.shape[1] == var.shape[0] == var.shape[1]: # MVN
-        # mean must be one-dimensional --> convert back to array
-        mean = np.squeeze(np.asarray(mean))
-        output =  np.random.multivariate_normal(mean=mean, cov=var, size=N)
-    else:
-        raise ValueError('Dimensions of input not understood')
-
-    return output
+	return output
 
 
 def sampleSizeMetaAnalysis(n1, n2, z1, z2):
@@ -110,31 +110,31 @@ def getFST(freqs1, freqs2):
 
             
 def pointNormal(p, size=1, loc=0, scale=1):
-    '''
-    Samples from a point-normal distribution
-    '''
-    try:
-        if float(p) > 1 or float(p) < 0:
-            raise ValueError("p must be in the interval [0,1]") 
-    except TypeError:
-        raise TypeError("Count not convert p to float64")
-    try:
-        if int(size) < 0:
-            raise ValueError("size must be greater than 0")
-    except TypeError:
-        raise TypeError("Could not convert size to int")
-    try:
-        if float(scale) <= 0:
-            raise ValueError("scale must be greater than 0")
-    except TypeError:
-        raise TypeError("Could not convert scale to float64")
-    
-    output = np.zeros(size)
-    nonZeros = np.random.binomial(1, p, size=size)
-    numNonZeros = sum(nonZeros)
-    nonZeros = np.in1d(nonZeros, np.ones(1))
-    output[nonZeros] = np.random.normal(scale=scale, size=numNonZeros)
-    return output + loc
+	'''
+	Samples from a point-normal distribution
+	'''
+	try:
+		if float(p) > 1 or float(p) < 0:
+			raise ValueError("p must be in the interval [0,1]") 
+	except TypeError:
+		raise TypeError("Count not convert p to float64")
+	try:
+		if int(size) < 0:
+			raise ValueError("size must be greater than 0")
+	except TypeError:
+		raise TypeError("Could not convert size to int")
+	try:
+		if float(scale) <= 0:
+			raise ValueError("scale must be greater than 0")
+	except TypeError:
+		raise TypeError("Could not convert scale to float64")
+	
+	output = np.zeros(size)
+	nonZeros = np.random.binomial(1, p, size=size)
+	numNonZeros = sum(nonZeros)
+	nonZeros = np.in1d(nonZeros, np.ones(1))
+	output[nonZeros] = np.random.normal(scale=scale, size=numNonZeros)
+	return output + loc
 
 
 def bivariatePointNormal(p1,p2,p12,var1,var2,corr,size=1):

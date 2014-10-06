@@ -4,6 +4,7 @@ in the ldsc.py software package.
 Contents
 (0) ldscore, M  -- see file_formats_ld.txt
 (1) chisq
+(1a) .allele
 (2) betaprod
 
 *NOTE* chromosomes are assumed to be integers. This software does not yet deal with sex
@@ -32,6 +33,14 @@ Optional
 (6) INFO -- imputation quality (for use with the --info-min and --info-max flags)
 (7) MAF -- study minor allele frequency (for use with the --maf flag. ldsc.py will 
 	automatically convert frequencies in [0,1] to minor allele frequencies in [0,0.5])
+
+
+(1a) allele
+-----------
+
+Required
+(1) SNP
+(2) INC_ALLELE -- trait increasing allele (for QT) OR risk allele
 
 
 (2) betaprod

@@ -5,6 +5,17 @@ from scipy.special import chdtri
 import gzip
 
 
+def get_compression(fh):
+	'''Which sort of compression should we use with pd.read_csv?'''
+	if fh.endswith('gz'):
+		compression='gzip'
+	elif fh.endswith('bz2'):
+		compression='bz2'
+	else:
+		compression=None
+	return compression
+
+
 def filter_df(df, colname, pred):
 	'''
 	Filters df down to those rows where pred applied to colname returns True
@@ -119,7 +130,52 @@ def check_N(N):
 		raise ValueError('Negative N.')
 
 
+def cut_cts(vec, breaks):
+	'''Cuts vectors for --cts-bin.'''
+	
+	max_cts = np.max(vec)
+	min_cts = np.min(vec)
+	cut_breaks = list(breaks)
+	name_breaks = list(cut_breaks)
+	if np.all(cut_breaks >= max_cts) or np.all(cut_breaks <= min_cts):
+		raise ValueError('All breaks lie outside the range of the cts variable.')
+
+	if np.all(cut_breaks <= max_cts):
+		name_breaks.append(max_cts)
+		cut_breaks.append(max_cts+1)
+		
+	if np.all(cut_breaks >= min_cts):	
+		name_breaks.append(min_cts)
+		cut_breaks.append(min_cts-1)
+
+	name_breaks.sort()
+	cut_breaks.sort()		
+	n_breaks = len(cut_breaks)
+	# so that col names are consistent across chromosomes with different max vals
+	name_breaks[0] = 'min'
+	name_breaks[-1] = 'max'
+	name_breaks = [str(x) for x in name_breaks]
+	labs = [name_breaks[i]+'_'+name_breaks[i+1] for i in xrange(n_breaks-1)]
+	cut_vec = pd.Series(pd.cut(vec, bins=cut_breaks, labels=labs))
+	return cut_vec
+
+
 # parsers
+
+def read_cts(fh, match_snps):
+	'''Reads files for --cts-bin.'''
+	comp = get_compression(fh)
+	cts = pd.read_csv(fh, header=None, delim_whitespace=True, compression=comp)
+	cts.rename( columns={0: 'SNP', 1: 'ANNOT'}, inplace=True)
+	check_rsid(cts.SNP)
+	snp = cts.SNP.values
+	if len(snp) != len(match_snps) or np.any(snp != match_snps):
+		msg = 'All --cts-bin files must contain the same SNPs in the same '
+		msg += 'order as the .bim file.'
+		raise ValueError(msg)
+
+	return cts.ANNOT.values
+
 
 def chisq(fh):
 	'''
@@ -180,6 +236,61 @@ def chisq(fh):
 
 	return x
 	
+def betaprod_fromchisq(chisq1, chisq2, allele1, allele2):
+	''' 
+	Makes a betaprod data frame from two chisq files and two trait-increasing-allele files.
+	The allele files have a SNP column and an INC_ALLELE, and INC_ALLELE.
+	'''
+
+	df_chisq1 = chisq(chisq1)
+	df_chisq1['BETAHAT1'] = np.sqrt(df_chisq1['CHISQ'])/np.sqrt(df_chisq1['N'])
+	df_chisq1.rename(columns={'N':'N1'},inplace=True)
+	del df_chisq1['CHISQ']
+
+	df_chisq2 = chisq(chisq2)
+	df_chisq2['BETAHAT2'] = np.sqrt(df_chisq2['CHISQ'])/np.sqrt(df_chisq2['N'])
+	df_chisq2.rename(columns={'N':'N2'},inplace=True)
+	del df_chisq2['CHISQ']
+	df_merged = pd.merge(df_chisq1,df_chisq2, how='inner', on='SNP')
+	
+	df_allele1 = allele(allele1)
+	df_allele1.rename(columns={'INC_ALLELE':'INC_ALLELE1'},inplace=True)
+	df_merged = pd.merge(df_merged,df_allele1,how='inner', on='SNP')
+
+	df_allele2 = allele(allele2	)
+	df_allele2.rename(columns={'INC_ALLELE':'INC_ALLELE2'},inplace=True)
+	df_merged = pd.merge(df_merged,df_allele2,how='inner', on='SNP')
+
+	df_merged['BETAHAT2'] *= (-1)**(df_merged.INC_ALLELE1 != df_merged.INC_ALLELE2)
+	if 'MAF_x' in df_merged.columns and 'MAF_y' in df_merged.columns:
+		df_merged['MAF'] = np.minimum(df_merged['MAF_x'], df_merged['MAF_y'])
+		
+	return df_merged
+
+
+def allele(fh):
+	'''
+	Parses .allele or .allele.gz files. See docs/file_formats_sumstats.txt
+	
+	'''
+	dtype_dict = {
+		'SNP' : str,
+		'INC_ALLELE': str
+	}	
+	
+	comp = get_compression(fh)
+	try:
+		dat = pd.read_csv(fh, delim_whitespace=True, compression=comp, header=0)
+	except AttributeError as e:
+		raise AttributeError('Improperly formatted allele file: '+str(e.args))
+	
+	try:
+		check_rsid(dat['SNP'])
+	except KeyError as e:
+		raise KeyError('No column named SNP in .betaprod: '+str(e.args))
+	
+	return dat
+
 
 def betaprod(fh):
 	'''
@@ -259,7 +370,22 @@ def betaprod(fh):
 		
 	return x
 
-	
+def ldscore_fromfile(flist,num=None):
+	f = open(flist,'r')
+	lines = f.readlines()
+	print 'Reading '+lines[0][0:-1]
+	x = ldscore(lines[0][0:-1],num)
+	i = 0
+	for fh in lines[1:]:
+		fh = fh[0:-1]
+		print 'Reading '+fh
+		y = ldscore(fh,num)
+		y.rename(columns={'L2':'L2_'+str(i)}, inplace=True)
+		i += 1
+		x = pd.merge(x,y,on='SNP',how='inner')
+	f.close()
+	return x
+
 def ldscore(fh, num=None):
 	'''
 	Parses .l2.ldscore files. See docs/file_formats_ld.txt
@@ -322,24 +448,97 @@ def ldscore(fh, num=None):
 	return x
 	
 	
-def M(fh, num=None):
+def l1(fh, num=None):
 	'''
-	Parses .l2.M files. See docs/file_formats_ld.txt.
+	Parses .l1.ldscore files. See docs/file_formats_ld.txt
+
+	If num is not None, parses .l1.ldscore files split across [num] chromosomes (e.g., the 
+	output of parallelizing ldsc.py --l1 across chromosomes).
+
+	'''
+						
+	parsefunc = lambda y, compression : pd.read_csv(y, header=0, delim_whitespace=True,
+		compression=compression).drop(['CHR','BP','CM','MAF'], axis=1)
+	
+	if num is not None:
+		try:
+			suffix = '.l1.ldscore.gz'
+			if '@' in fh:
+				full_fh = fh.replace('@', '1') + suffix
+			else:
+				full_fh = fh + '1' + suffix
+	
+			x = open(full_fh, 'rb')
+			x.close()
+			compression = 'gzip'
+		except IOError:
+			suffix = '.l1.ldscore'
+
+			if '@' in fh:
+				full_fh = fh.replace('@', '1') + suffix
+			else:
+				full_fh = fh + '1' + suffix
+			x = open(full_fh, 'rb')
+			x.close()
+			compression = None			
+		
+		if '@' in fh:
+			chr_ld = [parsefunc(fh.replace('@',str(i))+suffix, compression) for i in xrange(1,num+1)]
+		else:
+			chr_ld = [parsefunc(fh + str(i) + suffix, compression) for i in xrange(1,num+1)]
+
+		x = pd.concat(chr_ld)
+	
+	else:
+		try:
+			full_fh = fh + '.l1.ldscore.gz'
+			open(full_fh, 'rb')
+			compression = 'gzip'
+		except IOError:
+			full_fh = fh + '.l1.ldscore'
+			open(full_fh, 'rb')
+			compression = None			
+		
+		x = parsefunc(full_fh, compression)
+	
+	ii = x['SNP'] != '.'
+	x = x[ii]	
+	check_rsid(x['SNP']) 
+	for col in x.columns[1:]:
+		x[col] = x[col].astype(float)
+	
+	return x
+
+
+def M(fh, num=None, N=2, common=None):
+	'''
+	Parses .l{N}.M files. See docs/file_formats_ld.txt.
 	
 	If num is not none, parses .l2.M files split across [num] chromosomes (e.g., the output 
 	of parallelizing ldsc.py --l2 across chromosomes).
 
 	'''
 	parsefunc = lambda y : [float(z) for z in open(y, 'r').readline().split()]
+	if common:
+		suffix = '.l'+str(N)+'.M_5_50'
+	else:
+		suffix = '.l'+str(N)+'.M'
 	if num is not None:
 		if '@' in fh:
-			x = np.sum([parsefunc(fh.replace('@',str(i))+'.l2.M') for i in xrange(1,num+1)], axis=0)
+			x = np.sum([parsefunc(fh.replace('@',str(i))+suffix) for i in xrange(1,num+1)], axis=0)
 		else:
-			x = np.sum([parsefunc(fh+str(i)+'.l2.M') for i in xrange(1,num+1)], axis=0)
+			x = np.sum([parsefunc(fh+str(i)+suffix) for i in xrange(1,num+1)], axis=0)
 	else:
-		x = parsefunc(fh + '.l2.M')
+		x = parsefunc(fh + suffix)
 		
 	return x
+
+def M_fromfile(flist,num=None):
+	f = open(flist,'r')
+	lines = [l[0:-1] for l in f.readlines()]
+	M_annot = np.hstack([M(fh,num) for fh in lines])
+	f.close()
+	return M_annot
 	
 
 def __ID_List_Factory__(colnames, keepcol, fname_end, header=None, usecols=None):
@@ -353,8 +552,10 @@ def __ID_List_Factory__(colnames, keepcol, fname_end, header=None, usecols=None)
 			self.__fname_end__ = fname_end
 			self.__header__ = header
 			self.__read__(fname)
-			if 'SNP' in self.df.columns:
-				check_rsid(self.df['SNP'])
+
+			if self.__colnames__:
+				if 'SNP' in self.__colnames__:
+					check_rsid(self.df['SNP'])
 				
 			self.n = len(self.IDList)
 
@@ -362,10 +563,10 @@ def __ID_List_Factory__(colnames, keepcol, fname_end, header=None, usecols=None)
 			end = self.__fname_end__
 			if end and not fname.endswith(end):
 				raise ValueError('{f} filename must end in {f}'.format(f=end))
-
-			self.df = pd.read_csv(fname, header=self.__header__, usecols=self.__usecols__, 
-				delim_whitespace=True)
 			
+			comp = get_compression(fname)
+			self.df = pd.read_csv(fname, header=self.__header__, usecols=self.__usecols__, 
+				delim_whitespace=True, compression=comp)
 			#if np.any(self.df.duplicated(self.df.columns[self.__keepcol__])):
 			#	raise ValueError('Duplicate Entries in Filter File')
 

@@ -194,6 +194,44 @@ class Test_Hsq_2D(unittest.TestCase):
 		self.assertTrue(np.all( np.abs(x._jknife.jknife_var[0,0:2] - (0,0)) < 1e-6))
 		self.assertTrue(np.all( np.abs(x._jknife.jknife_est[0,0:2] - (1,1)) < 1e-6))
 
+
+class Test_Hsq_Agg_1D(unittest.TestCase):
+
+	def setUp(self):
+		M = 1000
+		self.ldScores = np.matrix(np.random.random(M)).reshape((M,1))
+		self.y = self.ldScores+1
+		self.w = np.matrix(np.ones(M)).reshape((M,1))
+		self.num_blocks = max(2,int(M/10))
+		self.N = np.matrix(np.ones(M)).reshape((M,1))
+		self.M = np.matrix(1)
+		self.annot_matrix = np.matrix(np.ones(M)).reshape((M,1))
+	
+	def test_reg(self):
+		x = jk.Hsq_aggregate(self.y, self.ldScores, self.w, self.N, self.M, self.annot_matrix, num_blocks=self.num_blocks)	
+		self.assertTrue(np.all( np.abs(x.tot_hsq - 1) < 1e-6) )
+		self.assertTrue(np.all( np.abs(x.tot_hsq_se - 0) < 1e-6) )
+		self.assertTrue(np.all( np.abs(x._jknife.jknife_var - 0) < 1e-6))
+
+class Test_Hsq_Agg_2D(unittest.TestCase):
+
+	def setUp(self):
+		M = 1000
+		self.ldScores = np.matrix(np.vstack((np.random.random(M), np.random.random(M)))).reshape((M,2))
+		self.y = np.sum(self.ldScores, axis=1)+1
+		self.w = np.matrix(np.ones(M)).reshape((M,1))
+		self.num_blocks = max(2,int(M/10))
+		self.N = np.matrix(np.ones(M)).reshape((M,1))
+		self.M = np.matrix((1,1)).reshape((1,2))
+		self.annot_matrix = np.matrix([0,1,1,0]*(int(M/2))).reshape(M,2)
+	
+	def test_reg(self):
+		x = jk.Hsq_aggregate(self.y, self.ldScores, self.w, self.N, self.M, self.annot_matrix, num_blocks=self.num_blocks)	
+		self.assertTrue(np.all( np.abs(x.cat_hsq[0,0:2] - (1,1)) < 1e-6) )
+		self.assertTrue(np.all( np.abs(x.cat_hsq_se[0,0:2] - (0,0)) < 1e-6) )
+		self.assertTrue(np.all( np.abs(x._jknife.jknife_var[0,0:2] - (0,0)) < 1e-6))
+		self.assertTrue(np.all( np.abs(x._jknife.jknife_est[0,0:2] - (1,1)) < 1e-6))
+
 '''		
 class Test_gencov_weights(unittest.TestCase):
 

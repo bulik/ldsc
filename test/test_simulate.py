@@ -123,10 +123,9 @@ class test_bivariatePointNormal(unittest.TestCase):
 		assert np.abs(np.sum(x[:,0]==0) - 5000) < 1000
 		assert np.abs(np.sum(x[:,1]==0) - 4000) < 1000
 		assert np.abs(np.sum(np.logical_and(x[:,1]!=0,x[:,0]!=0)) - 3000) < 1000
-		
 
 	def test_cov_zero(self):
 		x = sim.bivariatePointNormal(0.5,0.6,0.3,0.45,1.8,0,size=10000)
 		assert np.abs(np.corrcoef(x.T)[0,1]**2 < 0.01)
 		assert np.abs(np.var(x[:,0]) - 0.45) < 0.2	
-		assert np.abs(np.var(x[:,1]) - 1.8) < 0.2 	
+		assert np.abs(np.var(x[:,1]) - 1.8) < 0.2 
