@@ -38,6 +38,13 @@ np.set_printoptions(linewidth=1000)
 np.set_printoptions(precision=4)
 
 
+def _remove_dtype(x):
+	'''Removes dtype: float64 and dtype: int64 from pandas printouts'''
+	x = str(x)
+	x = x.replace('\ndtype: int64','')
+	x = x.replace('\ndtype: float64','')
+	return x
+
 class logger(object):
 	'''
 	Lightweight logging.
@@ -527,36 +534,51 @@ def ldscore(args, header=None):
 	
 	# print annot matrix
 	if (args.cts_bin is not None or args.cts_bin_add is not None) and not args.no_print_annot:
-		out_fname = args.out + '.annot'
+		out_fname_annot = args.out + '.annot'
 		new_colnames = geno_array.colnames + ldscore_colnames
 		annot_df = pd.DataFrame(np.c_[geno_array.df, annot_matrix])
 		annot_df.columns = new_colnames	
 		del annot_df['MAF']
 		log.log("Writing annot matrix produced by --cts-bin to {F}".format(F=out_fname+'.gz'))
-		annot_df.to_csv(out_fname, sep="\t", header=True, index=False)	
-		call(['gzip', '-f', out_fname])
+		annot_df.to_csv(out_fname_annot, sep="\t", header=True, index=False)	
+		call(['gzip', '-f', out_fname_annot])
 	
 	# print LD Score summary	
 	pd.set_option('display.max_rows', 200)
-	log.log('')
-	log.log('Summary of {F}:'.format(F=out_fname))
+	log.log('\nSummary of LD Scores in {F}'.format(F=out_fname+'.gz'))
 	t = df.ix[:,4:].describe()
 	log.log( t.ix[1:,:] )
 	
 	# print correlation matrix including all LD Scores and sample MAF
 	log.log('')
-	log.log('MAF/LD Correlation Matrix')
+	log.log('MAF/LD Score Correlation Matrix')
 	log.log( df.ix[:,4:].corr() )
 	
 	# print condition number
 	if num_annots > 1: # condition number of a column vector w/ nonzero var is trivially one
-		log.log('')
-		log.log('LD Score Matrix Condition Number')
+		log.log('\nLD Score Matrix Condition Number')
 		cond_num = np.linalg.cond(df.ix[:,5:])
 		log.log( jk.kill_brackets(str(np.matrix(cond_num))) )
 		if cond_num > 10000:
 			log.log('WARNING: ill-conditioned LD Score Matrix!')
 		
+	# summarize annot matrix if there is one
+	
+	if annot_matrix is not None:
+		# covariance matrix
+		x = pd.DataFrame(annot_matrix, columns=annot_colnames)
+		log.log('\nAnnotation Correlation Matrix')
+		log.log( x.corr() )
+
+		# column sums
+		log.log('\nAnnotation Matrix Column Sums')
+		log.log(_remove_dtype(x.sum(axis=0)))
+			
+		# row sums 
+		log.log('\nSummary of Annotation Matrix Row Sums')
+		row_sums = x.sum(axis=1).describe()
+		log.log(_remove_dtype(row_sums))
+
 
 def sumstats(args, header=None):
 	'''
