@@ -509,9 +509,16 @@ def ldscore(args, header=None):
 			msg = 'After merging with --print-snps, LD Scores for {N} SNPs will be printed.'
 			log.log(msg.format(N=len(df)))
 	
-	log.log("Writing LD Scores for {N} SNPs to {f}.gz".format(f=out_fname, N=len(df)))
-	df.to_csv(out_fname, sep="\t", header=True, index=False)	
-	call(['gzip', '-f', out_fname])
+	if args.gzip:
+		l2_suffix = '.gz'
+		log.log("Writing LD Scores for {N} SNPs to {f}.gz".format(f=out_fname, N=len(df)))
+		df.to_csv(out_fname, sep="\t", header=True, index=False)	
+		call(['gzip', '-f', out_fname])
+	else:
+		l2_suffix = '.pickle'
+		log.log("Writing LD Scores for {N} SNPs to {f}.pickle".format(f=out_fname, N=len(df)))
+		out_fname_pickle = out_fname+l2_suffix
+		df.to_pickle(out_fname_pickle)
 		
 	# print .M
 	if annot_matrix is not None:
@@ -540,12 +547,17 @@ def ldscore(args, header=None):
 		annot_df.columns = new_colnames	
 		del annot_df['MAF']
 		log.log("Writing annot matrix produced by --cts-bin to {F}".format(F=out_fname+'.gz'))
-		annot_df.to_csv(out_fname_annot, sep="\t", header=True, index=False)	
-		call(['gzip', '-f', out_fname_annot])
+		if args.gzip:
+			annot_df.to_csv(out_fname_annot, sep="\t", header=True, index=False)	
+			call(['gzip', '-f', out_fname_annot])
+		else:
+			out_fname_annot_pickle = out_fname_annot + '.pickle'
+			annot_df.to_pickle(out_fname_annot_pickle)
+			
 	
 	# print LD Score summary	
 	pd.set_option('display.max_rows', 200)
-	log.log('\nSummary of LD Scores in {F}'.format(F=out_fname+'.gz'))
+	log.log('\nSummary of LD Scores in {F}'.format(F=out_fname+l2_suffix))
 	t = df.ix[:,4:].describe()
 	log.log( t.ix[1:,:] )
 	
@@ -791,10 +803,6 @@ def sumstats(args, header=None):
 				log.log(warn.format(C=cond_num))
 				raise ValueError(warn.format(C=cond_num))
 
-	if len(sumstats) < args.num_blocks:
-		args.num_blocks = len(sumstats)
-
-	log.log('Estimating standard errors using a block jackknife with {N} blocks.'.format(N=args.num_blocks))
 	if len(sumstats) < 200000:
 		log.log('WARNING: number of SNPs less than 200k; this is almost always bad.')
 
@@ -816,6 +824,11 @@ def sumstats(args, header=None):
 				log.log(log_msg.format(C=max_chisq, N=len(sumstats)))
 
 		snp_count = len(sumstats); n_annot = len(ref_ld_colnames)
+		if snp_count < args.num_blocks:
+			args.num_blocks = snp_count
+
+		log.log('Estimating standard errors using a block jackknife with {N} blocks.'.format(N=args.num_blocks))
+
 		ref_ld = np.matrix(sumstats[ref_ld_colnames]).reshape((snp_count, n_annot))
 		w_ld = np.matrix(sumstats[w_ld_colname]).reshape((snp_count, 1))
 		M_annot = np.matrix(M_annot).reshape((1, n_annot))
@@ -838,6 +851,10 @@ def sumstats(args, header=None):
 			log.log(log_msg.format(C=max_chisq, N=len(sumstats)))
 			
 		snp_count = len(sumstats); n_annot = len(ref_ld_colnames)
+		if snp_count < args.num_blocks:
+			args.num_blocks = snp_count
+
+		log.log('Estimating standard errors using a block jackknife with {N} blocks.'.format(N=args.num_blocks))
 		ref_ld = np.matrix(sumstats[ref_ld_colnames]).reshape((snp_count, n_annot))
 		w_ld = np.matrix(sumstats[w_ld_colname]).reshape((snp_count, 1))
 		M_annot = np.matrix(M_annot).reshape((1,n_annot))
@@ -905,6 +922,10 @@ def sumstats(args, header=None):
 			log.log(log_msg.format(C=max_chisq1, D=max_chisq2, N=np.sum(ii)))
 
 		snp_count = len(sumstats); n_annot = len(ref_ld_colnames)
+		if snp_count < args.num_blocks:
+			args.num_blocks = snp_count
+
+		log.log('Estimating standard errors using a block jackknife with {N} blocks.'.format(N=args.num_blocks))
 		ref_ld = np.matrix(sumstats[ref_ld_colnames]).reshape((snp_count, n_annot))
 		w_ld = np.matrix(sumstats[w_ld_colname]).reshape((snp_count, 1))
 		M_annot = np.matrix(M_annot).reshape((1, n_annot))
@@ -1098,6 +1119,8 @@ if __name__ == '__main__':
 		help='Yes, I really want to compute whole-chromosome LD Score')
 	parser.add_argument('--no-print-annot', default=False, action='store_true',
 		help='Do not print the annot matrix produced by --cts-bin.')
+	parser.add_argument('--gzip', default=False, action='store_true',
+		help='Store .l2.ldscore files as gzipped tab-delimited text instead of pickles.')
 
 	# Summary Statistic Estimation Flags
 	

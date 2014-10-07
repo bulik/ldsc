@@ -3,6 +3,7 @@ import numpy as np
 import pandas as pd
 from scipy.special import chdtri
 import gzip
+import os
 
 
 def get_compression(fh):
@@ -402,6 +403,38 @@ def ldscore_fromlist(flist, num=None):
 	return x
 
 
+def which_compression(fh):
+	'''Given a file prefix, figure out what sort of compression to use'''
+	if os.access(fh+'.pickle', 4):
+		suffix = '.pickle'
+		compression = 'pickle'
+	elif os.access(fh+'.bz2', 4):
+		suffix = '.bz2'
+		compression = 'bz2'
+	elif os.access(fh+'.gz', 4):
+		suffix = '.gz'
+		compression = 'gzip'
+	elif os.access(fh, 4):
+		compression = None
+		suffix = ''
+	else:
+		msg = 'Could not open {F}[.pickle/gz/bz2]'
+		raise IOError(msg.format(F=fh))
+		
+
+	return [suffix, compression]
+
+
+def l2_parser(fh, compression):
+	'''For parsing LD Score files'''
+	if compression == "gzip" or compression == 'bz2' or compression == None:
+		x = pd.read_csv(fh, header=0, delim_whitespace=True,	compression=compression)
+	elif compression == 'pickle':
+		x = pd.read_pickle(fh)
+		
+	return x.drop(['CHR','BP','CM','MAF'], axis=1)
+		
+		
 def ldscore(fh, num=None):
 	'''
 	Parses .l2.ldscore files. See docs/file_formats_ld.txt
@@ -415,43 +448,28 @@ def ldscore(fh, num=None):
 		compression=compression).drop(['CHR','BP','CM','MAF'], axis=1)
 	
 	if num is not None:
-		try:
-			suffix = '.l2.ldscore.gz'
-			if '@' in fh:
-				full_fh = fh.replace('@', '1') + suffix
-			else:
-				full_fh = fh + '1' + suffix
-	
-			x = open(full_fh, 'rb')
-			compression = 'gzip'
-		except IOError:
-			suffix = '.l2.ldscore'
-
-			if '@' in fh:
-				full_fh = fh.replace('@', '1') + suffix
-			else:
-				full_fh = fh + '1' + suffix
-			x = open(full_fh, 'rb')
-			compression = None			
-		
+		'''22 files, one for each chromosome'''
+		suffix = '.l2.ldscore'
 		if '@' in fh:
-			chr_ld = [parsefunc(fh.replace('@',str(i))+suffix, compression) for i in xrange(1,num+1)]
+			first_fh = fh.replace('@', '1')+suffix
 		else:
-			chr_ld = [parsefunc(fh + str(i) + suffix, compression) for i in xrange(1,num+1)]
+			first_fh = fh+'1'+suffix
+		
+		[s, compression] = which_compression(first_fh)
+		suffix += s		
+		if '@' in fh:
+			chr_ld = [l2_parser(fh.replace('@',str(i))+suffix, compression) for i in xrange(1,num+1)]
+		else:
+			chr_ld = [l2_parser(fh + str(i) + suffix, compression) for i in xrange(1,num+1)]
 
 		x = pd.concat(chr_ld)
 	
 	else:
-		try:
-			full_fh = fh + '.l2.ldscore.gz'
-			open(full_fh, 'rb')
-			compression = 'gzip'
-		except IOError:
-			full_fh = fh + '.l2.ldscore'
-			open(full_fh, 'rb')
-			compression = None			
-		
-		x = parsefunc(full_fh, compression)
+		'''Just one file'''
+		suffix = '.l2.ldscore'
+		[s, compression] = which_compression(fh+suffix)
+		suffix += s
+		x = l2_parser(fh+suffix, compression)
 	
 	ii = x['SNP'] != '.'
 	x = x[ii]	
@@ -462,68 +480,6 @@ def ldscore(fh, num=None):
 	return x
 	
 	
-def l1(fh, num=None):
-	'''
-	Parses .l1.ldscore files. See docs/file_formats_ld.txt
-
-	If num is not None, parses .l1.ldscore files split across [num] chromosomes (e.g., the 
-	output of parallelizing ldsc.py --l1 across chromosomes).
-
-	'''
-						
-	parsefunc = lambda y, compression : pd.read_csv(y, header=0, delim_whitespace=True,
-		compression=compression).drop(['CHR','BP','CM','MAF'], axis=1)
-	
-	if num is not None:
-		try:
-			suffix = '.l1.ldscore.gz'
-			if '@' in fh:
-				full_fh = fh.replace('@', '1') + suffix
-			else:
-				full_fh = fh + '1' + suffix
-	
-			x = open(full_fh, 'rb')
-			x.close()
-			compression = 'gzip'
-		except IOError:
-			suffix = '.l1.ldscore'
-
-			if '@' in fh:
-				full_fh = fh.replace('@', '1') + suffix
-			else:
-				full_fh = fh + '1' + suffix
-			x = open(full_fh, 'rb')
-			x.close()
-			compression = None			
-		
-		if '@' in fh:
-			chr_ld = [parsefunc(fh.replace('@',str(i))+suffix, compression) for i in xrange(1,num+1)]
-		else:
-			chr_ld = [parsefunc(fh + str(i) + suffix, compression) for i in xrange(1,num+1)]
-
-		x = pd.concat(chr_ld)
-	
-	else:
-		try:
-			full_fh = fh + '.l1.ldscore.gz'
-			open(full_fh, 'rb')
-			compression = 'gzip'
-		except IOError:
-			full_fh = fh + '.l1.ldscore'
-			open(full_fh, 'rb')
-			compression = None			
-		
-		x = parsefunc(full_fh, compression)
-	
-	ii = x['SNP'] != '.'
-	x = x[ii]	
-	check_rsid(x['SNP']) 
-	for col in x.columns[1:]:
-		x[col] = x[col].astype(float)
-	
-	return x
-
-
 def M(fh, num=None, N=2, common=None):
 	'''
 	Parses .l{N}.M files. See docs/file_formats_ld.txt.
@@ -615,3 +571,67 @@ PlinkFAMFile = __ID_List_Factory__(['IID'],0,'.fam',usecols=[1])
 VcfINDFile = __ID_List_Factory__(['IID'],0,'.ind',usecols=[0])
 FilterFile = __ID_List_Factory__(['ID'],0,None,usecols=[0])
 AnnotFile = __ID_List_Factory__(None,2,'.annot',header=0,usecols=None)
+
+
+
+# def l1(fh, num=None):
+# 	'''
+# 	Parses .l1.ldscore files. See docs/file_formats_ld.txt
+# 
+# 	If num is not None, parses .l1.ldscore files split across [num] chromosomes (e.g., the 
+# 	output of parallelizing ldsc.py --l1 across chromosomes).
+# 
+# 	'''
+# 						
+# 	parsefunc = lambda y, compression : pd.read_csv(y, header=0, delim_whitespace=True,
+# 		compression=compression).drop(['CHR','BP','CM','MAF'], axis=1)
+# 	
+# 	if num is not None:
+# 		try:
+# 			suffix = '.l1.ldscore.gz'
+# 			if '@' in fh:
+# 				full_fh = fh.replace('@', '1') + suffix
+# 			else:
+# 				full_fh = fh + '1' + suffix
+# 	
+# 			x = open(full_fh, 'rb')
+# 			x.close()
+# 			compression = 'gzip'
+# 		except IOError:
+# 			suffix = '.l1.ldscore'
+# 
+# 			if '@' in fh:
+# 				full_fh = fh.replace('@', '1') + suffix
+# 			else:
+# 				full_fh = fh + '1' + suffix
+# 			x = open(full_fh, 'rb')
+# 			x.close()
+# 			compression = None			
+# 		
+# 		if '@' in fh:
+# 			chr_ld = [parsefunc(fh.replace('@',str(i))+suffix, compression) for i in xrange(1,num+1)]
+# 		else:
+# 			chr_ld = [parsefunc(fh + str(i) + suffix, compression) for i in xrange(1,num+1)]
+# 
+# 		x = pd.concat(chr_ld)
+# 	
+# 	else:
+# 		try:
+# 			full_fh = fh + '.l1.ldscore.gz'
+# 			open(full_fh, 'rb')
+# 			compression = 'gzip'
+# 		except IOError:
+# 			full_fh = fh + '.l1.ldscore'
+# 			open(full_fh, 'rb')
+# 			compression = None			
+# 		
+# 		x = parsefunc(full_fh, compression)
+# 	
+# 	ii = x['SNP'] != '.'
+# 	x = x[ii]	
+# 	check_rsid(x['SNP']) 
+# 	for col in x.columns[1:]:
+# 		x[col] = x[col].astype(float)
+# 	
+# 	return x
+
