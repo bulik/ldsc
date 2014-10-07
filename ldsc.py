@@ -625,6 +625,7 @@ def sumstats(args, header=None):
 	log_msg = 'Read summary statistics for {N} SNPs.'
 	log.log(log_msg.format(N=len(sumstats)))
 	
+	log.log('Reading LD Scores.')
 	# read reference panel LD Scores
 	try:
 		if args.ref_ld:
