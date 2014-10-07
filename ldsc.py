@@ -509,12 +509,12 @@ def ldscore(args, header=None):
 			msg = 'After merging with --print-snps, LD Scores for {N} SNPs will be printed.'
 			log.log(msg.format(N=len(df)))
 	
-	if args.gzip:
+	if not args.pickle:
 		l2_suffix = '.gz'
 		log.log("Writing LD Scores for {N} SNPs to {f}.gz".format(f=out_fname, N=len(df)))
 		df.to_csv(out_fname, sep="\t", header=True, index=False)	
 		call(['gzip', '-f', out_fname])
-	else:
+	elif args.pickle:
 		l2_suffix = '.pickle'
 		log.log("Writing LD Scores for {N} SNPs to {f}.pickle".format(f=out_fname, N=len(df)))
 		out_fname_pickle = out_fname+l2_suffix
@@ -554,7 +554,6 @@ def ldscore(args, header=None):
 			out_fname_annot_pickle = out_fname_annot + '.pickle'
 			annot_df.to_pickle(out_fname_annot_pickle)
 			
-	
 	# print LD Score summary	
 	pd.set_option('display.max_rows', 200)
 	log.log('\nSummary of LD Scores in {F}'.format(F=out_fname+l2_suffix))
@@ -1119,8 +1118,8 @@ if __name__ == '__main__':
 		help='Yes, I really want to compute whole-chromosome LD Score')
 	parser.add_argument('--no-print-annot', default=False, action='store_true',
 		help='Do not print the annot matrix produced by --cts-bin.')
-	parser.add_argument('--gzip', default=False, action='store_true',
-		help='Store .l2.ldscore files as gzipped tab-delimited text instead of pickles.')
+	parser.add_argument('--pickle', default=False, action='store_true',
+		help='Store .l2.ldscore files as pickles instead of gzipped tab-delimited text.')
 
 	# Summary Statistic Estimation Flags
 	
