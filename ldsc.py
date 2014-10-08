@@ -319,7 +319,7 @@ def ldscore(args, header=None):
 
 		# add missing columns
 		if len(cts_colnames) > 1:
-			for x in product(*full_labs)		:
+			for x in product(*full_labs):
 				if x not in annot_matrix.columns:
 					annot_matrix[x] = 0
 		else:
@@ -636,7 +636,7 @@ def sumstats(args, header=None):
 	log_msg = 'Read summary statistics for {N} SNPs.'
 	log.log(log_msg.format(N=len(sumstats)))
 	
-	log.log('Reading LD Scores.')
+	log.log('Reading LD Scores...')
 	# read reference panel LD Scores
 	try:
 		if args.ref_ld:
@@ -739,6 +739,9 @@ def sumstats(args, header=None):
 	except ValueError as e:
 		log.log('Error parsing regression SNP LD')
 		raise e
+	
+	if len(w_ldscores.columns) != 2:
+		raise ValueError('--w-ld must point to a file with a single (non-partitioned) LD Score.')
 	
 	# to keep the column names from being the same
 	w_ldscores.columns = ['SNP','LD_weights'] 

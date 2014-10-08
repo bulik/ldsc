@@ -25,6 +25,7 @@ also estimate an intercept term).
 from __future__ import division
 import numpy as np
 from scipy.stats import norm
+from scipy.stats import chi2
 from scipy.optimize import nnls
 
 
@@ -591,6 +592,8 @@ class Gencov(object):
 		self.prop_gencov = self.cat_gencov / self.tot_gencov
 		self.M_prop = self.M / self.M_tot
 		self.enrichment = np.divide(self.cat_gencov, self.M) / (self.tot_gencov/self.M_tot)
+		self.Z = self.tot_gencov / self.tot_gencov_se
+		self.P_val = chi2.sf(self.Z**2, 1, loc=0, scale=1)
 		if intercept is None:
 			self.intercept = self._jknife.est[0,self.n_annot]*n1n2
 			self.intercept_se = self._jknife.jknife_se[0,self.n_annot]*n1n2
@@ -613,7 +616,8 @@ class Gencov(object):
 		out = []
 		out.append('Total observed scale gencov: '+str(np.matrix(self.tot_gencov))+' ('+\
 			str(np.matrix(self.tot_gencov_se))+')')
-		
+		out.append('Z-score: '+str(np.matrix(self.Z)))
+		out.append('P: '+str(np.matrix(self.P_val)))		
 		if self.n_annot > 1:
 			out.append( 'Categories: '+ str(' '.join(ref_ld_colnames)))
 			if not overlap:
@@ -735,6 +739,8 @@ class Gencor(object):
 		self.autocor = self.gencor.autocor(1)
 		self.tot_gencor = float(self.gencor.jknife_est)
 		self.tot_gencor_se = float(self.gencor.jknife_se)
+		self.Z = self.tot_gencor / self.tot_gencor_se
+		self.P_val = chi2.sf(self.Z**2, 1, loc=0, scale=1)
 
 	def cat_to_tot(self, x, M):
 		'''Converts per-category pseudovalues to total pseudovalues.'''
@@ -745,6 +751,8 @@ class Gencor(object):
 		out = []
 		out.append('Genetic Correlation: '+str(np.matrix(self.tot_gencor))+' ('+\
 			str(np.matrix(self.tot_gencor_se))+')')
+		out.append('Z-score: '+str(np.matrix(self.Z)))
+		out.append('P: '+str(np.matrix(self.P_val)))		
 		out = '\n'.join(out)
 		return kill_brackets(out)
 
