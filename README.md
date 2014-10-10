@@ -18,7 +18,8 @@ Contact
 -------
 
 Brendan Bulik-Sullivan, bulik@broadinstitute.org
-Hilary Finucane, 
+
+Hilary Finucane, hilaryf@mit.edu
 
 Citations
 ---------
