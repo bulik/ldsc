@@ -965,7 +965,7 @@ def sumstats(args, header=None):
 			intercepts = [None, None, None]
 		
 		rghat = jk.Gencor(betahat1, betahat2, ref_ld, w_ld, N1, N2, M_annot, intercepts,
-			args.overlap,	args.rho, args.num_blocks)
+			args.overlap,	args.rho, args.num_blocks, return_silly_things=args.return_silly_things)
 
 		if not args.human_only and n_annot > 1:
 			gencov_jknife_ofh = args.out+'.gencov.cov'
@@ -1198,6 +1198,9 @@ if __name__ == '__main__':
 		help='Compute reference allele frequencies (useful for .bin files).')
 	parser.add_argument('--print-delete-vals', default=False, action='store_true',
 		help='Print block jackknife delete-k values.')
+	parser.add_argument('--return-silly-things', default=False, action='store_true',
+		help='Force ldsc to return silly genetic correlation estimates.')
+
 	args = parser.parse_args()
 
 	defaults = vars(parser.parse_args(''))
@@ -1214,8 +1217,11 @@ if __name__ == '__main__':
 		args.w_ld = args.w_ld
 	elif args.w_ld_chr:
 		args.w_ld_chr = args.w_ld_chr
-		
-	if args.freq:
+	
+	if args.num_blocks <= 1:
+		raise ValueError('--num-blocks must be an integer > 1.')
+	
+	if args.freq:	
 		if (args.bfile is not None) == (args.bin is not None):
 			raise ValueError('Must set exactly one of --bin or --bfile for use with --freq') 
 	

@@ -706,7 +706,7 @@ class Gencor(object):
 	'''
 	
 	def __init__(self, bhat1, bhat2, ref_ld, w_ld, N1, N2, M, intercepts, 
-		N_overlap=None,	rho=None, num_blocks=200):
+		N_overlap=None,	rho=None, num_blocks=200, return_silly_things=False):
 
 		self.N1 = N1
 		self.N2 = N2
@@ -717,6 +717,11 @@ class Gencor(object):
 		self.n_annot = ref_ld.shape[1]
 		self.n_snp = ref_ld.shape[0]		
 		self.intercepts = intercepts
+		self.huge_se_flag = False
+		self.negative_hsq_flag = False
+		self.out_of_bounds_flag = False
+		self.tiny_hsq_flag = False
+		self.return_silly_things = return_silly_things
 		chisq1 = np.multiply(N1, np.square(bhat1))
 		chisq2 = np.multiply(N2, np.square(bhat2))
 				
@@ -727,7 +732,11 @@ class Gencor(object):
 		self.gencov = Gencov(bhat1, bhat2, ref_ld, w_ld, N1, N2, M, self.hsq1.tot_hsq,
 			self.hsq2.tot_hsq, N_overlap=self.N_overlap, rho=self.rho, num_blocks=num_blocks,
 			intercept=intercepts[2])
-
+		
+		
+		if (self.hsq1.tot_hsq <= 0 or self.hsq2.tot_hsq <= 0):
+			self.negative_hsq_flag = True
+			
 		# total genetic correlation
 		self.tot_gencor_biased = self.gencov.tot_gencov /\
 			np.sqrt(self.hsq1.tot_hsq * self.hsq2.tot_hsq)
@@ -738,7 +747,15 @@ class Gencor(object):
 		self.gencor = RatioJackknife(self.tot_gencor_biased, numer_delete_vals, denom_delete_vals)
 		self.autocor = self.gencor.autocor(1)
 		self.tot_gencor = float(self.gencor.jknife_est)
+		if (self.tot_gencor > 1.2 or self.tot_gencor < -1.2):
+			self.out_of_bounds_flag = True	
+		elif np.isnan(self.tot_gencor):
+			self.tiny_hsq_flag = True
+			
 		self.tot_gencor_se = float(self.gencor.jknife_se)
+		if self.tot_gencor_se > 0.25:
+			self.huge_se_flag = True
+		
 		self.Z = self.tot_gencor / self.tot_gencor_se
 		self.P_val = chi2.sf(self.Z**2, 1, loc=0, scale=1)
 
@@ -749,11 +766,46 @@ class Gencor(object):
 	def summary(self):
 		'''Reusable code for printing output of jk.Gencor object'''
 		out = []
-		out.append('Genetic Correlation: '+str(np.matrix(self.tot_gencor))+' ('+\
-			str(np.matrix(self.tot_gencor_se))+')')
-		out.append('Z-score: '+str(np.matrix(self.Z)))
-		out.append('P: '+str(np.matrix(self.P_val)))		
-		out = '\n'.join(out)
+		
+		if self.tiny_hsq_flag and not self.return_silly_things:
+			out.append('Genetic Correlation: nan (heritability close to 0) ')
+			out.append('Z-score: nan (heritability close to 0)')
+			out.append('P: nan (heritability close to 0)')
+			out.append('WARNING: one of the h2\'s was < 0 in one of the jackknife blocks. Consult the documentation.')
+			out = '\n'.join(out)
+		
+		elif self.huge_se_flag and not self.return_silly_things:
+			warn_msg = 'WARNING: asymptotic P-values may not be valid when SE(rg) is very high.'
+			out.append('Genetic Correlation: '+str(np.matrix(self.tot_gencor))+' ('+\
+				str(np.matrix(self.tot_gencor_se))+')')
+			out.append('Z-score: '+str(np.matrix(self.Z)))
+			out.append('P: '+str(np.matrix(self.P_val))+warn_msg)	
+			out = '\n'.join(out)
+			
+		elif self.negative_hsq_flag and not self.return_silly_things:
+			out.append('Genetic Correlation: nan (heritability estimate < 0) ')
+			out.append('Z-score: nan (heritability estimate < 0)')
+			out.append('P: nan (heritability estimate < 0)')
+			out.append('WARNING: One of the h2 estimates was < 0. Consult the documentation.')
+			out = '\n'.join(out)
+			
+		elif self.out_of_bounds_flag and not self.return_silly_things:
+			out.append('Genetic Correlation: nan (rg out of bounds) ')
+			out.append('Z-score: nan (rg out of bounds)')
+			out.append('P: nan (rg out of bounds)')
+			out.append('WARNING: rg was out of bounds. Consult the documentation.')
+			out = '\n'.join(out)
+			
+		else:		
+			out.append('Genetic Correlation: '+str(np.matrix(self.tot_gencor))+' ('+\
+				str(np.matrix(self.tot_gencor_se))+')')
+			out.append('Z-score: '+str(np.matrix(self.Z)))
+			out.append('P: '+str(np.matrix(self.P_val)))		
+			if self.return_silly_things and \
+				(self.huge_se_flag or self.negative_hsq_flag or self.out_of_bounds_flag or self.tiny_hsq_flag):
+				out.append('WARNING: returning silly results because you asked for them.')
+			out = '\n'.join(out)
+			
 		return kill_brackets(out)
 
 
