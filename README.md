@@ -1,5 +1,5 @@
-LDSC (LD SCore) v 1e-4
-======================
+LDSC (LD SCore) v 0.0.1 (alpha)
+==============================
 
 Copyright (c) 2014 Brendan Bulik-Sullivan & Hilary Finucane
 
@@ -18,6 +18,7 @@ Contact
 -------
 
 Brendan Bulik-Sullivan, bulik@broadinstitute.org
+Hilary Finucane, 
 
 Citations
 ---------
@@ -26,15 +27,6 @@ Bulik-Sullivan, et al. LD Score Regression Distinguishes Confounding from Polyge
 doi: http://dx.doi.org/10.1101/002931
 
 (preprint: http://biorxiv.org/content/early/2014/02/21/002931)
-
-
-What is LD Score?
---------------
-
-LD Score is a measure of the amount of linkage disequilibrium (LD) around a SNP. 
-LD Score allows one to properly take LD into account when attempting to make 
-inferences about the genetic architecture of complex disease using GWAS summary 
-statistics.
 
 
 Requirements
