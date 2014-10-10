@@ -3,7 +3,7 @@ LDSC (LD SCore) v 0.0.1 (alpha)
 
 Copyright (c) 2014 Brendan Bulik-Sullivan & Hilary Finucane
 
-(Warning: under very active development)
+(Warning: we're still working on it. Documented beta release coming soon)
 
 What can I do with LDSC?
 ---------------------
