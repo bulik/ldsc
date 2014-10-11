@@ -768,9 +768,9 @@ class Gencor(object):
 		out = []
 		
 		if self.tiny_hsq_flag and not self.return_silly_things:
-			out.append('Genetic Correlation: nan (heritability close to 0) ')
-			out.append('Z-score: nan (heritability close to 0)')
-			out.append('P: nan (heritability close to 0)')
+			out.append('Genetic Correlation: nan (nan) (heritability close to 0) ')
+			out.append('Z-score: nan (nan) (heritability close to 0)')
+			out.append('P: nan (nan) (heritability close to 0)')
 			out.append('WARNING: one of the h2\'s was < 0 in one of the jackknife blocks. Consult the documentation.')
 			out = '\n'.join(out)
 		
@@ -783,16 +783,16 @@ class Gencor(object):
 			out = '\n'.join(out)
 			
 		elif self.negative_hsq_flag and not self.return_silly_things:
-			out.append('Genetic Correlation: nan (heritability estimate < 0) ')
-			out.append('Z-score: nan (heritability estimate < 0)')
-			out.append('P: nan (heritability estimate < 0)')
+			out.append('Genetic Correlation: nan (nan) (heritability estimate < 0) ')
+			out.append('Z-score: nan (nan) (heritability estimate < 0)')
+			out.append('P: nan (nan) (heritability estimate < 0)')
 			out.append('WARNING: One of the h2 estimates was < 0. Consult the documentation.')
 			out = '\n'.join(out)
 			
 		elif self.out_of_bounds_flag and not self.return_silly_things:
-			out.append('Genetic Correlation: nan (rg out of bounds) ')
-			out.append('Z-score: nan (rg out of bounds)')
-			out.append('P: nan (rg out of bounds)')
+			out.append('Genetic Correlation: nan (nan) (rg out of bounds) ')
+			out.append('Z-score: nan (nan) (rg out of bounds)')
+			out.append('P: nan (nan) (rg out of bounds)')
 			out.append('WARNING: rg was out of bounds. Consult the documentation.')
 			out = '\n'.join(out)
 			
