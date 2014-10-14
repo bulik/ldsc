@@ -616,8 +616,6 @@ class Gencov(object):
 		out = []
 		out.append('Total observed scale gencov: '+str(np.matrix(self.tot_gencov))+' ('+\
 			str(np.matrix(self.tot_gencov_se))+')')
-		out.append('Z-score: '+str(np.matrix(self.Z)))
-		out.append('P: '+str(np.matrix(self.P_val)))		
 		if self.n_annot > 1:
 			out.append( 'Categories: '+ str(' '.join(ref_ld_colnames)))
 			if not overlap:
@@ -767,7 +765,14 @@ class Gencor(object):
 		'''Reusable code for printing output of jk.Gencor object'''
 		out = []
 		
-		if self.tiny_hsq_flag and not self.return_silly_things:
+		if self.negative_hsq_flag and not self.return_silly_things:
+			out.append('Genetic Correlation: nan (nan) (heritability estimate < 0) ')
+			out.append('Z-score: nan (nan) (heritability estimate < 0)')
+			out.append('P: nan (nan) (heritability estimate < 0)')
+			out.append('WARNING: One of the h2 estimates was < 0. Consult the documentation.')
+			out = '\n'.join(out)
+
+		elif self.tiny_hsq_flag and not self.return_silly_things:
 			out.append('Genetic Correlation: nan (nan) (heritability close to 0) ')
 			out.append('Z-score: nan (nan) (heritability close to 0)')
 			out.append('P: nan (nan) (heritability close to 0)')
@@ -775,18 +780,11 @@ class Gencor(object):
 			out = '\n'.join(out)
 		
 		elif self.huge_se_flag and not self.return_silly_things:
-			warn_msg = 'WARNING: asymptotic P-values may not be valid when SE(rg) is very high.'
+			warn_msg = ' WARNING: asymptotic P-values may not be valid when SE(rg) is very high.'
 			out.append('Genetic Correlation: '+str(np.matrix(self.tot_gencor))+' ('+\
 				str(np.matrix(self.tot_gencor_se))+')')
 			out.append('Z-score: '+str(np.matrix(self.Z)))
 			out.append('P: '+str(np.matrix(self.P_val))+warn_msg)	
-			out = '\n'.join(out)
-			
-		elif self.negative_hsq_flag and not self.return_silly_things:
-			out.append('Genetic Correlation: nan (nan) (heritability estimate < 0) ')
-			out.append('Z-score: nan (nan) (heritability estimate < 0)')
-			out.append('P: nan (nan) (heritability estimate < 0)')
-			out.append('WARNING: One of the h2 estimates was < 0. Consult the documentation.')
 			out = '\n'.join(out)
 			
 		elif self.out_of_bounds_flag and not self.return_silly_things:
