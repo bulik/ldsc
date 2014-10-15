@@ -814,7 +814,7 @@ def sumstats(args, header=None):
 		# filter out large-effect loci
 		max_N = np.max(sumstats['N'])
 		if not args.no_filter_chisq:
-			max_chisq = max(0.001*max_N, 20)
+			max_chisq = max(0.001*max_N, args.max_chisq)
 			sumstats = sumstats[sumstats['CHISQ'] < max_chisq]
 			log_msg = 'After filtering on chi^2 < {C}, {N} SNPs remain.'
 			log.log(log_msg.format(C=max_chisq, N=len(sumstats)))
@@ -847,7 +847,7 @@ def sumstats(args, header=None):
 		log.log('Estimating heritability.')
 		max_N = np.max(sumstats['N'])
 		if not args.no_filter_chisq:
-			max_chisq = max(0.001*max_N, 80)
+			max_chisq = max(0.001*max_N, args.max_chisq)
 			sumstats = sumstats[sumstats['CHISQ'] < max_chisq]
 			log_msg = 'After filtering on chi^2 < {C}, {N} SNPs remain.'
 			log.log(log_msg.format(C=max_chisq, N=len(sumstats)))
@@ -914,8 +914,8 @@ def sumstats(args, header=None):
 		max_N1 = np.max(sumstats['N1'])
 		max_N2 = np.max(sumstats['N2'])
 		if not args.no_filter_chisq:
-			max_chisq1 = max(0.001*max_N1, 80)
-			max_chisq2 = max(0.001*max_N2, 80)
+			max_chisq1 = max(0.001*max_N1, args.max_chisq)
+			max_chisq2 = max(0.001*max_N2, args.max_chisq)
 			chisq1 = sumstats.BETAHAT1**2 * sumstats.N1
 			chisq2 = sumstats.BETAHAT2**2 * sumstats.N2
 			ii = np.logical_and(chisq1 < max_chisq1, chisq2 < max_chisq2)
@@ -1156,6 +1156,9 @@ if __name__ == '__main__':
 		help="Force inversion of ill-conditioned matrices.")
 	parser.add_argument('--no-filter-chisq', default=False, action='store_true',
 		help='Don\'t remove SNPs with large chi-square.')
+	parser.add_argument('--max-chisq', default=80, type=float,
+		help='Max chi^2 for SNPs in the regression.')
+
 	parser.add_argument('--no-intercept', action='store_true',
 		help = 'Constrain the regression intercept to be 1.')
 	parser.add_argument('--constrain-intercept', action='store', default=False,
