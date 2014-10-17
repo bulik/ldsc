@@ -504,14 +504,14 @@ def M(fh, num=None, N=2, common=None):
 	return x
 
 
-def M_fromfile(flist, num=None):
+def M_fromfile(flist, num=None, N=2, common = None):
 	f = open(flist,'r')
 	flist = [x.rstrip('\n') for x in f.readlines()]
-	return M_fromlist	(flist, num)
+	return M_fromlist	(flist, num, N, common)
 	
 
-def M_fromlist(flist, num=None):
-	M_annot = np.hstack([M(fh.rstrip('\n'), num) for fh in flist])
+def M_fromlist(flist, num=None, N=2, common = None):
+	M_annot = np.hstack([M(fh.rstrip('\n'), num, N, common) for fh in flist])
 	return M_annot
 
 

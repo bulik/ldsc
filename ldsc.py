@@ -682,11 +682,6 @@ def sumstats(args, header=None):
 				M_annot = ps.M(args.ref_ld)	
 			elif args.ref_ld_chr:
 				M_annot = ps.M(args.ref_ld_chr, 22)
-		else:
-			if args.ref_ld:
-				M_annot = ps.M(args.ref_ld, common=True)	
-			elif args.ref_ld_chr:
-				M_annot = ps.M(args.ref_ld_chr, 22, common=True)
 			elif args.ref_ld_file:
 				M_annot = ps.M_fromfile(args.ref_ld_file)
 			elif args.ref_ld_file_chr:
@@ -697,6 +692,21 @@ def sumstats(args, header=None):
 			elif args.ref_ld_list_chr:
 				flist = args.ref_ld_list_chr.split(',')
 				M_annot = ps.M_fromlist(flist, 22)
+		else:
+			if args.ref_ld:
+				M_annot = ps.M(args.ref_ld, common=True)	
+			elif args.ref_ld_chr:
+				M_annot = ps.M(args.ref_ld_chr, 22, common=True)
+			elif args.ref_ld_file:
+				M_annot = ps.M_fromfile(args.ref_ld_file, common=True)
+			elif args.ref_ld_file_chr:
+				M_annot = ps.M_fromfile(args.ref_ld_file_chr, 22, common=True)
+			elif args.ref_ld_list:
+				flist = args.ref_ld_list.split(',')
+				M_annot = ps.M_fromlist(flist, common=True)
+			elif args.ref_ld_list_chr:
+				flist = args.ref_ld_list_chr.split(',')
+				M_annot = ps.M_fromlist(flist, 22, common=True)
 				
 		# filter ref LD down to those columns specified by --keep-ld
 		if args.keep_ld is not None:
