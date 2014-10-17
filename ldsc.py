@@ -160,7 +160,7 @@ def ldscore(args, header=None):
 		keep_snps = None
 		if np.any(annot.df.SNP.values != array_snps.df.SNP.values):
 			raise ValueError('The .annot file must contain the same SNPs in the same'+\
-				' order as the .bim or .snp file')
+				' order as the .bim file.')
 	# read --extract
 	elif args.extract is not None:
 		keep_snps = __filter__(args.extract, 'SNPs', 'include', array_snps)
