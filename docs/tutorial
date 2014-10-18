@@ -4,7 +4,7 @@
 1.1 Single LD Scores
 --------------------
 
-ldsc --bfile plink --l2 --ld-wind-cm 1 --out ld
+python ldsc --bfile plink --l2 --ld-wind-cm 1 --out ld
 
 This will produce three files
 (a) ld.l2.ldscore.gz
@@ -12,28 +12,70 @@ This will produce three files
 (c) ld.l2.M
 
 
-
 1.2 Partitioned LD Scores
 -------------------------
 
 1.2.1 From annot matrix
 
-ldsc --bfile plink --l2 --ld-wind-cm 1 --annot ldsc.annot --out ld
+python ldsc --bfile plink --l2 --ld-wind-cm 1 --annot ldsc.annot --out ld
 
 1.2.2 Binning continuous annotations
 
-ldsc --bfile plink --l2 --ld-wind-cm 1 --cts-bin cts.txt 
+python ldsc --bfile plink --l2 --ld-wind-cm 1 --cts-bin cts.txt 
 --cts-breaks 10,20 --cts-names ANNOT --out ld
 
-ldsc --bfile plink --l2 --ld-wind-cm 1 --cts-bin cts1.txt,cts2,txt 
+python ldsc --bfile plink --l2 --ld-wind-cm 1 --cts-bin cts1.txt,cts2,txt 
 --cts-breaks 10,20x10,40 --cts-names ANNOT1,ANNOT2 --out ld
 
 
 2. Variance Components
 ======================
 
-2.1 Requirements for Summary Statistics
----------------------------------------
+2.1 Summary Statistics
+----------------------
+
+2.1.1 Minimum Requirements
+--------------------------
+
+The minimum summary data required for estimating h2 or rg with LD Score 
+regression are the following:
+
+(1) Genome-wide summary statistics from cohorts with similar ancestry
+(2) The summary statistics must be signed (allele and direction of effect) for rg 
+	estimation. This is not necessary for h2 or partitioned h2 estimations. 
+(3) The summary statistics should not be "corrected" via genomic control (GC) correction. 
+	Using GC'ed summary statistics will result in downward bias in the LD Score regression 
+	estimates of heritability and genetic covariance, and deflated LD Score regression
+	intercepts. Estimates of genetic correlation will not be affected.
+(4) The summary statistics should not be meta-analyzed with targeted genotyping at 
+	significant loci  (e.g., specialty genotyping arrays like immunochip, exome chip, 
+	psychchip, metabochip, or replication cohorts).	LD Score regression is currently not
+	applicable to data generated using custom genotyping arrays 
+
+The next details are convenient, but are only used for filtering SNPs, and so are not 
+strictly necessary:
+
+(1) A measure of imputation quality (e.g., INFO) for each SNP
+(2) Sample size at each SNP (for binary traits, number of cases and number of controls)
+(3) Sample MAF
+
+Alternatively, one can simply share a list of SNPs passing reasonable MAF and INFO cutoffs
+(usually sample MAF above 3% and INFO above 0.9).
+
+If these data are not available, we recommend retaining only HM3 SNPs with reference panel
+MAF above 3% for the LD Score regression as a workaround (note: for regression, not for 
+estimation of the LD Scores), since HM3 SNPs seem to be well-imputed in most studies.
+
+For newer studies with dense imputation, restricting to HM3 SNPs is an inefficient use of 
+data. Using a larger set of SNPs for the regression will lower the standard error using 
+all common 1kG SNPs instead of all common HM3 SNPs for the regression reduces the standard
+error by about 10% in simulations).
+
+2.1.2 Reformatting Summary Statistics 
+-------------------------------------
+
+python sumstats_to_chisq.py --sumstats plink.qassoc --N 1000 --out test
+
 
 
 2.2 Heritability
@@ -41,22 +83,22 @@ ldsc --bfile plink --l2 --ld-wind-cm 1 --cts-bin cts1.txt,cts2,txt
 
 2.2.1 Univariate Heritability
 
-ldsc --h2 sumstats.chisq.gz --w-ld-chr w_ld --ref-ld-chr ld --out h2
+python ldsc --h2 sumstats.chisq.gz --w-ld-chr w_ld --ref-ld-chr ld --out h2
 
 2.2.2 Partitioned Heritability
 
-ldsc --h2 sumstats.chisq.gz --w-ld-chr w_ld --ref-ld-chr part_ld --out h2
+python ldsc --h2 sumstats.chisq.gz --w-ld-chr w_ld --ref-ld-chr part_ld --out h2
 
 2.2.3 Partitioned Heritability with Overlapping Categories
 
-ldsc --h2 sumstats.chisq.gz --w-ld-chr w_ld --ref-ld-chr overlap_ld --overlap-annot 
+python ldsc --h2 sumstats.chisq.gz --w-ld-chr w_ld --ref-ld-chr overlap_ld --overlap-annot 
 --out h2 
 
 2.2.4 Adding Categories to the Baseline Model from Finucane, et al
 
 2.2.5 Constraining the Intercept 
 
-To constrain the intercept to equal one, simply append --no-intercept to any of the above
+To constrain the intercept to equal 1, simply append --no-intercept to any of the above
 commands. To constrain the intercept to a number different from one, say 0.9, append
 --constrain-intercept 0.9 to any of the above commands.
 
@@ -69,16 +111,27 @@ WARNING: do NOT constrain the intercept to one when working with GC corrected da
 For GC corrected data, the expected intercept is less than one (see the Supplementary
 Note of Bulik-Sullivan et al 2014).
 
-
-
 2.3 Genetic Correlation
 -----------------------
 
 2.3.1 Basic Genetic Correlation
 
+python ldsc --rg sumstats1,sumstats2 --w-ld-chr w_ld --ref-ld-chr overlap_ld --out rg 
+
+2.3.2 Modifying the Regression Weights for Overlapping Samples
+
+python ldsc --rg sumstats1,sumstats2 --w-ld-chr w_ld --ref-ld-chr overlap_ld --out rg 
+--overlap 10000 --rho 0.4
+
 2.3.2 Constraining the Intercept
 
+To constrain the intercepts to equal 1,1,0, simply append --no-intercept to any of the above
+commands. To constrain the intercepts to a different set of numbers, say 1,1,4000, then 
+append --constrain-intercept 1,1,4000 to the above commands.
 
-3. Statistical Warning Messages
-===============================
- 
+NOTE: Constraining the intercept will not automatically set the regression weights 
+properly. In the above example with 10000 overlapping samples and a phenotypic correlation
+of 0.4, the full command should be 
+
+python ldsc --rg sumstats1,sumstats2 --w-ld-chr w_ld --ref-ld-chr overlap_ld --out rg
+--overlap 10000 --rho 0.4 --constrain-intercept 1,1,4000

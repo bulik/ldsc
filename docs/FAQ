@@ -1,6 +1,18 @@
 Frequently Asked Questions
 ==========================
 
+General
+=======
+
+Q: Is it cool if I fork / modify / etc LDSC?
+A: Of course!
+
+Q: If I use LDSC in my research, which publications should I cite?
+A: If you use LDSC at all, please cite Bulik-Sullivan et al 2014. For the LD Score
+regression intercept, please cite Bulik-Sullivan et al 2014. For estimating rg, please
+cite Bulik-Sullivan and Fincuane, et al 2015. For partitioned h2 or pathway analysis, 
+please cite Finucane and Bulik-Sullivan et al 2015. 
+
 LD Score Estimation
 ===================
 
