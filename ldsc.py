@@ -1006,7 +1006,12 @@ def sumstats(args, header=None):
 if __name__ == '__main__':
 	parser = argparse.ArgumentParser()
 		
-	# Basic LD Score Estimation Flags
+	parser.add_argument('--out', default='ldsc', type=str,
+		help='Output filename prefix. If --out is not set, LDSC will use ldsc as the '
+		'defualt output filename prefix.')
+
+		
+	# Basic LD Score Estimation Flags'
 	parser.add_argument('--bfile', default=None, type=str, 
 		help='Filename prefix for plink .bed/.bim/.fam file. '
 		'The syntax is the same as with plink.  '
@@ -1073,9 +1078,9 @@ if __name__ == '__main__':
 		help='By defualt, seting --cts-bin or --cts-bin-add causes LDSC to print '
 		'the resulting annot matrix. Setting --no-print-annot tells LDSC not '
 		'to print the annot matrix. ')
-
-	
-
+	parser.add_argument('--maf', default=None, type=float,
+		help='Minor allele frequency lower bound. Default is MAF > 0.')
+		
 	# Basic Flags for Working with Variance Components
 	parser.add_argument('--intercept', default=None, type=str,
 		help='Filename prefix for a .chisq file for one-phenotype LD Score regression. '
@@ -1115,12 +1120,12 @@ if __name__ == '__main__':
 	parser.add_argument('--ref-ld-list-chr', default=None, type=str,
 		help='Same as --ref-ld-list, except automatically concatenates LD Score files '
 		'split into 22 chromosomes in the same manner as --ref-ld-chr.')
-
 	parser.add_argument('--w-ld', default=None, type=str,
-		help='Filename prefix for file with LD Scores with sum r^2 taken over SNPs included in the regression.')
+		help='Filename prefix for file with LD Scores with sum r^2 taken over SNPs included '
+		'in the regression. LDSC will automatically append .l2.ldscore/.l2.ldscore.gz.')
 	parser.add_argument('--w-ld-chr', default=None, type=str,
-		help='Filename prefix for file with LD Scores with sum r^2 taken over SNPs included in the regression, split across 22 chromosomes.')
-	
+		help='Same as --w-ld, but will read files split into 22 chromosomes in the same '
+		'manner as --ref-ld-chr.')
 	parser.add_argument('--overlap-annot', default=False, action='store_true',
 		help='This flag informs LDSC that the partitioned LD Scores were generates using an '
 		'annot matrix with overlapping categories (i.e., not all row sums equal 1), '
@@ -1144,10 +1149,6 @@ if __name__ == '__main__':
 		'to be non-negative (i.e., to minimize the sum of squared errors subject to the '
 		'constraint that all of the coefficients be positive. Note that the run-time is somewhat higher.')
 	
-	parser.add_argument('--M', default=None, type=str,	
-		help='# of SNPs (if you don\'t want to use the .l2.M files that came with your .l2.ldscore.gz files)')
-	parser.add_argument('--M-file', default=None, type=str,
-		help='Alternate .M file (e.g., if you want to use .M_5_50).')
 		
 	# Filtering for sumstats
 	parser.add_argument('--info-min', default=None, type=float,
@@ -1157,8 +1158,6 @@ if __name__ == '__main__':
 	parser.add_argument('--info-max', default=None, type=float,
 		help='Maximum INFO score for SNPs included in the regression. If your .chisq files '
 		'do not include an INFO colum, setting this flag will result in an error.')
-	parser.add_argument('--keep-ld', default=None, type=str,
-		help='Zero-indexed column numbers of LD Scores to keep for LD Score regression.')
 		
 	# Optional flags for genetic correlation
 	parser.add_argument('--overlap', default=0, type=int,
@@ -1169,36 +1168,45 @@ if __name__ == '__main__':
 		'--overlap must be used with --rho.  Since these numbers are only used for '
 		'regression weights, it is OK if they are not precise.')
 	parser.add_argument('--rho', default=0, type=float,
-		help='Population correlation between phenotypes. Used only for weights in genetic covariance regression.')
+		help='Estimate of the phenotypic correlation among overlapping samples. For use with '
+		'--overlap.')
+		
 	# Flags for both LD Score estimation and h2/gencor estimation
-	parser.add_argument('--out', default='ldsc', type=str,
-		help='Output filename prefix')
-	parser.add_argument('--maf', default=None, type=float,
-		help='Minor allele frequency lower bound. Default is 0')
 	parser.add_argument('--human-only', default=False, action='store_true',
-		help='Print only the human-readable .log file; do not print machine readable output.')
+		help='For use with --intercept/--h2/--rg. This flag tells LDSC only to print the '
+		'human-readable .log file and not the machine-readable covaraince matrix of the '
+		'estimates.')
 	# frequency (useful for .bin files)
 	parser.add_argument('--print-delete-vals', default=False, action='store_true',
-		help='Print block jackknife delete-k values.')
-
-
+		help='If this flag is set, LDSC will print the block jackknife delete-values ('
+		'i.e., the regression coefficeints estimated from the data with a block removed). '
+		'The delete-values are formatted as a matrix with (# of jackknife blocks) rows and '
+		'(# of LD Scores) columns.')
 	# Flags you should almost never use
 	parser.add_argument('--chunk-size', default=50, type=int,
 		help='Chunk size for LD Score calculation. Use the default.')
 	parser.add_argument('--pickle', default=False, action='store_true',
 		help='Store .l2.ldscore files as pickles instead of gzipped tab-delimited text.')
 	parser.add_argument('--yes-really', default=False, action='store_true',
-		help='Yes, I really want to compute whole-chromosome LD Score')
+		help='Yes, I really want to compute whole-chromosome LD Score.')
 	parser.add_argument('--aggregate', action='store_true',
 		help = 'Use the aggregate estimator.')
 	parser.add_argument('--invert-anyway', default=False, action='store_true',
-		help="Force inversion of ill-conditioned matrices.")
+		help="Force LDSC to attempt to invert ill-conditioned matrices.")
 	parser.add_argument('--num-blocks', default=200, type=int,
 		help='Number of block jackknife blocks.')
 	parser.add_argument('--not-M-5-50', default=False, action='store_true',
-		help='Don\'t .M_5-50 file by default.')
+		help='This flag tells LDSC to use the .l2.M file instead of the .l2.M_5_50 file.')
 	parser.add_argument('--return-silly-things', default=False, action='store_true',
 		help='Force ldsc to return silly genetic correlation estimates.')
+	parser.add_argument('--keep-ld', default=None, type=str,
+		help='Zero-indexed column numbers of LD Scores to keep for LD Score regression.')
+	parser.add_argument('--M', default=None, type=str,	
+		help='This flag allows one to enter a value of M at the command line as a comma-'
+		'separated list of numbers.')
+	parser.add_argument('--M-file', default=None, type=str,
+		help='Alternate .M file (e.g., if you want to use .M_5_50). LDSC will automatically '
+		'append .l2.M.')
 
 	# Out of commission flags	
 	#parser.add_argument('--l1', default=False, action='store_true',
