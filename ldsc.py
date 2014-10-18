@@ -1009,7 +1009,6 @@ if __name__ == '__main__':
 	parser.add_argument('--out', default='ldsc', type=str,
 		help='Output filename prefix. If --out is not set, LDSC will use ldsc as the '
 		'defualt output filename prefix.')
-
 		
 	# Basic LD Score Estimation Flags'
 	parser.add_argument('--bfile', default=None, type=str, 
