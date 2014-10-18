@@ -1,0 +1,84 @@
+1. Estimating LD Scores
+=======================
+
+1.1 Single LD Scores
+--------------------
+
+ldsc --bfile plink --l2 --ld-wind-cm 1 --out ld
+
+This will produce three files
+(a) ld.l2.ldscore.gz
+(b) ld.l2.M
+(c) ld.l2.M
+
+
+
+1.2 Partitioned LD Scores
+-------------------------
+
+1.2.1 From annot matrix
+
+ldsc --bfile plink --l2 --ld-wind-cm 1 --annot ldsc.annot --out ld
+
+1.2.2 Binning continuous annotations
+
+ldsc --bfile plink --l2 --ld-wind-cm 1 --cts-bin cts.txt 
+--cts-breaks 10,20 --cts-names ANNOT --out ld
+
+ldsc --bfile plink --l2 --ld-wind-cm 1 --cts-bin cts1.txt,cts2,txt 
+--cts-breaks 10,20x10,40 --cts-names ANNOT1,ANNOT2 --out ld
+
+
+2. Variance Components
+======================
+
+2.1 Requirements for Summary Statistics
+---------------------------------------
+
+
+2.2 Heritability
+----------------
+
+2.2.1 Univariate Heritability
+
+ldsc --h2 sumstats.chisq.gz --w-ld-chr w_ld --ref-ld-chr ld --out h2
+
+2.2.2 Partitioned Heritability
+
+ldsc --h2 sumstats.chisq.gz --w-ld-chr w_ld --ref-ld-chr part_ld --out h2
+
+2.2.3 Partitioned Heritability with Overlapping Categories
+
+ldsc --h2 sumstats.chisq.gz --w-ld-chr w_ld --ref-ld-chr overlap_ld --overlap-annot 
+--out h2 
+
+2.2.4 Adding Categories to the Baseline Model from Finucane, et al
+
+2.2.5 Constraining the Intercept 
+
+To constrain the intercept to equal one, simply append --no-intercept to any of the above
+commands. To constrain the intercept to a number different from one, say 0.9, append
+--constrain-intercept 0.9 to any of the above commands.
+
+WARNING: only constrain the intercept if you trust the QC. LD Score regression with
+constrained intercept is not protected from population stratification or cryptic 
+relatedness. However, PCA provides much better protection from population stratification
+than the LD Score regression intercept does.
+
+WARNING: do NOT constrain the intercept to one when working with GC corrected data.
+For GC corrected data, the expected intercept is less than one (see the Supplementary
+Note of Bulik-Sullivan et al 2014).
+
+
+
+2.3 Genetic Correlation
+-----------------------
+
+2.3.1 Basic Genetic Correlation
+
+2.3.2 Constraining the Intercept
+
+
+3. Statistical Warning Messages
+===============================
+ 

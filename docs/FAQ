@@ -233,3 +233,28 @@ the best approach is to estimate h2 and rg among the polygenic dust using LD Sco
 regression (excluding huge effect SNPs), then combine these numbers with h2 and rg 
 estimated from huge effect SNPs 
 
+Q: I am estimating rg between the same trait using the same set of summary statistics
+twice, and LDSC is not returning 1. What is wrong?
+A: By default, LDSC weights the two-phenotype LD Score regression assuming no sample
+overlap. If there is sample overlap, then these regression weights are inefficient,
+so plugging the same set of summary statistics into LDSC twice and trying to estimate
+rg returns the slope from an inefficiently weighted LD Score regression divided by 
+the slope from an efficiently weighted LD Score regression, i.e., a noisy estimate of 1.
+
+If you set the flags --overlap [number of samples] --rho 1, then you should get 1 exactly. 
+
+Q: I am estimating rg between the same trait using summary statistics from different
+studies, and LDSC is not returning 1. What is wrong?
+A: This may not be an error. The genetic correlation between different definition of the 
+same phenotype, or the same phenotype in different countries need not be one, so this 
+could potentially be an interesting result. There are also some less exciting explanations.
+For example, the genetic correlation for x and log(x) will be less than 1; the genetic
+correlation between WHR and WHR adjusted for BMI is not 1, etc. After excluding obvious
+data-munging errors, it would be a good idea to look carefully at the phenotype definition
+in each study.
+
+Q: Why is my rg estimate not exactly equal to gencov / sqrt(h2_1 * h2_2) ?
+A: LDSC uses the block jackknife estimate of the ratio. This should generally be very
+close to the naive estimate of the ratio. If it is not, this usually means that one of 
+the h2's not significantly different from zero and the various ratio estimates are not
+behaving asymptotically (this is bad)
