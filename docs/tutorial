@@ -1,30 +1,54 @@
+This tutorial assumes that you have downloaded plink: 
+	https://www.cog-genomics.org/plink2/
+	
+All commands should be called from the ldsc/ directory.
+
 1. Estimating LD Scores
 =======================
 
 1.1 Single LD Scores
 --------------------
 
-python ldsc --bfile plink --l2 --ld-wind-cm 1 --out ld
+$ python ldsc.py --bfile tutorial/plink --l2 --ld-wind-snp 10 --out tutorial/ld
 
-This will produce three files
-(a) ld.l2.ldscore.gz
-(b) ld.l2.M
-(c) ld.l2.M
+This should run almost instantaneously, and will produce four files
 
+(a) ld.l2.ldscore.gz -- LD Scores
+(b) ld.l2.M -- # of SNPs in the .bed file
+(c) ld.l2.M_5_50 -- # of SNPs with MAF between 5% and 50% in the .bed file
+(d) ld.l2.log -- log file
+
+The log file contains some useful summary information about your LD Scores. 
+
+When estimating LD Scores from real data, it is advisable to parallelize
+over chromosomes. 
+
+You will get better results using --ld-wind-cm 1; however,
+this requires a .bim file with centiMorgan coordinates. We provide a script
+(interpolate_cm.py) which takes as input a .bim file and a SHAPEIT genetic map 
+(see https://mathgen.stats.ox.ac.uk/genetics_software/shapeit/shapeit.html)
+and produces a .bim file with the cM column filled in. This can also be accomplished 
+via the --cm-map flag in plink.
 
 1.2 Partitioned LD Scores
 -------------------------
 
 1.2.1 From annot matrix
 
-python ldsc --bfile plink --l2 --ld-wind-cm 1 --annot ldsc.annot --out ld
+The annot matrix in tutorial/ldsc.annot contains two annotations, even SNPs and odd
+SNPs (this isn't a sensible thing to do with real data, just an example). 
+You can compute even/odd partitioned LD Scores with the following command
+
+$ python ldsc.py --bfile tutorial/plink --l2 --ld-wind-snp 10 --annot tutorial/ ldsc.annot --out ld
 
 1.2.2 Binning continuous annotations
 
-python ldsc --bfile plink --l2 --ld-wind-cm 1 --cts-bin cts.txt 
+The file tutorial/one.cts contains a trivial continuous annotation correp
+
+python ldsc.py --bfile plink --l2 --ld-wind-cm 1 --cts-bin cts.txt 
 --cts-breaks 10,20 --cts-names ANNOT --out ld
 
-python ldsc --bfile plink --l2 --ld-wind-cm 1 --cts-bin cts1.txt,cts2,txt 
+python ldsc.py --bfile plink --l2 --ld-wind-cm 1 --cts-bin cts1.txt,cts2,txt 
 --cts-breaks 10,20x10,40 --cts-names ANNOT1,ANNOT2 --out ld
 
 
@@ -83,15 +107,15 @@ python sumstats_to_chisq.py --sumstats plink.qassoc --N 1000 --out test
 
 2.2.1 Univariate Heritability
 
-python ldsc --h2 sumstats.chisq.gz --w-ld-chr w_ld --ref-ld-chr ld --out h2
+python ldsc.py --h2 sumstats.chisq.gz --w-ld-chr w_ld --ref-ld-chr ld --out h2
 
 2.2.2 Partitioned Heritability
 
-python ldsc --h2 sumstats.chisq.gz --w-ld-chr w_ld --ref-ld-chr part_ld --out h2
+python ldsc.py --h2 sumstats.chisq.gz --w-ld-chr w_ld --ref-ld-chr part_ld --out h2
 
 2.2.3 Partitioned Heritability with Overlapping Categories
 
-python ldsc --h2 sumstats.chisq.gz --w-ld-chr w_ld --ref-ld-chr overlap_ld --overlap-annot 
+python ldsc.py --h2 sumstats.chisq.gz --w-ld-chr w_ld --ref-ld-chr overlap_ld --overlap-annot 
 --out h2 
 
 2.2.4 Adding Categories to the Baseline Model from Finucane, et al
@@ -116,11 +140,11 @@ Note of Bulik-Sullivan et al 2014).
 
 2.3.1 Basic Genetic Correlation
 
-python ldsc --rg sumstats1,sumstats2 --w-ld-chr w_ld --ref-ld-chr overlap_ld --out rg 
+python ldsc.py --rg sumstats1,sumstats2 --w-ld-chr w_ld --ref-ld-chr overlap_ld --out rg 
 
 2.3.2 Modifying the Regression Weights for Overlapping Samples
 
-python ldsc --rg sumstats1,sumstats2 --w-ld-chr w_ld --ref-ld-chr overlap_ld --out rg 
+python ldsc.py --rg sumstats1,sumstats2 --w-ld-chr w_ld --ref-ld-chr overlap_ld --out rg 
 --overlap 10000 --rho 0.4
 
 2.3.2 Constraining the Intercept
@@ -133,5 +157,5 @@ NOTE: Constraining the intercept will not automatically set the regression weigh
 properly. In the above example with 10000 overlapping samples and a phenotypic correlation
 of 0.4, the full command should be 
 
-python ldsc --rg sumstats1,sumstats2 --w-ld-chr w_ld --ref-ld-chr overlap_ld --out rg
+python ldsc.py --rg sumstats1,sumstats2 --w-ld-chr w_ld --ref-ld-chr overlap_ld --out rg
 --overlap 10000 --rho 0.4 --constrain-intercept 1,1,4000
