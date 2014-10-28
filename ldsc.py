@@ -135,11 +135,11 @@ def ldscore(args, header=None):
 		log.log(header)
 	#log.log(args)
 	
-	if args.bin:
-		snp_file, snp_obj = args.bin+'.bim', ps.PlinkBIMFile
-		ind_file, ind_obj = args.bin+'.ind', ps.VcfINDFile
-		array_file, array_obj = args.bin+'.bin', ld.VcfBINFile
-	elif args.bfile:
+	#if args.bin:
+	#	snp_file, snp_obj = args.bin+'.bim', ps.PlinkBIMFile
+	#	ind_file, ind_obj = args.bin+'.ind', ps.VcfINDFile
+	#	array_file, array_obj = args.bin+'.bin', ld.VcfBINFile
+	if args.bfile:
 		snp_file, snp_obj = args.bfile+'.bim', ps.PlinkBIMFile
 		ind_file, ind_obj = args.bfile+'.fam', ps.PlinkFAMFile
 		array_file, array_obj = args.bfile+'.bed', ld.PlinkBEDFile
@@ -1073,6 +1073,10 @@ if __name__ == '__main__':
 		help='Setting this flag causes LDSC to compute LD Scores with the given scale factor, '
 		'i.e., \ell_j := \sum_k (p_k(1-p_k))^a r^2_{jk}, where p_k denotes the MAF '
 		'of SNP j and a is the argument to --pq-exp. ')
+	parser.add_argument('--maf-exp', default=None, type=float,
+		help='Setting this flag causes LDSC to compute LD Scores with the given scale factor, '
+		'i.e., \ell_j := \sum_k (p_k^a r^2_{jk}, where p_k denotes the MAF '
+		'of SNP j and a is the argument to --maf-exp. ')
 	parser.add_argument('--no-print-annot', default=False, action='store_true',
 		help='By defualt, seting --cts-bin or --cts-bin-add causes LDSC to print '
 		'the resulting annot matrix. Setting --no-print-annot tells LDSC not '
@@ -1231,11 +1235,6 @@ if __name__ == '__main__':
 	options = ['--'+x.replace('_','-')+' '+str(opts[x]) for x in non_defaults]
 	header += '\n'.join(options).replace('True','').replace('False','')
 	header += '\n'
-
-	if args.w_ld:
-		args.w_ld = args.w_ld
-	elif args.w_ld_chr:
-		args.w_ld_chr = args.w_ld_chr
 	
 	if args.num_blocks <= 1:
 		raise ValueError('--num-blocks must be an integer > 1.')
@@ -1249,12 +1248,13 @@ if __name__ == '__main__':
 	# LD Score estimation
 	#elif (args.bin is not None or args.bfile is not None) and (args.l1 or args.l1sq or args.l2 or args.l4):
 	#	if np.sum((args.l1, args.l2, args.l1sq, args.l4)) != 1:
-	elif (args.bin is not None or args.bfile is not None):
+	#elif (args.bin is not None or args.bfile is not None):
+	if args.bfile is not None:
 		if args.l2 is None:
 			#raise ValueError('Must specify exactly one of --l1, --l1sq, --l2, --l4 for LD estimation.')
 			raise ValueError('Must specify --l2 with --bfile.')
-		if args.bfile and args.bin:
-			raise ValueError('Cannot specify both --bin and --bfile.')
+		#if args.bfile and args.bin:
+		#	raise ValueError('Cannot specify both --bin and --bfile.')
 		if args.annot is not None and args.extract is not None:
 			raise ValueError('--annot and --extract are currently incompatible.')
 		if args.cts_bin is not None and args.extract is not None:

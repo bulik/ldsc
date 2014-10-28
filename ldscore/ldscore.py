@@ -285,7 +285,7 @@ class __GenotypeArrayInMemory__(object):
 		rfuncBB = np.zeros((c,c))
 		# chunk inside of block
 		#pbar = self.__ldscore_pbar__(m)
-
+	
 		for l_B in xrange(0,b,c): # l_B := index of leftmost SNP in matrix B
 			#pbar.update(l_B)
 			B = A[:,l_B:l_B+c]
@@ -299,6 +299,14 @@ class __GenotypeArrayInMemory__(object):
 		end = md + 1 if md !=m else md
 		for l_B in xrange(b0,end,c):
 			#pbar.update(l_B)
+			
+			# check if the annot matrix is all zeros for this block + chunk
+			# this happens w/ sparse categories (i.e., pathways)
+			p1 = np.all(annot[l_A:l_A+b,:] == 0)
+			p2 = np.all(annot[l_B:l_B+c,:] == 0)
+			if p1 and p2:
+				continue 
+			
 			# update the block
 			old_b = b
 			b = block_sizes[l_B]
