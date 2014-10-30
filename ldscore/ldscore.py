@@ -302,10 +302,6 @@ class __GenotypeArrayInMemory__(object):
 			
 			# check if the annot matrix is all zeros for this block + chunk
 			# this happens w/ sparse categories (i.e., pathways)
-			p1 = np.all(annot[l_A:l_A+b,:] == 0)
-			p2 = np.all(annot[l_B:l_B+c,:] == 0)
-			if p1 and p2:
-				continue 
 			
 			# update the block
 			old_b = b
@@ -330,6 +326,12 @@ class __GenotypeArrayInMemory__(object):
 				rfuncAB = np.zeros((b,c))
 			
 			B = snp_getter(c) 		
+
+			p1 = np.all(annot[l_A:l_A+b,:] == 0)
+			p2 = np.all(annot[l_B:l_B+c,:] == 0)
+			if p1 and p2:
+				continue 
+
 			np.dot(A.T, B / n, out=rfuncAB) 
 			rfuncAB = func(rfuncAB)
 			cor_sum[l_A:l_A+b,:] += np.dot(rfuncAB, annot[l_B:l_B+c,:])
