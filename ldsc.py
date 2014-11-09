@@ -611,11 +611,11 @@ def sumstats(args, header=None):
 	try:
 		if args.h2:
 			chisq = args.h2+'.chisq.gz'
-			log.log('Reading summary statistics from {S}.'.format(S=chisq))
+			log.log('Reading summary statistics from {S} ...'.format(S=chisq))
 			sumstats = ps.chisq(chisq)
 		elif args.intercept:
 			chisq = args.intercept+'.chisq.gz'
-			log.log('Reading summary statistics from {S}.'.format(S=chisq))
+			log.log('Reading summary statistics from {S} ...'.format(S=chisq))
 			sumstats = ps.chisq(chisq)
 		elif args.rg:
 			try:
@@ -628,6 +628,7 @@ def sumstats(args, header=None):
 			chisq2 = p2 + '.chisq.gz'
 			allele1 = p1 + '.allele.gz'
 			allele2 = p2 + '.allele.gz'
+			log.log('Reading summary statistics from {C} and {D} ...'.format(C=chisq1, D=chisq2))
 			sumstats = ps.betaprod_fromchisq(chisq1, chisq2, allele1, allele2)
 	except ValueError as e:
 		log.log('Error parsing summary statistics.')
@@ -636,34 +637,46 @@ def sumstats(args, header=None):
 	log_msg = 'Read summary statistics for {N} SNPs.'
 	log.log(log_msg.format(N=len(sumstats)))
 	
-	log.log('Reading LD Scores...')
 	# read reference panel LD Scores
 	try:
 		if args.ref_ld:
+			log.log('Reading reference LD Scores from {F} ...'.format(F=args.ref_ld))
 			ref_ldscores = ps.ldscore(args.ref_ld)
-		elif args.ref_ld_chr:
+		elif args.ref_ld_chr:	
+			if '@' in args.ref_ld_chr:
+				f = args.ref_ld_chr.replace('@','[1-22]')
+			else:
+				f = args.ref_ld_chr+'[1-22]'
+			log.log('Reading reference LD Scores from {F} ...'.format(F=f))
 			ref_ldscores = ps.ldscore(args.ref_ld_chr, 22)
 		elif args.ref_ld_file:
+			log.log('Reading reference LD Scores listed in {F} ...'.format(F=args.ref_ld_file))
 			ref_ldscores = ps.ldscore_fromfile(args.ref_ld_file)
 		elif args.ref_ld_file_chr:
-			ref_ldscores = ps.ldscore_fromfile(args.ref_ld_file_chr, 22)	
+			log.log('Reading reference LD Scores listed in {F} ...'.format(F=args.ref_ld_file_chr))
+			ref_ldscores = ps.ldscore_fromfile(args.ref_ld_file_chr, 22)		
 		elif args.ref_ld_list:
+			log.log('Reading list of reference LD Scores...')
 			flist = args.ref_ld_list.split(',')
-			ref_ldscores = ps.ldscore_fromlist(flist)
+			ref_ldscores = ps.ldscore_fromlist(flist)	
 		elif args.ref_ld_list_chr:
+			log.log('Reading list of reference LD Scores...')
 			flist = args.ref_ld_list_chr.split(',')
 			ref_ldscores = ps.ldscore_fromlist(flist, 22)
 		
 	except ValueError as e:
 		log.log('Error parsing reference LD.')
 		raise e
-				
+
+	log_msg = 'Read reference panel LD Scores for {N} SNPs.'
+	log.log(log_msg.format(N=len(ref_ldscores)))
+			
 	# read --M
 	if args.M:
 		try:
 			M_annot = [float(x) for x in args.M.split(',')]
 		except TypeError as e:
-			raise TypeError('Count not case --M to float: ' + str(e.args))
+			raise TypeError('Could not cast --M to float: ' + str(e.args))
 		
 		if len(M_annot) != len(ref_ldscores.columns) - 1:
 			msg = 'Number of comma-separated terms in --M must match the number of partitioned'
@@ -718,7 +731,7 @@ def sumstats(args, header=None):
 					+str(e.args))
 	
 			if len(keep_ld_colnums) == 0:
-				raise ValueError('No reference LD columns retained by --keep-ld')
+				raise ValueError('No reference LD columns retained by --keep-ld.')
 	
 			keep_ld_colnums = [0] + keep_ld_colnums
 			try:
@@ -727,27 +740,31 @@ def sumstats(args, header=None):
 			except IndexError as e:
 				raise IndexError('--keep-ld column numbers are out of bounds: '+str(e.args))
 		
-	log.log('Using M = '+str(np.array(M_annot)).replace('[','').replace(']','') ) # convert to np to use np printoptions
+	log.log('Using M = '+str(np.array(M_annot)).replace('[','').replace(']','').replace(' ','') ) # convert to np to use np printoptions
 	ii = np.squeeze(np.array(ref_ldscores.iloc[:,1:len(ref_ldscores.columns)].var(axis=0) == 0))
 	if np.any(ii):
-		log.log('Removing partitioned LD Scores with zero variance')
+		log.log('Removing partitioned LD Scores with zero variance.')
 		ii = np.insert(ii, 0, False) # keep the SNP column		
 		ref_ldscores = ref_ldscores.ix[:,np.logical_not(ii)]
 		M_annot = [M_annot[i] for i in xrange(1,len(ii)) if not ii[i]]
 		n_annot = len(M_annot)
 			
-	log_msg = 'Read reference panel LD Scores for {N} SNPs.'
-	log.log(log_msg.format(N=len(ref_ldscores)))
-
 	# read regression SNP LD Scores
 	try:
 		if args.w_ld:
+			log.log('Reading regression weight LD Scores from {F} ...'.format(F=args.w_ld))
 			w_ldscores = ps.ldscore(args.w_ld)
 		elif args.w_ld_chr:
+			if '@' in args.w_ld_chr:
+				f = args.w_ld_chr.replace('@','[1-22]')
+			else:
+				f = args.w_ld_chr+'[1-22]'
+
+			log.log('Reading regression weight LD Scores from {F} ...'.format(F=f))
 			w_ldscores = ps.ldscore(args.w_ld_chr, 22)
 
 	except ValueError as e:
-		log.log('Error parsing regression SNP LD')
+		log.log('Error parsing regression SNP LD.')
 		raise e
 	
 	if len(w_ldscores.columns) != 2:
@@ -818,7 +835,11 @@ def sumstats(args, header=None):
 	if len(sumstats) < 200000:
 		log.log('WARNING: number of SNPs less than 200k; this is almost always bad.')
 
+	if args.constrain_intercept:
+		args.constrain_intercept = args.constrain_intercept.replace('N','-')
+
 	# LD Score regression intercept
+	
 	if args.intercept:
 		log.log('Estimating LD Score regression intercept.')
 		# filter out large-effect loci
