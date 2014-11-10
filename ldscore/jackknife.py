@@ -704,7 +704,7 @@ class Gencor(object):
 	'''
 	
 	def __init__(self, bhat1, bhat2, ref_ld, w_ld, N1, N2, M, intercepts, 
-		N_overlap=None,	rho=None, num_blocks=200, return_silly_things=False):
+		N_overlap=None,	rho=None, num_blocks=200, return_silly_things=False, first_hsq=None):
 
 		self.N1 = N1
 		self.N2 = N2
@@ -722,9 +722,13 @@ class Gencor(object):
 		self.return_silly_things = return_silly_things
 		chisq1 = np.multiply(N1, np.square(bhat1))
 		chisq2 = np.multiply(N2, np.square(bhat2))
-				
-		self.hsq1 = Hsq(chisq1, ref_ld, w_ld, N1, M, num_blocks=num_blocks, non_negative=False,
-			intercept=intercepts[0])
+		
+		if first_hsq is None:
+			self.hsq1 = Hsq(chisq1, ref_ld, w_ld, N1, M, num_blocks=num_blocks, non_negative=False,
+				intercept=intercepts[0])
+		else:
+			self.hsq1 = first_hsq
+			
 		self.hsq2 = Hsq(chisq2, ref_ld, w_ld, N2, M, num_blocks=num_blocks, non_negative=False,
 			intercept=intercepts[1])
 		self.gencov = Gencov(bhat1, bhat2, ref_ld, w_ld, N1, N2, M, self.hsq1.tot_hsq,

@@ -185,7 +185,7 @@ def read_cts(fh, match_snps):
 	return cts.ANNOT.values
 
 
-def chisq(fh, require_alleles):
+def chisq(fh, require_alleles=False, keep_na=False):
 	'''
 	Parses .chisq files. See docs/file_formats_sumstats.txt
 	
@@ -225,50 +225,55 @@ def chisq(fh, require_alleles):
 	try:
 		check_N(x['N'])	
 	except KeyError as e:
-		raise KeyError('No column named N in .betaprod: '+str(e.args))
+		raise KeyError('No column named N in .chisq: '+str(e.args))
 
 	x['N'] = x['N'].astype(float)
 	
 	try:
 		check_rsid(x['SNP'])
 	except KeyError as e:
-		raise KeyError('No column named SNP in .betaprod: '+str(e.args))
+		raise KeyError('No column named SNP in .chisq: '+str(e.args))
+	
+	ii = x.N.notnull()
 	
 	if 'MAF' in x.columns:
-		check_maf(x['MAF'])
-		x['MAF'] = np.fmin(x['MAF'], 1-x['MAF'])
-	
+		check_maf(x['MAF'][ii])
+		x['MAF'][ii] = np.fmin(x['MAF'][ii], 1-x['MAF'][ii])	
+
 	if 'P' in x.columns:
-		check_pvalue(x['P'])
-		x['P'] = chdtri(1, x['P']); 
+		check_pvalue(x['P'][ii])
+		x['P'][ii] = chdtri(1, x['P'][ii]); 
 		x.rename(columns={'P': 'CHISQ'}, inplace=True)
 	elif 'CHISQ' in x.columns:
-		check_chisq(x['CHISQ'])
+		check_chisq(x['CHISQ'][ii])
 	else:
 		raise ValueError('.chisq file must have a column labeled either P or CHISQ.')
 	
 	if 'INC_ALLELE' in x.columns:
-		x.INC_ALLELE = x.INC_ALLELE.apply(lambda y: y.upper())
-		y = x.INC_ALLELE.unique()
-		p = np.all( (y == 'A') or (y == 'C') or (y == 'T') or (y == 'G'))
+		x.INC_ALLELE[ii] = x.INC_ALLELE[ii].apply(lambda y: y.upper())
+		y = x.INC_ALLELE[ii].unique()
+		p = ( (y == 'A') | (y == 'C') | (y == 'T') | (y == 'G')).all()
 		if not p:
 			raise ValueError('INC_ALLELE column must contain only A/C/T/G.')
 		
 	if 'DEC_ALLELE' in x.columns:
-		x.DEC_ALLELE = x.DEC_ALLELE.apply(lambda y: y.upper())
-		y = x.DEC_ALLELE.unique()
-		p = np.all( (y == 'A') or (y == 'C') or (y == 'T') or (y == 'G'))
+		x.DEC_ALLELE[ii] = x.DEC_ALLELE[ii].apply(lambda y: y.upper())
+		y = x.DEC_ALLELE[ii].unique()
+		p = ( (y == 'A') | (y == 'C') | (y == 'T') | (y == 'G')).all()
 		if not p:
 			raise ValueError('DEC_ALLELE column must contain only A/C/T/G.')
 	
 	if 'INC_ALLELE' in x.columns and 'DEC_ALLELE' in x.columns:
-		if np.any(x.INC_ALLELE == x.DEC_ALLELE):
+		if np.any(x.INC_ALLELE[ii] == x.DEC_ALLELE[ii]):
 			raise ValueError('INC_ALLELE cannot equal DEC_ALLELE.')
 
 	if require_alleles:
 		if not ('INC_ALLELE' in x.columns and 'DEC_ALLELE' in x.columns):
 			msg = '.chisq file must have an INC_ALLELE and DEC_ALLELE column for rg estimation.'
 			raise ValueError(msg)
+
+	if not keep_na:
+		x = x[ii]
 
 	return x
 

@@ -94,21 +94,41 @@ colnames_conversion = {
 	
 }
 
-
 parser = argparse.ArgumentParser()
 parser.add_argument('--sumstats', default=None, type=str)
-parser.add_argument('--N', default=None, type=float)
-parser.add_argument('--N-cas', default=None, type=float)
-parser.add_argument('--N-con', default=None, type=float)
-parser.add_argument('--out', default=None, type=str)
-parser.add_argument('--gc', default=None, type=float)
-parser.add_argument('--info', default=0.9, type=float)
-parser.add_argument('--maf', default=0.01, type=float)
-parser.add_argument('--daner', default=False, action='store_true')
-parser.add_argument('--merge', default='/humgen/atgu1/fs03/data/hm3.snplist.gz',
-	type=str)
-args = parser.parse_args()
+ help="Input filename.")
+parser.add_argument('--N', default=None, type=float,
+	help="Sample size If this option is not set, will try to infer the sample "
+	"size from the input file. If the input file contains a sample size "
+	"column, and this flag is set, the argument to this flag has priority.")
+parser.add_argument('--N-cas', default=None, type=float,
+	help="Number of cases. If this option is not set, will try to infer the number "
+	"of cases from the input file. If the input file contains a number of cases "
+	"column, and this flag is set, the argument to this flag has priority.")
+parser.add_argument('--N-con', default=None, type=float,
+	help="Number of controls. If this option is not set, will try to infer the number "
+	"of controls from the input file. If the input file contains a number of controls "
+	"column, and this flag is set, the argument to this flag has priority.")
+parser.add_argument('--out', default=None, type=str,
+	help="Output filename prefix.")
+#parser.add_argument('--gc', default=None, type=float.
+#	help="Second GC correction factor. Will un-do second-level GC correction by "
+#	"multiplying all chi^2 statistics by the argument to --gc.")
+parser.add_argument('--info', default=0.9, type=float,
+	help="Minimum INFO score.")
+parser.add_argument('--maf', default=0.01, type=float,
+	help="Minimum MAF.")
+parser.add_argument('--daner', default=False, action='store_true',
+	help="Use this flag to parse Stephan Ripke's daner* file format.")
+parser.add_argument('--merge', default=None, type=str,
+	help="Path to file with a list of SNPs to merge w/ the SNPs in the input file. "
+	"Will print the same SNPs in the same order as the --merge file, "
+	"with NA's for SNPs in the --merge file and not in the input file." )
+parser.add_argument('--alleles', default=None, type=float,
+	help="Raise an error if the input file does not contain allele columns. "
+	"Useful if the .chisq files are to be used for rg estimation.")
 
+args = parser.parse_args()
 
 (openfunc, compression) = get_compression(args.sumstats)
 out_chisq = args.out+'.chisq'
@@ -143,28 +163,17 @@ dat.A2 = dat.A2.apply(lambda y: y.upper())
 dat = dat[~np.isnan(dat.P)]
 dat = dat[dat.P>0]
 
-# merge with --merge file 
-if args.merge:
-	(openfunc, compression) = get_compression(args.merge)
-	merge_snplist = pd.read_csv(args.merge, compression=compression, header=None)
-	merge_snplist.columns=['SNP']
-	print 'Read list of {M} SNPs to retain from {F}.'.format(M=len(merge_snplist),
-		F=args.merge)
-	dat = dat[dat.SNP.isin(merge_snplist.SNP)]
-	print 'After merging with --merge SNPs, {M} SNPs remain.'.format(M=len(dat))
-
 # N
 if args.N:
 	dat['N'] = args.N
 elif args.N_cas and args.N_con:
 	dat['N'] = args.N_cas + args.N_con
-elif 'N_CAS' in dat.columns:
+elif 'N_CAS' in dat.columns and 'N_CON' in dat.columns:
 	N = dat.N_CAS + dat.N_CON
 	P = dat.N_CAS / N
 	ii = N == N.max()
 	P_max = P[ii].mean()
 	print "Using P_max = {P}.".format(P=P_max)
-
 	dat['N'] = N * P /	 P_max
 	del dat['N_CAS']
 	del dat['N_CON']
@@ -185,39 +194,66 @@ if 'FRQ' in dat.columns:
 	dat = dat[dat.MAF > args.maf]
 	print 'After filtering on MAF > {C}, {M} SNPs remain.'.format(C=args.maf,	M=len(dat))
 
-# signed summary stat and alleles
-if 'OR' in dat.columns:
-	dat.OR = dat.OR.convert_objects(convert_numeric=True)
-	dat = dat[~np.isnan(dat.OR)]
-	flip = dat.OR < 1
-elif 'Z' in dat.columns:
-	dat.Z = dat.Z.convert_objects(convert_numeric=True)
-	dat = dat[~np.isnan(dat.Z)]
-	flip = dat.Z < 0
-elif 'BETA' in dat.columns:
-	dat.BETA = dat.BETA.convert_objects(convert_numeric=True)
-	dat = dat[~np.isnan(dat.BETA)]
-	flip = dat.BETA < 0
-elif 'LOG_ODDS' in dat.columns:
-	dat.LOG_ODDS = dat.LOG_ODDS.convert_objects(convert_numeric=True)
-	dat = dat[~np.isnan(dat.LOG_ODDS)]
-	flip = dat.LOG_ODDS < 0
-else: # assume A1 is trait increasing allele and print a warning
-	print 'Warning: no signed summary stat found. Assuming A1 is risk/increasing allele.'
-	flip = pd.Series(False)
+if 'A1' in dat.columns and 'A2' in dat.columns:
+	# signed summary stat and alleles
+	if 'OR' in dat.columns:
+		dat.OR = dat.OR.convert_objects(convert_numeric=True)
+		dat = dat[~np.isnan(dat.OR)]
+		flip = dat.OR < 1
+	elif 'Z' in dat.columns:
+		dat.Z = dat.Z.convert_objects(convert_numeric=True)
+		dat = dat[~np.isnan(dat.Z)]
+		flip = dat.Z < 0
+	elif 'BETA' in dat.columns:
+		dat.BETA = dat.BETA.convert_objects(convert_numeric=True)
+		dat = dat[~np.isnan(dat.BETA)]
+		flip = dat.BETA < 0
+	elif 'LOG_ODDS' in dat.columns:
+		dat.LOG_ODDS = dat.LOG_ODDS.convert_objects(convert_numeric=True)
+		dat = dat[~np.isnan(dat.LOG_ODDS)]
+		flip = dat.LOG_ODDS < 0
+	else: # assume A1 is trait increasing allele and print a warning
+		print 'Warning: no signed summary stat found. Assuming A1 is risk/increasing allele.'
+		flip = pd.Series(False)
 	
-INC_ALLELE = dat.A1
-if flip.any():
-	INC_ALLELE[flip] = dat.A2[flip]
-dat['INC_ALLELE'] = INC_ALLELE
+	# convert A1 and A2 to INC_ALLELE and DEC_ALLELE
+	INC_ALLELE = dat.A1
+	DEC_ALLELE = dat.A2
+	if flip.any():
+		INC_ALLELE[flip] = dat.A2[flip]
+		DEC_ALLELE[flip] = dat.A1[flip]
+		
+	dat['INC_ALLELE'] = INC_ALLELE
+	dat['DEC_ALLELE'] = DEC_ALLELE
+	
+elif args.alleles:
+	raise ValueError('The --alleles flag is set, but there are no allele columns.')
+
+# check uniqueness of rs numbers
+# if not unique, uniquify by taking the first row for each rs number
+old = len(dat)
+dat.drop_duplicates('SNP', inplace=True)
+new = len(dat)
+if old != new:
+	print "Removed {N} SNPs with duplicated rs numbers.".format(N=old-new)
+
+# merge with --merge file 
+# keep the same SNPs in the same order (w/ NA's) so that ldsc can use concat instead of merge
+if args.merge:
+	(openfunc, compression) = get_compression(args.merge)
+	merge_snplist = pd.read_csv(args.merge, compression=compression, header=None)
+	merge_snplist.columns=['SNP']
+
+	print 'Read list of {M} SNPs to retain from {F}.'.format(M=len(merge_snplist),
+		F=args.merge)
+	
+	dat = pd.merge(merge_snplist, dat, on='SNP', how='left', sort=False)	
+	remain = dat.P.notnull().sum()
+	print 'After merging with --merge SNPs, {M} SNPs remain.'.format(M=remain)
 
 # chisq.gz
 print 'Writing P-values for {M} SNPs to {F}.'.format(M=len(dat), F=out_chisq+'.gz')
-chisq_colnames = [c for c in ['SNP','INFO','N','P','MAF'] if c in dat.columns]
+chisq_colnames = [c for c in ['SNP','INFO','N','P','MAF','INC_ALLELE','DEC_ALLELE'] 
+	if c in dat.columns]
 dat.ix[:,chisq_colnames].to_csv(out_chisq, sep="\t", index=False)
 os.system('gzip -f {F}'.format(F=out_chisq))
-
-# allele.gz
-print 'Writing alleles for {M} SNPs to {F}.'.format(M=len(dat), F=out_allele+'.gz')
-dat.ix[:,['SNP','INC_ALLELE']].to_csv(out_allele,sep='\t',index=False)
-os.system('gzip -f {F}'.format(F=out_allele))
