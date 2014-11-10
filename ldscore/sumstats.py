@@ -12,6 +12,7 @@ import numpy as np
 import pandas as pd
 import jackknife as jk
 import parse as ps
+import sys, traceback
 import itertools as it
 
 # complementary bases
@@ -49,6 +50,7 @@ FLIP_ALLELES = {''.join(x):
 	if (x[0] != x[1]) and (x[2] != x[3]) and 
 	(x[0] != COMPLEMENT[x[1]]) and (x[2] != COMPLEMENT[x[3]])
 	and MATCH_ALLELES[''.join(x)]}
+	
 
 def smart_merge(x, y):
 	'''Check if SNP columns are equal. If so, save time by using concat instead of merge.'''
@@ -451,7 +453,8 @@ class Intercept(H2):
 		self.log = logger(args.out + ".log")
 		if header:
 			self.log.log(header)
-		
+
+		# WARNING: sumstats contains NA values to speed up merge
 		sumstats = self._parse_sumstats(self.log, args.h2, keep_na=True)
 		ref_ldscores = self._read_ref_ld(args, self.log)
 		M_annot = self._read_M(args, self.log)
@@ -461,6 +464,7 @@ class Intercept(H2):
 		w_ld_colname, ref_ld_colnames, self.sumstats =\
 			self._merge_sumstats_ld(args, self.log, sumstats, M_annot, ref_ldscores, w_ldscores)
 		del sumstats
+		# Remove NA values from sumstats
 		self.sumstats = self.sumstats[self.sumstats.CHISQ.notnull()]
 		self._check_ld_condnum(args, self.log, M_annot, self.sumstats[ref_ld_colnames])
 		self._warn_length(self.log, self.sumstats)
@@ -497,7 +501,10 @@ class Rg(_sumstats):
 			rg_file_list = args.rg.split(',')
 		elif args.rg_list:
 			rg_file_list = [x.rstrip('\n') for x in open(args.rg_list,'r').readlines()]
-
+			self.log.log('The following files are specified by --rg-list:')
+			self.log.log('\n'.join(rg_file_list))
+			self.log.log('\n')
+			
 		rg_suffix_list = [x.split('/')[-1] for x in rg_file_list]
 		pheno1 = rg_file_list[0]
 		out_prefix = args.out + rg_suffix_list[0]
@@ -513,60 +520,85 @@ class Rg(_sumstats):
 		 self._merge_sumstats_ld(args, self.log, sumstats, M_annot, ref_ldscores, w_ldscores)
 		self.M_annot = M_annot
 		self.rghat = []
-
+				
 		for i,pheno2 in enumerate(rg_file_list[1:len(rg_file_list)]):
 			if len(rg_file_list) > 2:
 				log_msg = 'Computing genetic correlation for phenotype {I}/{N}'
 				self.log.log(log_msg.format(I=i+2, N=len(rg_file_list)))
 			else:
 				self.log.log('Computing genetic correlation.')
-			sumstats2 = self._parse_sumstats(self.log, pheno2, require_alleles=True, keep_na=True)
-			out_prefix_loop = out_prefix + '_' + rg_suffix_list[i+1]
-			sumstats_loop = self._merge_sumstats_sumstats(self.sumstats, sumstats2, self.log)
-			# missing data has now been removed
-			sumstats_loop = self._filter_chisq(args, self.log, sumstats_loop, 0.001)
-			self._check_ld_condnum(args, self.log, M_annot, sumstats_loop[ref_ld_colnames])
-			self._warn_length(self.log, sumstats_loop)
-			snp_count = len(sumstats_loop); n_annot = len(ref_ld_colnames)
-			rghat = self._rg(sumstats_loop, args, self.log, M_annot, ref_ld_colnames, w_ld_colname)
+			try:
+				sumstats2 = self._parse_sumstats(self.log, pheno2, require_alleles=True, keep_na=True)
+				out_prefix_loop = out_prefix + '_' + rg_suffix_list[i+1]
+				sumstats_loop = self._merge_sumstats_sumstats(self.sumstats, sumstats2, self.log)
+				# missing data has now been removed
+				sumstats_loop = self._filter_chisq(args, self.log, sumstats_loop, 0.001)
+				self._check_ld_condnum(args, self.log, M_annot, sumstats_loop[ref_ld_colnames])
+				self._warn_length(self.log, sumstats_loop)
+				snp_count = len(sumstats_loop); n_annot = len(ref_ld_colnames)
+				if i == 1:
+					rghat = self._rg(sumstats_loop, args, self.log, M_annot, ref_ld_colnames, 
+						w_ld_colname)
+					hsq1 = rghat.hsq1
+				else:
+					rghat = self._rg(sumstats_loop, args, self.log, M_annot, ref_ld_colnames, 
+						w_ld_colname, first_hsq=hsq1)
 			
-			if not args.human_only and n_annot > 1:
-				gencov_jknife_ofh = out_prefix_loop+'.gencov.cov'
-				hsq1_jknife_ofh = out_prefix_loop+'.hsq1.cov'
-				hsq2_jknife_ofh = out_prefix_loop+'.hsq2.cov'	
-				self._print_cov(args, self.log, rghat.hsq1, n_annot, hsq1_jknife_ofh)
-				self._print_cov(args, self.log, rghat.hsq2, n_annot, hsq2_jknife_ofh)
-				self._print_gencov_cov(args, self.log, rghat.gencov, n_annot, gencov_jknife_ofh)
+				if not args.human_only and n_annot > 1:
+					gencov_jknife_ofh = out_prefix_loop+'.gencov.cov'
+					hsq1_jknife_ofh = out_prefix_loop+'.hsq1.cov'
+					hsq2_jknife_ofh = out_prefix_loop+'.hsq2.cov'	
+					self._print_cov(args, self.log, rghat.hsq1, n_annot, hsq1_jknife_ofh)
+					self._print_cov(args, self.log, rghat.hsq2, n_annot, hsq2_jknife_ofh)
+					self._print_gencov_cov(args, self.log, rghat.gencov, n_annot, gencov_jknife_ofh)
 		
-			if args.print_delete_vals:
-				hsq1_delete_ofh = out_prefix_loop+'.hsq1.delete_k'
-				self._print_delete_k(rghat.hsq1, hsq1_delete_ofh, self.log)
-				hsq2_delete_ofh = out_prefix_loop+'.hsq2.delete_k'
-				self._print_delete_k(rghat.hsq2, hsq2_delete_ofh, self.log)
-				gencov_delete_ofh = out_prefix_loop+'.gencov.delete_k'
-				self._print_delete_k(rghat.gencov, gencov_delete_ofh, self.log)
+				if args.print_delete_vals:
+					hsq1_delete_ofh = out_prefix_loop+'.hsq1.delete_k'
+					self._print_delete_k(rghat.hsq1, hsq1_delete_ofh, self.log)
+					hsq2_delete_ofh = out_prefix_loop+'.hsq2.delete_k'
+					self._print_delete_k(rghat.hsq2, hsq2_delete_ofh, self.log)
+					gencov_delete_ofh = out_prefix_loop+'.gencov.delete_k'
+					self._print_delete_k(rghat.gencov, gencov_delete_ofh, self.log)
+			
+				self._print_gencor(args, self.log, rghat, ref_ld_colnames, i, rg_file_list, i==1)
+				self.rghat.append(rghat)
+			
+			except Exception as e:
+				'''
+				Better to print an error message then keep going if phenotype 50/100 causes an
+				error but the other 99/100 phenotypes are OK
+				
+				'''
+				
+				msg = 'Error computing rg for phenotype {I}/{N}'
+				self.log.log(msg.format(I=i+2, N=len(rg_file_list)))
+				ex_type, ex, tb = sys.exc_info()
+				self.log.log( traceback.format_exc(ex) )
+				self.log.log('\n')
 
+				
+	def _print_gencor(self, args, log, rghat, ref_ld_colnames,i, rg_file_list, print_hsq1):
+		if print_hsq1:
 			self.log.log( '\n' )
 			self.log.log( 'Heritability of phenotype 1' )
 			self.log.log( '---------------------------' )
 			self.log.log(rghat.hsq1.summary(ref_ld_colnames, args.overlap_annot))
-			self.log.log( '\n' )
-			msg = 'Heritability of phenotype {I}/{N}'.format(I=i+2, N=len(rg_file_list))
-			self.log.log(msg)
-			self.log.log( ''.join(['-' for i in xrange(len(msg)) ] ))
-			self.log.log(rghat.hsq2.summary(ref_ld_colnames, args.overlap_annot))
-			self.log.log( '\n' )
-			self.log.log( 'Genetic Covariance' )
-			self.log.log( '------------------' )
-			self.log.log(rghat.gencov.summary(ref_ld_colnames, args.overlap_annot))
-			self.log.log( '\n' )
-			self.log.log( 'Genetic Correlation' )
-			self.log.log( '-------------------' )
-			self.log.log(rghat.summary() )
-			self.log.log( '\n' )
-			self.rghat.append(rghat)
+
+		self.log.log( '\n' )
+		msg = 'Heritability of phenotype {I}/{N}'.format(I=i+2, N=len(rg_file_list))
+		self.log.log(msg)
+		self.log.log( ''.join(['-' for i in xrange(len(msg)) ] ))
+		self.log.log(rghat.hsq2.summary(ref_ld_colnames, args.overlap_annot))
+		self.log.log( '\n' )
+		self.log.log( 'Genetic Covariance' )
+		self.log.log( '------------------' )
+		self.log.log(rghat.gencov.summary(ref_ld_colnames, args.overlap_annot))
+		self.log.log( '\n' )
+		self.log.log( 'Genetic Correlation' )
+		self.log.log( '-------------------' )
+		self.log.log(rghat.summary() )
+		self.log.log( '\n' )
 		
-	
 	def _merge_sumstats_sumstats(self, sumstats1, sumstats2, log):
 		'''
 		Merge two sets of summary statistics and align strand + reference alleles.
@@ -574,9 +606,6 @@ class Rg(_sumstats):
 		This function filters out NA's
 				
 		'''
-		### TODO -- replace value error with warning message
-		# better to throw a warning than die on an error if rg 50/100 doesn't work but the
-		# other 99 are OK.
 		
 		# rename and merge (ideally just concatenate sideways)
 		sumstats2.rename(columns={'INC_ALLELE': 'INC_ALLELE2',
@@ -619,7 +648,7 @@ class Rg(_sumstats):
 		del x['INC_ALLELE']; del x['DEC_ALLELE']; del x['INC_ALLELE2']; del x['DEC_ALLELE2']
 		return x
 		
-	def _rg(self, sumstats_loop, args, log, M_annot, ref_ld_colnames, w_ld_colname):
+	def _rg(self, sumstats_loop, args, log, M_annot, ref_ld_colnames, w_ld_colname, first_hsq=None):
 		self.log.log('Estimating genetic correlation.')
 		snp_count = len(sumstats_loop); n_annot = len(ref_ld_colnames)
 		if snp_count < args.num_blocks:
@@ -665,9 +694,13 @@ class Rg(_sumstats):
 
 		else:
 			intercepts = [None, None, None]
-	
-		rghat = jk.Gencor(betahat1, betahat2, ref_ld, w_ld, N1, N2, M_annot, intercepts,
-			args.overlap,	args.rho, num_blocks, return_silly_things=args.return_silly_things)
+		if first_hsq is None:
+			rghat = jk.Gencor(betahat1, betahat2, ref_ld, w_ld, N1, N2, M_annot, intercepts,
+				args.overlap,	args.rho, num_blocks, return_silly_things=args.return_silly_things)
+		else:
+			rghat = jk.Gencor(betahat1, betahat2, ref_ld, w_ld, N1, N2, M_annot, intercepts,
+				args.overlap,	args.rho, num_blocks, return_silly_things=args.return_silly_things,
+				first_hsq=first_hsq)
 		
 		return rghat
 			

@@ -344,9 +344,11 @@ class Hsq(object):
 		self.w_mean_chisq = np.average(chisq, weights=weights)
 		if non_negative:
 			self._jknife = LstsqJackknifeNN(x, y, num_blocks)
-		else:
+		elif self.n_annot > 1:
 			self._jknife = LstsqJackknife(x, y, num_blocks)
-			
+		else:
+			self._jknife = LstsqJackknifeFast(x, y, num_blocks)
+
 		self.autocor = self._jknife.autocor(1)
 		no_intercept_cov = self._jknife.jknife_cov[0:self.n_annot,0:self.n_annot]
 		self.hsq_cov = np.multiply(np.dot(self.M.T,self.M), no_intercept_cov)
@@ -580,13 +582,17 @@ class Gencov(object):
 	
 		x = _weight(x, weights)
 		y = _weight(y, weights)
-		self._jknife = LstsqJackknife(x, y, num_blocks)
+		if self.n_annot > 1:
+			self._jknife = LstsqJackknife(x, y, num_blocks)
+		else:
+			self._jknife = LstsqJackknifeFast(x, y, num_blocks)
+
 		self.autocor = self._jknife.autocor(1)
 		no_intercept_cov = self._jknife.jknife_cov[0:self.n_annot,0:self.n_annot]
 		self.gencov_cov = np.multiply(np.dot(self.M.T,self.M), no_intercept_cov)
 		self.coef = self._jknife.est[0,0:self.n_annot]
 		self.cat_gencov = np.multiply(self.M, self._jknife.est[0,0:self.n_annot])
-		self.cat_gencov_se = np.multiply(self.M, self._jknife.jknife_se[0,0:self.n_annot])
+		self.cat_gencov_se = np.multiply(self.M, self._jknife.jknife_se[0,0:self.n_annot])	
 		self.tot_gencov = np.sum(self.cat_gencov)
 		self.tot_gencov_se = np.sqrt(np.sum(M*no_intercept_cov*self.M.T))
 		self.prop_gencov = self.cat_gencov / self.tot_gencov
@@ -724,13 +730,13 @@ class Gencor(object):
 		chisq2 = np.multiply(N2, np.square(bhat2))
 		
 		if first_hsq is None:
-			self.hsq1 = Hsq(chisq1, ref_ld, w_ld, N1, M, num_blocks=num_blocks, non_negative=False,
-				intercept=intercepts[0])
+			self.hsq1 = Hsq(chisq1, ref_ld, w_ld, N1, M, num_blocks=num_blocks, 
+				non_negative=False, intercept=intercepts[0])
 		else:
 			self.hsq1 = first_hsq
 			
-		self.hsq2 = Hsq(chisq2, ref_ld, w_ld, N2, M, num_blocks=num_blocks, non_negative=False,
-			intercept=intercepts[1])
+		self.hsq2 = Hsq(chisq2, ref_ld, w_ld, N2, M, num_blocks=num_blocks, 
+			non_negative=False, intercept=intercepts[1])
 		self.gencov = Gencov(bhat1, bhat2, ref_ld, w_ld, N1, N2, M, self.hsq1.tot_hsq,
 			self.hsq2.tot_hsq, N_overlap=self.N_overlap, rho=self.rho, num_blocks=num_blocks,
 			intercept=intercepts[2])
@@ -902,164 +908,102 @@ class LstsqJackknife(Jackknife):
 
 		return delete_values
 	
-# class LstsqJackknife(Jackknife):
-# 
-# 	'''
-# 	Least-squares block jackknife.
-# 	
-# 	Terminology 
-# 	-----------
-# 	For a delete-k block jackknife with nb blocks, define
-# 	
-# 	full estimate : 
-# 		The value of the estimator applied to all the data.
-# 	i_th block-value : 
-# 		The value of estimator applied to the ith block of size k.
-# 	i_th delete-k value : 
-# 		The value of the estimator applied to the data with the ith block of size k removed.
-# 	i_th pseudovalue :
-# 		nb*(full estimate) - (nb - 1) * (i_th delete-k value)
-# 	jackknife estimate:
-# 		The mean psuedovalue (with the mean taken over all nb values of i).
-# 	i_th psuedoerror : 
-# 		(i_th pseudovalue) - (jackknife estimate)
-# 	jackknife standard error / variance :
-# 		Standard error / variance of the pseudoerrors		
-# 	output_dim : int > 0
-# 		Number of output parameters. Default is x.shape[1].
-# 	
-# 	Parameters
-# 	----------
-# 	x : np.matrix with shape (n_snp, n_annot)
-# 		Predictors.
-# 	y : np.matrix with shape (n_snp, 1)
-# 		Response variable.
-# 	num_blocks: int, > 0
-# 		Number of jackknife blocks.
-# 
-# 	Attributes
-# 	----------
-# 	num_blocks : int 
-# 		Number of jackknife blocks
-# 	est : np.matrix with shape (1, n_annot)
-# 		Value of estimator applied to full data set.
-# 	pseudovalues : np.matrix with shape (n_blocks, n_annot)
-# 		Jackknife pseudovalues.
-# 	delete_values : np.matrix
-# 		Block jackknife delete-(block_size) values.
-# 	jknife_est : np.matrix with shape (1, n_annot)
-# 		Mean pseudovalue.
-# 	jknife_var : np.matrix with shape (1, n_annot)
-# 		Estimated variance of jackknife estimator.
-# 	jknife_se : np.matrix with shape (1, n_annot)
-# 		Estimated standard error of jackknife estimator.
-# 	jknife_cov : np.matrix with shape (n_annot, n_annnot)
-# 		Estimated variance-covariance matrix of the jackknife estimator. Diagonal entries
-# 		are equal to jknife_var.
-# 
-# 	Methods
-# 	-------
-# 	autocov(lag) : 
-# 		Returns lag-[lag] autocovariance in jackknife pseudoerrors.
-# 	autocor(lag) :
-# 		Returns lag-[lag] autocorrelation (autocovariance divided by standard deviation) in 
-# 		jackknife pseudoerrors.
-# 	__block_vals_to_psuedovals__(block_vals, est) :
-# 		Converts block values and full estimate to pseudovalues.
-# 	__block_vals_to_est__() :
-# 		Converts block values to full estimate.
-# 		
-# 	
-# 	Possible TODO: impute FFT de-correlation (NP)
-# 	
-# 	'''
-# 
-# 	def __init__(self, x, y, num_blocks):
-# 		if len(x.shape) <= 1:
-# 			x = np.atleast_2d(x).T
-# 		if len(y.shape) <= 1:
-# 			y = np.atleast_2d(y).T
-# 	
-# 		self.N = y.shape[0]
-# 		if self.N != x.shape[0]:
-# 			raise ValueError('Number of data points in y != number of data points in x.')
-# 		
-# 		self.output_dim = x.shape[1]
-# 		self.num_blocks = num_blocks		
-# 		if self.num_blocks > self.N:
-# 			msg = 'Number of jackknife blocks ({N1}) > number of SNPs ({N2}). '
-# 			msg += 'Reduce the number of jackknife blocks with the --num-blocks flag.'
-# 			raise ValueError(msg.format(N1=self.num_blocks, N2=self.N))
-# 
-# 		self.block_vals = self.__compute_block_vals__(x, y, num_blocks)
-# 		self.est = self.__block_vals_to_est__(self.block_vals)
-# 		(self.pseudovalues, self.delete_values) =\
-# 			self.__block_vals_to_pseudovals__(self.block_vals, self.est)
-# 		(self.jknife_est, self.jknife_var, self.jknife_se, self.jknife_cov) =\
-# 			self.__jknife__(self.pseudovalues, self.num_blocks)
-# 			
-# 	
-# 	def __compute_block_vals__(self, x, y, num_blocks):
-# 		N = self.N
-# 		block_size = int(N/num_blocks)
-# 		separators = np.arange(0,N,block_size)
-# 		remainder = N - separators[-1]
-# 		
-# 		if len(separators) == num_blocks:
-# 			separators = np.hstack([separators,N])
-# 		else:
-# 			for r in range(remainder):
-# 				separators[-(r+1)] += remainder - r
-# 
-# 		xty_block_vals = []; xtx_block_vals = []
-# 		for i in range(len(separators)-1):	
-# 			# s = block start SNP index; e = block end SNP index
-# 			s = separators[i]
-# 			e = separators[i+1]
-# 			xty = np.dot( x[s:e,...].T, y[s:e,...] )
-# 			xtx = np.dot( x[s:e,...].T, x[s:e,...] )
-# 			xty_block_vals.append(xty)
-# 			xtx_block_vals.append(xtx)
-# 			
-# 		block_vals = (xty_block_vals, xtx_block_vals)
-# 		return block_vals
-# 
-# 	def __block_vals_to_pseudovals__(self, block_vals, est):
-# 		'''Converts block values to pseudovalues'''
-# 		pseudovalues = np.matrix(np.zeros((self.num_blocks, self.output_dim)))
-# 		delete_values = np.matrix(np.zeros((self.num_blocks, self.output_dim)))
-# 		xty_blocks = block_vals[0]
-# 		xtx_blocks = block_vals[1]
-# 		xty_tot = np.sum(xty_blocks, axis=0)
-# 		xtx_tot = np.sum(xtx_blocks, axis=0)
-# 		try:
-# 			for j in xrange(0,self.num_blocks):
-# 				delete_xty_j = xty_tot - xty_blocks[j]
-# 				delete_xtx_inv_j = np.linalg.inv(xtx_tot - xtx_blocks[j])
-# 				delete_value_j = np.dot(delete_xtx_inv_j, delete_xty_j).T
-# 				pseudovalues[j,...] = self.num_blocks*est - (self.num_blocks-1)*delete_value_j
-# 				delete_values[j,...] = delete_value_j
-# 		except np.linalg.linalg.LinAlgError as e:
-# 			msg = 'Singular design matrix in at least one delete-k jackknife block. '
-# 			msg += 'Check that you have not passed highly correlated partitioned LD Scores. '
-# 			msg += 'Sometimes changing the block size can help. '
-# 			raise np.linalg.linalg.LinAlgError(msg, e)
-# 			
-# 		return (pseudovalues, delete_values)
-# 		
-# 	def __block_vals_to_est__(self, block_vals):
-# 		'''Converts block values to the total (non-jackknife) estimate'''
-# 		xty_blocks = block_vals[0]
-# 		xtx_blocks = block_vals[1]
-# 		xty = np.sum(xty_blocks, axis=0)
-# 		try:
-# 			xtx_inv = np.linalg.inv(np.sum(xtx_blocks, axis=0))
-# 		except np.linalg.linalg.LinAlgError as e:
-# 			msg = "Singular design matrix in at least one delete-k jackknife block. "
-# 			msg += 'Check that you have not passed highly correlated partitioned LD Scores.'
-# 			raise np.linalg.linalg.LinAlgError(msg, e)
-# 	
-# 		return np.matrix(np.dot(xtx_inv, xty).T)
+	
+class LstsqJackknifeFast(LstsqJackknife):
+
+	'''
+	Fast least-squares block jackknife.
+	
+	Less numerically stable than the other option, so probably don't use for multivariate
+	regression. Fine for univariate regression.
+	
+	'''
+	def __init__(self, x, y, num_blocks):
+		if len(x.shape) <= 1:
+			x = np.atleast_2d(x).T
+		if len(y.shape) <= 1:
+			y = np.atleast_2d(y).T
+	
+		self.N = y.shape[0]
+		if self.N != x.shape[0]:
+			raise ValueError('Number of data points in y != number of data points in x.')
+		
+		self.output_dim = x.shape[1]
+		self.num_blocks = num_blocks		
+		if self.num_blocks > self.N:
+			msg = 'Number of jackknife blocks ({N1}) > number of SNPs ({N2}). '
+			msg += 'Reduce the number of jackknife blocks with the --num-blocks flag.'
+			raise ValueError(msg.format(N1=self.num_blocks, N2=self.N))
+
+		self.block_vals = self.__compute_block_vals__(x, y, num_blocks)
+		self.est = self.__block_vals_to_est__(self.block_vals)
+		(self.pseudovalues, self.delete_values) =\
+			self.__block_vals_to_pseudovals__(self.block_vals, self.est)
+		(self.jknife_est, self.jknife_var, self.jknife_se, self.jknife_cov) =\
+			self.__jknife__(self.pseudovalues, self.num_blocks)
+			
+	
+	def __compute_block_vals__(self, x, y, num_blocks):
+		N = self.N
+		block_size = int(N/num_blocks)
+		separators = np.arange(0,N,block_size)
+		remainder = N - separators[-1]
+		
+		if len(separators) == num_blocks:
+			separators = np.hstack([separators,N])
+		else:
+			for r in range(remainder):
+				separators[-(r+1)] += remainder - r
+
+		xty_block_vals = []; xtx_block_vals = []
+		for i in range(len(separators)-1):	
+			# s = block start SNP index; e = block end SNP index
+			s = separators[i]
+			e = separators[i+1]
+			xty = np.dot( x[s:e,...].T, y[s:e,...] )
+			xtx = np.dot( x[s:e,...].T, x[s:e,...] )
+			xty_block_vals.append(xty)
+			xtx_block_vals.append(xtx)
+			
+		block_vals = (xty_block_vals, xtx_block_vals)
+		return block_vals
+
+	def __block_vals_to_pseudovals__(self, block_vals, est):
+		'''Converts block values to pseudovalues'''
+		pseudovalues = np.matrix(np.zeros((self.num_blocks, self.output_dim)))
+		delete_values = np.matrix(np.zeros((self.num_blocks, self.output_dim)))
+		xty_blocks = block_vals[0]
+		xtx_blocks = block_vals[1]
+		xty_tot = np.sum(xty_blocks, axis=0)
+		xtx_tot = np.sum(xtx_blocks, axis=0)
+		try:
+			for j in xrange(0,self.num_blocks):
+				delete_xty_j = xty_tot - xty_blocks[j]
+				delete_xtx_inv_j = np.linalg.inv(xtx_tot - xtx_blocks[j])
+				delete_value_j = np.dot(delete_xtx_inv_j, delete_xty_j).T
+				pseudovalues[j,...] = self.num_blocks*est - (self.num_blocks-1)*delete_value_j
+				delete_values[j,...] = delete_value_j
+		except np.linalg.linalg.LinAlgError as e:
+			msg = 'Singular design matrix in at least one delete-k jackknife block. '
+			msg += 'Check that you have not passed highly correlated partitioned LD Scores. '
+			msg += 'Sometimes changing the block size can help. '
+			raise np.linalg.linalg.LinAlgError(msg, e)
+			
+		return (pseudovalues, delete_values)
+		
+	def __block_vals_to_est__(self, block_vals):
+		'''Converts block values to the total (non-jackknife) estimate'''
+		xty_blocks = block_vals[0]
+		xtx_blocks = block_vals[1]
+		xty = np.sum(xty_blocks, axis=0)
+		try:
+			xtx_inv = np.linalg.inv(np.sum(xtx_blocks, axis=0))
+		except np.linalg.linalg.LinAlgError as e:
+			msg = "Singular design matrix in at least one delete-k jackknife block. "
+			msg += 'Check that you have not passed highly correlated partitioned LD Scores.'
+			raise np.linalg.linalg.LinAlgError(msg, e)
+	
+		return np.matrix(np.dot(xtx_inv, xty).T)
 
 		
 class JackknifeAggregate(LstsqJackknife):
