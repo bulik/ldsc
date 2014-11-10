@@ -500,10 +500,14 @@ class Rg(_sumstats):
 		self.rghat = []
 		
 		for i,pheno2 in enumerate(rg_file_list[1:len(rg_file_list)]):
+			log_msg = 'Computing genetic correlation for phenotype {I}/{N}'
+			self.log.log(log_msg.format(I=i+1, N=len(rg_file_list)-1))
 			sumstats2 = self._parse_sumstats(self.log, pheno2, require_alleles=True)
 			out_prefix_loop = out_prefix + '_' + rg_suffix_list[i+1]
 			sumstats_loop = self._merge_sumstats_sumstats(self.sumstats, sumstats2, self.log)
 			sumstats_loop = self._filter_chisq(args, self.log, sumstats_loop, 0.001)
+			self._check_ld_condnum(args, self.log, M_annot, sumstats_loop[ref_ld_colnames])
+			self._warn_length(self.log, sumstats_loop)
 			snp_count = len(sumstats_loop); n_annot = len(ref_ld_colnames)
 			rghat = self._rg(sumstats_loop, args, self.log, M_annot, ref_ld_colnames, w_ld_colname)
 			
@@ -539,6 +543,7 @@ class Rg(_sumstats):
 			self.log.log( 'Genetic Correlation' )
 			self.log.log( '-------------------' )
 			self.log.log(rghat.summary() )
+			self.log.log( '\n' )
 			self.rghat.append(rghat)
 		
 	
@@ -580,10 +585,6 @@ class Rg(_sumstats):
 		return x
 		
 	def _rg(self, sumstats_loop, args, log, M_annot, ref_ld_colnames, w_ld_colname):
-		self._check_ld_condnum(args, self.log, M_annot, sumstats_loop[ref_ld_colnames])
-		self._warn_length(self.log, sumstats_loop)
-		self.sumstats_loop = self._filter_chisq(args, log, sumstats_loop, 0.001)
-
 		self.log.log('Estimating genetic correlation.')
 		snp_count = len(sumstats_loop); n_annot = len(ref_ld_colnames)
 		if snp_count < args.num_blocks:
