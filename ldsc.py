@@ -640,7 +640,9 @@ if __name__ == '__main__':
 	parser.add_argument('--h2', default=None, type=str,
 		help='Path prefix to .chisq file with summary statistics for h2 estimation.')
 	parser.add_argument('--rg', default=None, type=str,
-		help='Comma-separated list of two prefixes of .chisq/.allele filesets with summary statistics for genetic correlation estimation.')
+		help='Comma-separated list of prefixes of .chisq filed for genetic correlation estimation.')
+	parser.add_argument('--rg-list', default=None, type=str,
+		help='File containing a list of prefixes of .chisq files (one per line) for genetic correlation estimation.')
 	parser.add_argument('--ref-ld', default=None, type=str,
 		help='Filename prefix for file with reference panel LD Scores.')
 	parser.add_argument('--ref-ld-chr', default=None, type=str,
@@ -769,13 +771,13 @@ if __name__ == '__main__':
 	elif (args.h2 or 
 		args.rg or 
 		args.intercept or 
-		args.rg) and\
+		args.rg_list) and\
 		(args.ref_ld or args.ref_ld_chr or args.ref_ld_file or args.ref_ld_file_chr\
 		 or args.ref_ld_list or args.ref_ld_list_chr) and\
 		(args.w_ld or args.w_ld_chr):
 		
-		if np.sum(np.array((args.intercept, args.h2, args.rg)).astype(bool)) > 1:	
-			raise ValueError('Cannot specify more than one of --h2, --rg, --intercept.')
+		if np.sum(np.array((args.intercept, args.h2, args.rg or args.rg_list)).astype(bool)) > 1:	
+			raise ValueError('Cannot specify more than one of --h2, --rg, --intercept, --rg-list.')
 		if args.ref_ld and args.ref_ld_chr:
 			raise ValueError('Cannot specify both --ref-ld and --ref-ld-chr.')
 		if args.ref_ld_list and args.ref_ld_list_chr:
@@ -785,12 +787,12 @@ if __name__ == '__main__':
 		if args.w_ld and args.w_ld_chr:
 			raise ValueError('Cannot specify both --w-ld and --w-ld-chr.')
 		if args.rho or args.overlap:
-			if not args.rg:
+			if not args.rg or args.rg_list:
 				raise ValueError('--rho and --overlap can only be used with --rg.')
 			if not (args.rho and args.overlap):
 				raise ValueError('Must specify either both or neither of --rho and --overlap.')
 					
-		if args.rg:
+		if args.rg or args.rg_list:
 			sumstats.Rg(args, header)
 		elif args.h2:
 			sumstats.H2(args, header)

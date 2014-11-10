@@ -483,8 +483,11 @@ class Rg(_sumstats):
 		self.log = logger(args.out + ".log")
 		if header:
 			self.log.log(header)
-	
-		rg_file_list = args.rg.split(',')
+		if args.rg:
+			rg_file_list = args.rg.split(',')
+		elif args.rg_list:
+			rg_file_list = [x.rstrip('\n') for x in open(args.rg_list,'r').readlines()]
+
 		rg_suffix_list = [x.split('/')[-1] for x in rg_file_list]
 		pheno1 = rg_file_list[0]
 		out_prefix = args.out + rg_suffix_list[0]
@@ -528,12 +531,13 @@ class Rg(_sumstats):
 				self._print_delete_k(rghat.gencov, gencov_delete_ofh, self.log)
 
 			self.log.log( '\n' )
-			self.log.log( 'Heritability of first phenotype' )
-			self.log.log( '-------------------------------' )
+			self.log.log( 'Heritability of phenotype 1' )
+			self.log.log( '---------------------------' )
 			self.log.log(rghat.hsq1.summary(ref_ld_colnames, args.overlap_annot))
 			self.log.log( '\n' )
-			self.log.log( 'Heritability of second phenotype' )
-			self.log.log( '--------------------------------' )
+			msg = 'Heritability of phenotype {I}/{N}'.format(I=i+1, N=len(rg_file_list)-1)
+			self.log.log(msg)
+			self.log.log( ''.join(['-' for i in xrange(len(msg)) ] ))
 			self.log.log(rghat.hsq2.summary(ref_ld_colnames, args.overlap_annot))
 			self.log.log( '\n' )
 			self.log.log( 'Genetic Covariance' )
@@ -589,7 +593,9 @@ class Rg(_sumstats):
 		snp_count = len(sumstats_loop); n_annot = len(ref_ld_colnames)
 		if snp_count < args.num_blocks:
 			num_blocks = snp_count
-
+		else:
+			num_blocks = args.num_blocks
+			
 		self.log.log('Estimating standard errors using a block jackknife with {N} blocks.'.format(N=args.num_blocks))
 		ref_ld = np.matrix(sumstats_loop[ref_ld_colnames]).reshape((snp_count, n_annot))
 		w_ld = np.matrix(sumstats_loop[w_ld_colname]).reshape((snp_count, 1))

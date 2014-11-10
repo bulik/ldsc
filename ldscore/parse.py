@@ -272,38 +272,6 @@ def chisq(fh, require_alleles):
 
 	return x
 
-	
-def betaprod_fromchisq(chisq1, chisq2, allele1, allele2):
-	''' 
-	Makes a betaprod data frame from two chisq files and two trait-increasing-allele files.
-	The allele files have a SNP column and an INC_ALLELE, and INC_ALLELE.
-	'''
-
-	df_chisq1 = chisq(chisq1)
-	df_chisq1['BETAHAT1'] = np.sqrt(df_chisq1['CHISQ'])/np.sqrt(df_chisq1['N'])
-	df_chisq1.rename(columns={'N':'N1'},inplace=True)
-	del df_chisq1['CHISQ']
-
-	df_chisq2 = chisq(chisq2)
-	df_chisq2['BETAHAT2'] = np.sqrt(df_chisq2['CHISQ'])/np.sqrt(df_chisq2['N'])
-	df_chisq2.rename(columns={'N':'N2'},inplace=True)
-	del df_chisq2['CHISQ']
-	df_merged = pd.merge(df_chisq1,df_chisq2, how='inner', on='SNP')
-	
-	df_allele1 = allele(allele1)
-	df_allele1.rename(columns={'INC_ALLELE':'INC_ALLELE1'},inplace=True)
-	df_merged = pd.merge(df_merged,df_allele1,how='inner', on='SNP')
-
-	df_allele2 = allele(allele2	)
-	df_allele2.rename(columns={'INC_ALLELE':'INC_ALLELE2'},inplace=True)
-	df_merged = pd.merge(df_merged,df_allele2,how='inner', on='SNP')
-
-	df_merged['BETAHAT2'] *= (-1)**(df_merged.INC_ALLELE1 != df_merged.INC_ALLELE2)
-	if 'MAF_x' in df_merged.columns and 'MAF_y' in df_merged.columns:
-		df_merged['MAF'] = np.minimum(df_merged['MAF_x'], df_merged['MAF_y'])
-		
-	return df_merged
-
 
 def ldscore_fromfile(fh, num=None):
 	'''Sideways concatenation of a list of LD Scores from a file.'''
