@@ -795,7 +795,7 @@ if __name__ == '__main__':
 		elif args.h2:
 			sumstats.H2(args, header)
 		elif args.intercept:
-			sumstats.intercept(args, header)		
+			sumstats.Intercept(args, header)		
 		
 	# bad flags
 	else:

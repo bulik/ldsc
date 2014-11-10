@@ -211,7 +211,10 @@ def chisq(fh, require_alleles):
 		compression=None
 		
 	colnames = openfunc(fh,'rb').readline().split()
-	usecols = ['SNP','P','CHISQ','N','MAF','INFO']	
+	if require_alleles:
+		usecols = ['SNP','P','CHISQ','N','MAF','INFO','INC_ALLELE','DEC_ALLELE']	
+	else:
+		usecols = ['SNP','P','CHISQ','N','MAF','INFO']	
 	usecols = [x for x in usecols if x in colnames]
 	try:
 		x = pd.read_csv(fh, header=0, delim_whitespace=True, usecols=usecols, 

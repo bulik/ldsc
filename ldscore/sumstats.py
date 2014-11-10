@@ -318,25 +318,24 @@ class _sumstats(object):
 		if len(sumstats) < 200000:
 			log.log('WARNING: number of SNPs less than 200k; this is almost always bad.')
 
-	def _print_cov(self, args, log, hsqhat, n_annot):
+	def _print_cov(self, args, log, hsqhat, n_annot, ofh=None):
 		'''Prints covariance matrix of slopes'''
 		if not args.human_only and n_annot > 1:
-			ofh = args.out+'.hsq_cov'
+			if not ofh: ofh = args.out+'.hsq_cov'
 			log.log('Printing covariance matrix of the estimates to {F}'.format(F=ofh))
 			np.savetxt(ofh, hsqhat.hsq_cov)
 
-	def _print_gencov_cov(self, args, log, hsqhat):
+	def _print_gencov_cov(self, args, log, gencovhat, n_annot, ofh=None):
 		'''Prints covariance matrix of slopes'''
 		if not args.human_only and n_annot > 1:
-			hsq_cov_ofh = args.out+'.hsq.cov'
-			self._print_cov(hsqhat, hsq_cov_ofh, self.log)
+			if not ofh: ofh = args.out+'.gencov_cov'
 			log.log('Printing covariance matrix of the estimates to {F}'.format(F=ofh))
-			np.savetxt(ofh, hsqhat.gencov_cov)
+			np.savetxt(ofh, gencovhat.gencov_cov)
 
 	def _print_delete_k(self, args, log, hsqhat):
 		'''Prints block jackknife delete-k values'''
 		if args.print_delete_vals:
-			hsq_delete_ofh = args.out+'.delete_k'
+			ofh = args.out+'.delete_k'
 			log.log('Printing block jackknife delete-k values to {F}'.format(F=ofh))
 			out_mat = hsqhat._jknife.delete_values
 			if hsqhat.constrain_intercept is None:
@@ -439,35 +438,38 @@ class Intercept(H2):
 	'''
 	LD Score regression intercept
 	'''
-	def __init__(self):
+	def __init__(self, args, header):
 		self.log = logger(args.out + ".log")
 		if header:
 			self.log.log(header)
-	
-		sumstats = self._parse_sumstats(log, args.intercept)
+		
+		sumstats = self._parse_sumstats(self.log, args.intercept)
 		ref_ldscores = self._read_ref_ld(args, self.log)
 		M_annot = self._read_M(args, self.log)
 		M_annot, ref_ldscores = self._keep_ld(args, self.log, M_annot, ref_ldscores)
 		M_annot, ref_ldscores = self._check_variance(self.log, M_annot, ref_ldscores)
 		w_ldscores = self._read_w_ld(args, self.log)
-		self.sumstats = self_merge_sumstats_ld(args, self.log, sumstats, M_annot, ref_ldscores, w_ldscores)
-		self._check_ld_condnum(args, self.log, M_annot, sumstats[ref_ld_colnames])
-		self._warn_length(self.log, sumstats)
-		self.sumstats = self._filter_chisq(args, log, sumstats, 0.001)
-		log.log('Estimating LD Score regression intercept.')
+		w_ld_colname, ref_ld_colnames, self.sumstats =\
+			self._merge_sumstats_ld(args, self.log, sumstats, M_annot, ref_ldscores, w_ldscores)
+		del sumstats
+		self._check_ld_condnum(args, self.log, M_annot, self.sumstats[ref_ld_colnames])
+		self._warn_length(self.log, self.sumstats)
+		self.sumstats = self._filter_chisq(args, self.log, self.sumstats, 0.001)
+		self.log.log('Estimating LD Score regression intercept.')
 		# filter out large-effect loci
-		snp_count = len(sumstats)
+		snp_count = len(self.sumstats); n_annot = len(ref_ld_colnames)
 		if snp_count < args.num_blocks:
 			args.num_blocks = snp_count
-
-		log.log('Estimating standard errors using a block jackknife with {N} blocks.'.format(N=args.num_blocks))
-		ref_ld = np.matrix(sumstats[ref_ld_colnames]).reshape((snp_count, n_annot))
-		w_ld = np.matrix(sumstats[w_ld_colname]).reshape((snp_count, 1))
+		
+		log_msg = 'Estimating standard errors using a block jackknife with {N} blocks.'
+		self.log.log(log_msg.format(N=args.num_blocks))
+		ref_ld = np.matrix(self.sumstats[ref_ld_colnames]).reshape((snp_count, n_annot))
+		w_ld = np.matrix(self.sumstats[w_ld_colname]).reshape((snp_count, 1))
 		M_annot = np.matrix(M_annot).reshape((1, n_annot))
-		chisq = np.matrix(sumstats.CHISQ).reshape((snp_count, 1))
-		N = np.matrix(sumstats.N).reshape((snp_count,1))
+		chisq = np.matrix(self.sumstats.CHISQ).reshape((snp_count, 1))
+		N = np.matrix(self.sumstats.N).reshape((snp_count,1))
 		hsqhat = jk.Hsq(chisq, ref_ld, w_ld, N, M_annot, args.num_blocks)				
-		log.log(hsqhat.summary_intercept())
+		self.log.log(hsqhat.summary_intercept())
 		self.hsqhat = hsqhat
 
 
@@ -492,33 +494,34 @@ class Rg(_sumstats):
 		M_annot, ref_ldscores = self._keep_ld(args, self.log, M_annot, ref_ldscores)
 		M_annot, ref_ldscores = self._check_variance(self.log, M_annot, ref_ldscores)
 		w_ldscores = self._read_w_ld(args, self.log)
-		self.sumstats = self_merge_sumstats_ld(args, self.log, sumstats, M_annot, ref_ldscores, w_ldscores)
-		
+		w_ld_colname, ref_ld_colnames, self.sumstats =\
+		 self._merge_sumstats_ld(args, self.log, sumstats, M_annot, ref_ldscores, w_ldscores)
 		self.M_annot = M_annot
 		self.rghat = []
 		
 		for i,pheno2 in enumerate(rg_file_list[1:len(rg_file_list)]):
-			sumstats2 = self._parse_sumstats(log, pheno2)
+			sumstats2 = self._parse_sumstats(self.log, pheno2, require_alleles=True)
 			out_prefix_loop = out_prefix + '_' + rg_suffix_list[i+1]
-			sumstats_loop = self._merge_sumstats(self.sumstats, sumstats2, log)
-			sumstats_loop = self._filter_chisq(sumstats_loop)
-			rghat = self._rg(sumstats_loop, args, log)
+			sumstats_loop = self._merge_sumstats_sumstats(self.sumstats, sumstats2, self.log)
+			sumstats_loop = self._filter_chisq(args, self.log, sumstats_loop, 0.001)
+			snp_count = len(sumstats_loop); n_annot = len(ref_ld_colnames)
+			rghat = self._rg(sumstats_loop, args, self.log, M_annot, ref_ld_colnames, w_ld_colname)
 			
 			if not args.human_only and n_annot > 1:
 				gencov_jknife_ofh = out_prefix_loop+'.gencov.cov'
 				hsq1_jknife_ofh = out_prefix_loop+'.hsq1.cov'
 				hsq2_jknife_ofh = out_prefix_loop+'.hsq2.cov'	
-				_print_cov(rghat.hsq1, hsq1_jknife_ofh, log)
-				_print_cov(rghat.hsq2, hsq2_jknife_ofh, log)
-				_print_gencov_cov(rghat.gencov, gencov_jknife_ofh, log)
+				self._print_cov(args, self.log, rghat.hsq1, n_annot, hsq1_jknife_ofh)
+				self._print_cov(args, self.log, rghat.hsq2, n_annot, hsq2_jknife_ofh)
+				self._print_gencov_cov(args, self.log, rghat.gencov, n_annot, gencov_jknife_ofh)
 		
 			if args.print_delete_vals:
 				hsq1_delete_ofh = out_prefix_loop+'.hsq1.delete_k'
-				_print_delete_k(rghat.hsq1, hsq1_delete_ofh, log)
+				self._print_delete_k(rghat.hsq1, hsq1_delete_ofh, self.log)
 				hsq2_delete_ofh = out_prefix_loop+'.hsq2.delete_k'
-				_print_delete_k(rghat.hsq2, hsq2_delete_ofh, log)
+				self._print_delete_k(rghat.hsq2, hsq2_delete_ofh, self.log)
 				gencov_delete_ofh = out_prefix_loop+'.gencov.delete_k'
-				_print_delete_k(rghat.gencov, gencov_delete_ofh, log)
+				self._print_delete_k(rghat.gencov, gencov_delete_ofh, self.log)
 
 			self.log.log( '\n' )
 			self.log.log( 'Heritability of first phenotype' )
@@ -536,9 +539,10 @@ class Rg(_sumstats):
 			self.log.log( 'Genetic Correlation' )
 			self.log.log( '-------------------' )
 			self.log.log(rghat.summary() )
+			self.rghat.append(rghat)
 		
 	
-	def _merge_sumstats_sumstats(self, sumstats1, sumstats2):
+	def _merge_sumstats_sumstats(self, sumstats1, sumstats2, log):
 		### TODO -- replace value error with warning message
 		# better to throw a warning than die on an error if rg 50/100 doesn't work but the
 		# other 99 are OK.
@@ -547,15 +551,16 @@ class Rg(_sumstats):
 		strand1 = (sumstats1.INC_ALLELE+sumstats1.DEC_ALLELE).apply(lambda y: STRAND_AMBIGUOUS[y])
 		strand2 = (sumstats2.INC_ALLELE+sumstats1.DEC_ALLELE).apply(lambda y: STRAND_AMBIGUOUS[y])
 		sumstats1 = sumstats1[np.logical_not(strand1)]
-		sumstats2 = sumstats1[np.logical_not(strand2)]
+		sumstats2 = sumstats2[np.logical_not(strand2)]
 		
 		# merge sumstats
 		sumstats2.rename(columns={'INC_ALLELE': 'INC_ALLELE2'}, inplace=True)
 		sumstats2.rename(columns={'DEC_ALLELE': 'DEC_ALLELE2'}, inplace=True)
 		sumstats1['BETAHAT1'] = np.sqrt(sumstats1['CHISQ'])/np.sqrt(sumstats1['N'])
 		sumstats2['BETAHAT2'] = np.sqrt(sumstats2['CHISQ'])/np.sqrt(sumstats2['N'])
-		del sumstats1['CHISQ']
-		del sumstats2['CHISQ']
+		sumstats1.rename(columns={'N': 'N1'}, inplace=True)
+		sumstats2.rename(columns={'N': 'N2'}, inplace=True)
+		del sumstats1['CHISQ']; del sumstats2['CHISQ']
 		x = pd.merge(sumstats1, sumstats2, how='inner', on='SNP')
 		if len(x) == 0:
 			raise ValueError('No SNPs remain after merge.')
@@ -563,39 +568,36 @@ class Rg(_sumstats):
 		# remove SNPs where the alleles do not match
 		alleles = x.INC_ALLELE+x.DEC_ALLELE+x.INC_ALLELE2+x.DEC_ALLELE2
 		match = alleles.apply(lambda y: MATCH_ALLELES[y])
-		x = x[np.logical_not(nmatch)]
+		x = x[match]
 		if len(x) == 0:
 			raise ValueError('All SNPs have mismatched alleles.')
 			
 		# flip sign of betahat where ref alleles differ
 		alleles = x.INC_ALLELE+x.DEC_ALLELE+x.INC_ALLELE2+x.DEC_ALLELE2
-		flip = alleles.apply(lambda y: FLIP_ALLELES[y])
+		flip = (-1)**alleles.apply(lambda y: FLIP_ALLELES[y])
 		x['BETAHAT2'] *= flip
-		del x['INC_ALLELE']
-		del x['DEC_ALLELE']
-		del x['INC_ALLELE2']
-		del x['DEC_ALLELE2']
+		del x['INC_ALLELE']; del x['DEC_ALLELE']; del x['INC_ALLELE2']; del x['DEC_ALLELE2']
 		return x
 		
-	def _rg(self, sumstats_loop, args, log):
-		self._check_ld_condnum(args, self.log, M_annot, sumstats[ref_ld_colnames])
-		self._warn_length(self.log, sumstats)
-		self.sumstats = self._filter_chisq(args, log, sumstats, 0.001)
+	def _rg(self, sumstats_loop, args, log, M_annot, ref_ld_colnames, w_ld_colname):
+		self._check_ld_condnum(args, self.log, M_annot, sumstats_loop[ref_ld_colnames])
+		self._warn_length(self.log, sumstats_loop)
+		self.sumstats_loop = self._filter_chisq(args, log, sumstats_loop, 0.001)
 
 		self.log.log('Estimating genetic correlation.')
-		snp_count = len(sumstats); n_annot = len(ref_ld_colnames)
+		snp_count = len(sumstats_loop); n_annot = len(ref_ld_colnames)
 		if snp_count < args.num_blocks:
-			args.num_blocks = snp_count
+			num_blocks = snp_count
 
 		self.log.log('Estimating standard errors using a block jackknife with {N} blocks.'.format(N=args.num_blocks))
-		ref_ld = np.matrix(sumstats[ref_ld_colnames]).reshape((snp_count, n_annot))
-		w_ld = np.matrix(sumstats[w_ld_colname]).reshape((snp_count, 1))
+		ref_ld = np.matrix(sumstats_loop[ref_ld_colnames]).reshape((snp_count, n_annot))
+		w_ld = np.matrix(sumstats_loop[w_ld_colname]).reshape((snp_count, 1))
 		M_annot = np.matrix(M_annot).reshape((1, n_annot))
-		betahat1 = np.matrix(sumstats.BETAHAT1).reshape((snp_count, 1))
-		betahat2 = np.matrix(sumstats.BETAHAT2).reshape((snp_count, 1))
-		N1 = np.matrix(sumstats.N1).reshape((snp_count,1))
-		N2 = np.matrix(sumstats.N2).reshape((snp_count,1))
-		del sumstats
+		betahat1 = np.matrix(sumstats_loop.BETAHAT1).reshape((snp_count, 1))
+		betahat2 = np.matrix(sumstats_loop.BETAHAT2).reshape((snp_count, 1))
+		N1 = np.matrix(sumstats_loop.N1).reshape((snp_count,1))
+		N2 = np.matrix(sumstats_loop.N2).reshape((snp_count,1))
+		del sumstats_loop
 	
 		if args.no_intercept:
 			args.constrain_intercept = "1,1,0"
@@ -603,7 +605,7 @@ class Rg(_sumstats):
 		if args.constrain_intercept:
 			intercepts = args.constrain_intercept.split(',')
 			if len(intercepts) != 3:
-				msg = 'If using --constrain-intercept with --sumstats-gencor, must specify a ' 
+				msg = 'If using --constrain-intercept with --sumstats_loop-gencor, must specify a ' 
 				msg += 'comma-separated list of three intercepts. '
 				msg += 'The first two for the h2 estimates; the third for the gencov estimate.'
 				self.log.log('ValueError: '+msg)
@@ -627,7 +629,7 @@ class Rg(_sumstats):
 			intercepts = [None, None, None]
 	
 		rghat = jk.Gencor(betahat1, betahat2, ref_ld, w_ld, N1, N2, M_annot, intercepts,
-			args.overlap,	args.rho, args.num_blocks, return_silly_things=args.return_silly_things)
+			args.overlap,	args.rho, num_blocks, return_silly_things=args.return_silly_things)
 		
 		return rghat
 			
