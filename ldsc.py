@@ -21,7 +21,7 @@ from subprocess import call
 from itertools import product
 import ldscore.sumstats as sumstats
 
-__version__ = '0.0.1 (alpha)'
+__version__ = '0.0.2 (alpha)'
 
 MASTHEAD = "*********************************************************************\n"
 MASTHEAD += "* LD Score Regression (LDSC)\n"
@@ -45,7 +45,7 @@ def _remove_dtype(x):
 	x = x.replace('\ndtype: int64','')
 	x = x.replace('\ndtype: float64','')
 	return x
-
+	
 
 class logger(object):
 	'''
@@ -54,6 +54,7 @@ class logger(object):
 	TODO: replace with logging module
 	
 	'''
+	
 	def __init__(self, fh):
 		self.log_fh = open(fh, 'wb')
 		
@@ -84,8 +85,6 @@ def __filter__(fname, noun, verb, merge_obj):
 
 		return merged_list
 		
-
-
 	
 def annot_sort_key(s):
 	'''For use with --cts-bin. Fixes weird pandas crosstab column order.'''
@@ -572,91 +571,6 @@ def ldscore(args, header=None):
 		log.log(_remove_dtype(row_sums))
 
 
-	
-
-
-		elif args.rg:
-			try:
-				(p1, p2) = args.rg.split(',')
-			except ValueError as e:
-				log.log('Error: argument to --rg must be two .chisq/.allele fileset prefixes separated by a comma.')
-				raise e
-				
-			chisq1 = p1 + '.chisq.gz'
-			chisq2 = p2 + '.chisq.gz'
-			allele1 = p1 + '.allele.gz'
-			allele2 = p2 + '.allele.gz'
-			log.log('Reading summary statistics from {C} and {D} ...'.format(C=chisq1, D=chisq2))
-			sumstats = ps.betaprod_fromchisq(chisq1, chisq2, allele1, allele2)
-	except ValueError as e:
-		log.log('Error parsing summary statistics.')
-		raise e
-	
-	
-
-
-
-
-def freq(args):
-	'''
-	Computes and prints reference allele frequencies. Identical to plink --freq. In fact,
-	use plink --freq instead with .bed files; it's faster. This is useful for .bin files,
-	which are a custom LDSC format.
-	
-	TODO: the MAF computation is inefficient, because it also filters the genotype matrix
-	on MAF. It isn't so slow that it really matters, but fix this eventually. 
-	
-	'''
-	log = logger(args.out+'.log')
-	if header:
-		log.log(header)
-		
-	if args.bin:
-		snp_file, snp_obj = args.bin+'.bim', ps.PlinkBIMFile
-		ind_file, ind_obj = args.bin+'.ind', ps.VcfINDFile
-		array_file, array_obj = args.bin+'.bin', ld.VcfBINFile
-	elif args.bfile:
-		snp_file, snp_obj = args.bfile+'.bim', ps.PlinkBIMFile
-		ind_file, ind_obj = args.bfile+'.fam', ps.PlinkFAMFile
-		array_file, array_obj = args.bfile+'.bed', ld.PlinkBEDFile
-
-	# read bim/snp
-	array_snps = snp_obj(snp_file)
-	m = len(array_snps.IDList)
-	log.log('Read list of {m} SNPs from {f}'.format(m=m, f=snp_file))
-	
-	# read fam/ind
-	array_indivs = ind_obj(ind_file)
-	n = len(array_indivs.IDList)	 
-	log.log('Read list of {n} individuals from {f}'.format(n=n, f=ind_file))
-	
-	# read --extract
-	if args.extract is not None:
-		keep_snps = __filter__(args.extract, 'SNPs', 'include', array_snps)
-	else:
-		keep_snps = None
-	
-	# read keep_indivs
-	if args.keep:
-		keep_indivs = __filter__(args.keep, 'individuals', 'include', array_indivs)
-	else:
-		keep_indivs = None
-	
-	# read genotype array
-	log.log('Reading genotypes from {fname}'.format(fname=array_file))
-	geno_array = array_obj(array_file, n, array_snps, keep_snps=keep_snps,
-		keep_indivs=keep_indivs)
-	
-	frq_df = array_snps.df.ix[:,['CHR', 'SNP', 'A1', 'A2']]
-	frq_array = np.zeros(len(frq_df))
-	frq_array[geno_array.kept_snps] = geno_array.freq
-	frq_df['FRQ'] = frq_array
-	out_fname = args.out + '.frq'
-	log.log('Writing reference allele frequencies to {O}.gz'.format(O=out_fname))
-	frq_df.to_csv(out_fname, sep="\t", header=True, index=False)	
-	call(['gzip', '-f', out_fname])
-
-
 if __name__ == '__main__':
 	parser = argparse.ArgumentParser()
 		
@@ -888,3 +802,63 @@ if __name__ == '__main__':
 		print header
 		print 'Error: no analysis selected.'
 		print 'ldsc.py --help describes all options.'
+
+
+# def freq(args):
+# 	'''
+# 	Computes and prints reference allele frequencies. Identical to plink --freq. In fact,
+# 	use plink --freq instead with .bed files; it's faster. This is useful for .bin files,
+# 	which are a custom LDSC format.
+# 	
+# 	TODO: the MAF computation is inefficient, because it also filters the genotype matrix
+# 	on MAF. It isn't so slow that it really matters, but fix this eventually. 
+# 	
+# 	'''
+# 	log = logger(args.out+'.log')
+# 	if header:
+# 		log.log(header)
+# 		
+# 	if args.bin:
+# 		snp_file, snp_obj = args.bin+'.bim', ps.PlinkBIMFile
+# 		ind_file, ind_obj = args.bin+'.ind', ps.VcfINDFile
+# 		array_file, array_obj = args.bin+'.bin', ld.VcfBINFile
+# 	elif args.bfile:
+# 		snp_file, snp_obj = args.bfile+'.bim', ps.PlinkBIMFile
+# 		ind_file, ind_obj = args.bfile+'.fam', ps.PlinkFAMFile
+# 		array_file, array_obj = args.bfile+'.bed', ld.PlinkBEDFile
+# 
+# 	# read bim/snp
+# 	array_snps = snp_obj(snp_file)
+# 	m = len(array_snps.IDList)
+# 	log.log('Read list of {m} SNPs from {f}'.format(m=m, f=snp_file))
+# 	
+# 	# read fam/ind
+# 	array_indivs = ind_obj(ind_file)
+# 	n = len(array_indivs.IDList)	 
+# 	log.log('Read list of {n} individuals from {f}'.format(n=n, f=ind_file))
+# 	
+# 	# read --extract
+# 	if args.extract is not None:
+# 		keep_snps = __filter__(args.extract, 'SNPs', 'include', array_snps)
+# 	else:
+# 		keep_snps = None
+# 	
+# 	# read keep_indivs
+# 	if args.keep:
+# 		keep_indivs = __filter__(args.keep, 'individuals', 'include', array_indivs)
+# 	else:
+# 		keep_indivs = None
+# 	
+# 	# read genotype array
+# 	log.log('Reading genotypes from {fname}'.format(fname=array_file))
+# 	geno_array = array_obj(array_file, n, array_snps, keep_snps=keep_snps,
+# 		keep_indivs=keep_indivs)
+# 	
+# 	frq_df = array_snps.df.ix[:,['CHR', 'SNP', 'A1', 'A2']]
+# 	frq_array = np.zeros(len(frq_df))
+# 	frq_array[geno_array.kept_snps] = geno_array.freq
+# 	frq_df['FRQ'] = frq_array
+# 	out_fname = args.out + '.frq'
+# 	log.log('Writing reference allele frequencies to {O}.gz'.format(O=out_fname))
+# 	frq_df.to_csv(out_fname, sep="\t", header=True, index=False)	
+# 	call(['gzip', '-f', out_fname])

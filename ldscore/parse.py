@@ -259,7 +259,7 @@ def chisq(fh, require_alleles):
 			raise ValueError('DEC_ALLELE column must contain only A/C/T/G.')
 	
 	if 'INC_ALLELE' in x.columns and 'DEC_ALLELE' in x.columns:
-		if np.any(x.INC_ALLELE == x.DEC_ALLELE:
+		if np.any(x.INC_ALLELE == x.DEC_ALLELE):
 			raise ValueError('INC_ALLELE cannot equal DEC_ALLELE.')
 
 	if require_alleles:

@@ -14,7 +14,6 @@ import jackknife as jk
 import parse as ps
 import itertools as it
 
-
 # complementary bases
 COMPLEMENT = {
 	'A': 'T',
@@ -42,7 +41,7 @@ MATCH_ALLELES = {''.join(x):
 	not STRAND_AMBIGUOUS[''.join(x[0:2])] and
 	not STRAND_AMBIGUOUS[''.join(x[2:4])]}
 
-# True ff SNP 1 has the same alleles as SNP 2 w/ ref allele flip (strand flip optional)
+# True iff SNP 1 has the same alleles as SNP 2 w/ ref allele flip (strand flip optional)
 FLIP_ALLELES = {''.join(x):
 	((x[0] == x[3]) and (x[1] == x[2])) or # strand match
 	((x[0] == COMPLEMENT[x[3]]) and (x[1] == COMPLEMENT[x[2]])) # strand flip
@@ -70,7 +69,7 @@ class logger(object):
 		print msg
 
 
-class _sumstats(Object):
+class _sumstats(object):
 	'''
 	Abstract base class implementing basic summary statistic functions. 
 	
@@ -83,7 +82,7 @@ class _sumstats(Object):
 	def __init__(self, args, log, header=None):
 		raise NotImplementedError
 		
-	def _read_ref_ld(args, log):
+	def _read_ref_ld(self, args, log):
 		'''Read reference LD Scores'''
 		try:
 			if args.ref_ld:
@@ -134,7 +133,7 @@ class _sumstats(Object):
 		
 		return sumstats
 
-	def _read_M(args, log):
+	def _read_M(self, args, log):
 		'''Read M (--M, --M-file, etc)'''
 		if args.M:
 			try:
@@ -187,7 +186,7 @@ class _sumstats(Object):
 	
 		return M_annot
 
-	def read_w_ld(self, args, log):
+	def _read_w_ld(self, args, log):
 		'''Read regression SNP LD'''
 		try:
 			if args.w_ld:
@@ -216,10 +215,10 @@ class _sumstats(Object):
 		log.log(log_msg.format(N=len(w_ldscores)))
 		return w_ldscores
 
-	def check_ld_condnum(args, log, M_annot, sumstats[ref_ld_colnames]):
+	def _check_ld_condnum(self, args, log, M_annot, ref_ld):
 		'''Check condition number of LD Score matrix'''
 		if len(M_annot) > 1:
-			cond_num = np.linalg.cond(sumstats[ref_ld_colnames])
+			cond_num = np.linalg.cond(ref_ld)
 			if cond_num > 100000:
 				cond_num = round(cond_num, 3)
 				if args.invert_anyway:
@@ -233,7 +232,7 @@ class _sumstats(Object):
 					log.log(warn.format(C=cond_num))
 					raise ValueError(warn.format(C=cond_num))
 
-	def check_variance(log, M_annot, ref_ldscores):
+	def _check_variance(self, log, M_annot, ref_ldscores):
 		'''Remove zero-variance LD Scores'''
 		ii = np.squeeze(np.array(ref_ldscores.iloc[:,1:len(ref_ldscores.columns)].var(axis=0) == 0))
 		if np.all(ii):
@@ -247,7 +246,7 @@ class _sumstats(Object):
 
 		return(M_annot, ref_ldscores)
 		
-	def _keep_ld(args, log, M_annot, ref_ldscores):
+	def _keep_ld(self, args, log, M_annot, ref_ldscores):
 		'''Filter down to SNPs specified by --keep-ld'''
 		if args.keep_ld is not None:
 			try:
@@ -289,7 +288,7 @@ class _sumstats(Object):
 	
 		ref_ld_colnames = ref_ldscores.columns[1:len(ref_ldscores.columns)]	
 		w_ld_colname = sumstats.columns[-1]
-		return(w_ld_colname, ref_Ld_colnames, sumstats)
+		return(w_ld_colname, ref_ld_colnames, sumstats)
 	
 	def _filter(self, args, log, sumstats):
 		raise NotImplementedError
@@ -319,10 +318,12 @@ class _sumstats(Object):
 		if len(sumstats) < 200000:
 			log.log('WARNING: number of SNPs less than 200k; this is almost always bad.')
 
-	def _print_cov(self, hsqhat, ofh, log):
+	def _print_cov(self, args, log, hsqhat, n_annot):
 		'''Prints covariance matrix of slopes'''
-		log.log('Printing covariance matrix of the estimates to {F}'.format(F=ofh))
-		np.savetxt(ofh, hsqhat.hsq_cov)
+		if not args.human_only and n_annot > 1:
+			ofh = args.out+'.hsq_cov'
+			log.log('Printing covariance matrix of the estimates to {F}'.format(F=ofh))
+			np.savetxt(ofh, hsqhat.hsq_cov)
 
 	def _print_gencov_cov(self, args, log, hsqhat):
 		'''Prints covariance matrix of slopes'''
@@ -349,32 +350,35 @@ class H2(_sumstats):
 	'''
 	Implements h2 and partitioned h2 estimation
 	'''
-	def __init__(self, args, log, header):
+	def __init__(self, args, header):
 		self.log = logger(args.out + ".log")
 		if header:
 			self.log.log(header)
-	
-		sumstats = self._parse_sumstats(log, args.h2)
+		
+		sumstats = self._parse_sumstats(self.log, args.h2)
 		ref_ldscores = self._read_ref_ld(args, self.log)
 		M_annot = self._read_M(args, self.log)
 		M_annot, ref_ldscores = self._keep_ld(args, self.log, M_annot, ref_ldscores)
 		M_annot, ref_ldscores = self._check_variance(self.log, M_annot, ref_ldscores)
 		w_ldscores = self._read_w_ld(args, self.log)
-		self.sumstats = self_merge_sumstats_ld(args, self.log, sumstats, M_annot, ref_ldscores, w_ldscores)
-		self._check_ld_condnum(args, self.log, M_annot, sumstats[ref_ld_colnames])
-		self._warn_length(self.log, sumstats):
-		self.sumstats = self._filter_chisq(args, log, sumstats, 0.001)
+		w_ld_colname, ref_ld_colnames, self.sumstats =\
+			self._merge_sumstats_ld(args, self.log, sumstats, M_annot, ref_ldscores, w_ldscores)
+		del sumstats
+		self._check_ld_condnum(args, self.log, M_annot, self.sumstats[ref_ld_colnames])
+		self._warn_length(self.log, self.sumstats)
+		self.sumstats = self._filter_chisq(args, self.log, self.sumstats, 0.001)
 		self.log.log('Estimating heritability.')
-		snp_count = len(sumstats); n_annot = len(ref_ld_colnames)
+		snp_count = len(self.sumstats); n_annot = len(ref_ld_colnames)
 		if snp_count < args.num_blocks:
 			args.num_blocks = snp_count
-			
-		log.log('Estimating standard errors using a block jackknife with {N} blocks.'.format(N=args.num_blocks))
-		ref_ld = np.matrix(sumstats[ref_ld_colnames]).reshape((snp_count, n_annot))
-		w_ld = np.matrix(sumstats[w_ld_colname]).reshape((snp_count, 1))
+		
+		log_msg = 'Estimating standard errors using a block jackknife with {N} blocks.'
+		self.log.log(log_msg.format(N=args.num_blocks))
+		ref_ld = np.matrix(self.sumstats[ref_ld_colnames]).reshape((snp_count, n_annot))
+		w_ld = np.matrix(self.sumstats[w_ld_colname]).reshape((snp_count, 1))
 		M_annot = np.matrix(M_annot).reshape((1,n_annot))
-		chisq = np.matrix(sumstats.CHISQ).reshape((snp_count, 1))
-		N = np.matrix(sumstats.N).reshape((snp_count,1))
+		chisq = np.matrix(self.sumstats.CHISQ).reshape((snp_count, 1))
+		N = np.matrix(self.sumstats.N).reshape((snp_count,1))
 
 		if args.no_intercept:
 			args.constrain_intercept = 1
@@ -408,39 +412,25 @@ class H2(_sumstats):
 		else:
 			hsqhat = jk.Hsq(chisq, ref_ld, w_ld, N, M_annot, args.num_blocks, args.non_negative)
 				
-		self._print_cov(args, self.log, hsqhat)
+		self._print_cov(args, self.log, hsqhat, n_annot)
 		self._print_delete_k(args, self.log, hsqhat)	
 				
 	
 		self.log.log(hsqhat.summary(ref_ld_colnames, args.overlap_annot))
 		self.M_annot = M_annot
 		self.hsqhat = hsqhat
-		return [M_annot, hsqhat]
-	
-	def _parse_sumstats(self, args, log):
-		try:
-			chisq = args.h2+'.chisq.gz'
-			self.log.log('Reading summary statistics from {S} ...'.format(S=chisq))
-			sumstats = ps.chisq(chisq)
-		except ValueError as e:
-			self.log.log('Error parsing summary statistics.')
-			raise e
-		log_msg = 'Read summary statistics for {N} SNPs.'
-		log.log(log_msg.format(N=len(sumstats)))
 		
-		return sumstats
-	
 	def _filter_chisq(self, args, log, sumstats, N_factor):
 		max_N = np.max(sumstats['N'])
 		if not args.no_filter_chisq:
 			max_chisq = max(0.001*max_N, args.max_chisq)
 			sumstats = sumstats[sumstats['CHISQ'] < max_chisq]
 			log_msg = 'After filtering on chi^2 < {C}, {N} SNPs remain.'
-			log.log(log_msg.format(C=max_chisq, N=len(sumstats)))
+			snp_count = len(sumstats)
 			if snp_count == 0:
 				raise ValueError(log_msg.format(C=max_chisq, N='no'))
 			else:
-				log.log(log_msg.format(C=max_chisq, N=len(sumstats)))
+				log.log(log_msg.format(C=max_chisq, N=snp_count))
 				
 		return sumstats
 	
@@ -462,7 +452,7 @@ class Intercept(H2):
 		w_ldscores = self._read_w_ld(args, self.log)
 		self.sumstats = self_merge_sumstats_ld(args, self.log, sumstats, M_annot, ref_ldscores, w_ldscores)
 		self._check_ld_condnum(args, self.log, M_annot, sumstats[ref_ld_colnames])
-		self._warn_length(self.log, sumstats):
+		self._warn_length(self.log, sumstats)
 		self.sumstats = self._filter_chisq(args, log, sumstats, 0.001)
 		log.log('Estimating LD Score regression intercept.')
 		# filter out large-effect loci
@@ -479,26 +469,24 @@ class Intercept(H2):
 		hsqhat = jk.Hsq(chisq, ref_ld, w_ld, N, M_annot, args.num_blocks)				
 		log.log(hsqhat.summary_intercept())
 		self.hsqhat = hsqhat
-		return hsqhat
 
 
-
-class Rg_Loop(_sumstats):
+class Rg(_sumstats):
 	'''
 	Implements rg estimation with fixed LD Scores, one fixed phenotype, and a loop over
 	a list (possibly with length one) of other phenotypes.
 	
 	'''
-	def __init__(self):
+	def __init__(self, args, header):
 		self.log = logger(args.out + ".log")
 		if header:
 			self.log.log(header)
 	
 		rg_file_list = args.rg.split(',')
 		rg_suffix_list = [x.split('/')[-1] for x in rg_file_list]
-		pheno1 = rg_list[0]
+		pheno1 = rg_file_list[0]
 		out_prefix = args.out + rg_suffix_list[0]
-		sumstats = self._parse_sumstats(log, pheno1, require_alleles=T)
+		sumstats = self._parse_sumstats(self.log, pheno1, require_alleles=True)
 		ref_ldscores = self._read_ref_ld(args, self.log)
 		M_annot = self._read_M(args, self.log)
 		M_annot, ref_ldscores = self._keep_ld(args, self.log, M_annot, ref_ldscores)
@@ -549,7 +537,6 @@ class Rg_Loop(_sumstats):
 			self.log.log( '-------------------' )
 			self.log.log(rghat.summary() )
 		
-		return [self.M_annot, self.rghat]
 	
 	def _merge_sumstats_sumstats(self, sumstats1, sumstats2):
 		### TODO -- replace value error with warning message
@@ -592,7 +579,7 @@ class Rg_Loop(_sumstats):
 		
 	def _rg(self, sumstats_loop, args, log):
 		self._check_ld_condnum(args, self.log, M_annot, sumstats[ref_ld_colnames])
-		self._warn_length(self.log, sumstats):
+		self._warn_length(self.log, sumstats)
 		self.sumstats = self._filter_chisq(args, log, sumstats, 0.001)
 
 		self.log.log('Estimating genetic correlation.')
