@@ -1,3 +1,10 @@
+'''
+(c) 2014 Brendan Bulik-Sullivan and Hilary Finucane
+
+This module contains functions for parsing various ldsc-defined file formats
+
+'''
+
 from __future__ import division
 import numpy as np
 import pandas as pd
@@ -178,7 +185,7 @@ def read_cts(fh, match_snps):
 	return cts.ANNOT.values
 
 
-def chisq(fh):
+def chisq(fh, require_alleles):
 	'''
 	Parses .chisq files. See docs/file_formats_sumstats.txt
 	
@@ -193,6 +200,8 @@ def chisq(fh):
 		'N': float,
 		'MAF': float,
 		'INFO': float,
+		'INC_ALLELE': str,
+		'DEC_ALLELE': str
 	}
 	if fh.endswith('gz'):
 		openfunc = gzip.open
@@ -234,6 +243,29 @@ def chisq(fh):
 		check_chisq(x['CHISQ'])
 	else:
 		raise ValueError('.chisq file must have a column labeled either P or CHISQ.')
+	
+	if 'INC_ALLELE' in x.columns:
+		x.INC_ALLELE = x.INC_ALLELE.apply(lambda y: y.upper())
+		y = x.INC_ALLELE.unique()
+		p = np.all( (y == 'A') or (y == 'C') or (y == 'T') or (y == 'G'))
+		if not p:
+			raise ValueError('INC_ALLELE column must contain only A/C/T/G.')
+		
+	if 'DEC_ALLELE' in x.columns:
+		x.DEC_ALLELE = x.DEC_ALLELE.apply(lambda y: y.upper())
+		y = x.DEC_ALLELE.unique()
+		p = np.all( (y == 'A') or (y == 'C') or (y == 'T') or (y == 'G'))
+		if not p:
+			raise ValueError('DEC_ALLELE column must contain only A/C/T/G.')
+	
+	if 'INC_ALLELE' in x.columns and 'DEC_ALLELE' in x.columns:
+		if np.any(x.INC_ALLELE == x.DEC_ALLELE:
+			raise ValueError('INC_ALLELE cannot equal DEC_ALLELE.')
+
+	if require_alleles:
+		if not ('INC_ALLELE' in x.columns and 'DEC_ALLELE' in x.columns):
+			msg = '.chisq file must have an INC_ALLELE and DEC_ALLELE column for rg estimation.'
+			raise ValueError(msg)
 
 	return x
 
@@ -268,109 +300,6 @@ def betaprod_fromchisq(chisq1, chisq2, allele1, allele2):
 		df_merged['MAF'] = np.minimum(df_merged['MAF_x'], df_merged['MAF_y'])
 		
 	return df_merged
-
-
-def allele(fh):
-	'''
-	Parses .allele or .allele.gz files. See docs/file_formats_sumstats.txt
-	
-	'''
-	dtype_dict = {
-		'SNP' : str,
-		'INC_ALLELE': str
-	}	
-	
-	comp = get_compression(fh)
-	try:
-		dat = pd.read_csv(fh, delim_whitespace=True, compression=comp, header=0)
-	except AttributeError as e:
-		raise AttributeError('Improperly formatted allele file: '+str(e.args))
-	
-	try:
-		check_rsid(dat['SNP'])
-	except KeyError as e:
-		raise KeyError('No column named SNP in .betaprod: '+str(e.args))
-	
-	return dat
-
-
-def betaprod(fh):
-	'''
-	Parses .betaprod files. See docs/file_formats_sumstats.txt
-	
-	'''
-	dtype_dict = {
-#		'CHR': str,
-		'SNP': str,
-#		'CM': float,
-#		'BP': int,
-		'P1': float,
-		'CHISQ1': float,
-		'DIR1': float,
-		'N1': int, # cast to int for typechecking, then switch to float later for division
-		'P2': float,
-		'CHISQ2': float,
-		'DIR2': float,
-		'N2': int,
-		'INFO1': float,
-		'INFO2': float,
-		'MAF1': float,
-		'MAF2': float
-	}
-	if fh.endswith('gz'):
-		openfunc = gzip.open
-		compression='gzip'
-	else:
-		openfunc = open
-		compression=None
-
-	colnames = openfunc(fh,'rb').readline().split()
-	usecols = [x+str(i) for i in xrange(1,3) for x in ['DIR','P','CHISQ','N','MAF','INFO']]
-	usecols.append('SNP')
-	usecols = [x for x in usecols if x in colnames]
-	try:
-		x = pd.read_csv(fh, header=0, delim_whitespace=True, usecols=usecols, 
-			dtype=dtype_dict, compression=compression)
-	except AttributeError as e:
-		raise AttributeError('Improperly formatted betaprod file: '+str(e.args))
-		
-	try:
-		check_rsid(x['SNP'])
-	except KeyError as e:
-		raise KeyError('No column named SNP in .betaprod: '+str(e.args))
-	
-	for i in ['1','2']:
-		N='N'+i; P='P'+i; CHISQ='CHISQ'+i; DIR='DIR'+i; MAF='MAF'+i; INFO='INFO'+i
-		BETAHAT='BETAHAT'+i
-		try:
-			check_N(x[N])
-		except KeyError as e:
-			raise KeyError('No column named {N} in .betaprod: '.format(N=N)+str(e.args))
-		x[N] = x[N].astype(float)	
-		try:
-			check_dir(x[DIR])
-		except KeyError as e:
-			raise KeyError('No column named {D} in .betaprod: '.format(D=DIR)+str(e.args))
-	
-		if CHISQ in x.columns:
-			check_chisq(x[CHISQ])
-			betahat = np.sqrt(x[CHISQ]/x[N]) * x[DIR]
-			x[CHISQ] = betahat
-			x.rename(columns={CHISQ: BETAHAT}, inplace=True)
-		elif P in x.columns:
-			check_pvalue(x[P])
-			betahat = np.sqrt(chdtri(1, x[P])/x[N])	* x[DIR]
-			x[P] = betahat
-			x.rename(columns={P: BETAHAT}, inplace=True)
-		else:
-			raise ValueError('No column named P{i} or CHISQ{i} in betaprod.'.format(i=i))
-
-		del x[DIR]
-		if MAF in x.columns:
-			check_maf(x[MAF])
-			x[MAF]  = np.minimum(x[MAF], 1-x[MAF])
-		
-	return x
 
 
 def ldscore_fromfile(fh, num=None):
