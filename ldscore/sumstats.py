@@ -375,7 +375,7 @@ class H2(_sumstats):
 		del sumstats
 		# Remove NA values from sumstats
 		ii = self.sumstats.CHISQ.notnull()
-		log.log('Removing {N} SNPs with NA values.'.format(N=(len(self.sumstats)-ii.sum()))
+		self.log.log('Removing {N} SNPs with NA values.'.format(N=(len(self.sumstats)-ii.sum()))
 		self.sumstats = self.sumstats[ii]
 		self._check_ld_condnum(args, self.log, M_annot, self.sumstats[ref_ld_colnames])
 		self._warn_length(self.log, self.sumstats)
@@ -469,7 +469,7 @@ class Intercept(H2):
 		del sumstats
 		# Remove NA values from sumstats
 		ii = self.sumstats.CHISQ.notnull()
-		log.log('Removing {N} SNPs with NA values.'.format(N=(len(self.sumstats)-ii.sum())))
+		self.log.log('Removing {N} SNPs with NA values.'.format(N=(len(self.sumstats)-ii.sum())))
 		self.sumstats = self.sumstats[ii]
 		self._check_ld_condnum(args, self.log, M_annot, self.sumstats[ref_ld_colnames])
 		self._warn_length(self.log, self.sumstats)
@@ -625,7 +625,7 @@ class Rg(_sumstats):
 
 		# remove NA's
 		ii = x.CHISQ1.notnull() & x.CHISQ2.notnull()
-		log.log('Removing {N} SNPs with NA values.'.format(N=(len(x)-ii.sum()))
+		self.log.log('Removing {N} SNPs with NA values.'.format(N=(len(x)-ii.sum()))
 
 		x = x[ii]
 		if len(x) == 0:
