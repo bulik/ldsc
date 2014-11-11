@@ -374,7 +374,9 @@ class H2(_sumstats):
 			self._merge_sumstats_ld(args, self.log, sumstats, M_annot, ref_ldscores, w_ldscores)
 		del sumstats
 		# Remove NA values from sumstats
-		self.sumstats = self.sumstats[self.sumstats.CHISQ.notnull()]
+		ii = self.sumstats.CHISQ.notnull()
+		log.log('Removing {N} SNPs with NA values.'.format(N=(len(self.sumstats)-ii.sum()))
+		self.sumstats = self.sumstats[ii]
 		self._check_ld_condnum(args, self.log, M_annot, self.sumstats[ref_ld_colnames])
 		self._warn_length(self.log, self.sumstats)
 		self.sumstats = self._filter_chisq(args, self.log, self.sumstats, 0.001)
@@ -466,7 +468,9 @@ class Intercept(H2):
 			self._merge_sumstats_ld(args, self.log, sumstats, M_annot, ref_ldscores, w_ldscores)
 		del sumstats
 		# Remove NA values from sumstats
-		self.sumstats = self.sumstats[self.sumstats.CHISQ.notnull()]
+		ii = self.sumstats.CHISQ.notnull()
+		log.log('Removing {N} SNPs with NA values.'.format(N=(len(self.sumstats)-ii.sum())))
+		self.sumstats = self.sumstats[ii]
 		self._check_ld_condnum(args, self.log, M_annot, self.sumstats[ref_ld_colnames])
 		self._warn_length(self.log, self.sumstats)
 		self.sumstats = self._filter_chisq(args, self.log, self.sumstats, 0.001)
@@ -621,6 +625,8 @@ class Rg(_sumstats):
 
 		# remove NA's
 		ii = x.CHISQ1.notnull() & x.CHISQ2.notnull()
+		log.log('Removing {N} SNPs with NA values.'.format(N=(len(x)-ii.sum()))
+
 		x = x[ii]
 		if len(x) == 0:
 			raise ValueError('All remaining SNPs have null betahat.')
