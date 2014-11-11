@@ -209,6 +209,14 @@ if 'FRQ' in dat.columns:
 	print 'After filtering on MAF > {C}, {M} SNPs remain.'.format(C=args.maf,	M=len(dat))
 
 if 'A1' in dat.columns and 'A2' in dat.columns:
+	# filter out indels
+	ii = (dat.A1 == 'A') | (dat.A1 == 'T') | (dat.A1 == 'C') | (dat.A1 == 'G')
+	ii = ii & (dat.A2 == 'A') | (dat.A2 == 'T') | (dat.A2 == 'C') | (dat.A2 == 'G')
+	if ii.sum() < len(dat):
+		print "Removed {M} variants not coded A/C/T/G.".format(M=(len(dat)-ii.sum()))
+	
+	dat = dat[ii]
+	
 	# signed summary stat and alleles
 	if 'OR' in dat.columns:
 		dat.OR = dat.OR.convert_objects(convert_numeric=True)

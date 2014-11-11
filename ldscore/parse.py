@@ -264,14 +264,14 @@ def chisq(fh, require_alleles=False, keep_na=False):
 		y = x.INC_ALLELE[ii].unique()
 		p = ( (y == 'A') | (y == 'C') | (y == 'T') | (y == 'G')).all()
 		if not p:
-			raise ValueError('INC_ALLELE column must contain only A/C/T/G.')
+			raise ValueError('INC_ALLELE column must contain only A/C/T/G. Do you have indels?')
 		
 	if 'DEC_ALLELE' in x.columns:
 		x.DEC_ALLELE[ii] = x.DEC_ALLELE[ii].apply(lambda y: y.upper())
 		y = x.DEC_ALLELE[ii].unique()
 		p = ( (y == 'A') | (y == 'C') | (y == 'T') | (y == 'G')).all()
 		if not p:
-			raise ValueError('DEC_ALLELE column must contain only A/C/T/G.')
+			raise ValueError('DEC_ALLELE column must contain only A/C/T/G. Do you have indels?')
 	
 	if 'INC_ALLELE' in x.columns and 'DEC_ALLELE' in x.columns:
 		if np.any(x.INC_ALLELE[ii] == x.DEC_ALLELE[ii]):
