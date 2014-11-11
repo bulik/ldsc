@@ -286,7 +286,8 @@ metadat_fh = args.out+'.chisq.metadata'
 mfh = open(metadat_fh, 'w')
 print 'Writing metadata to {F}.'.format(M=len(dat), F=metadat_fh)
 # mean chi^2 
-chisq = chdtri(1, dat['P'])
+ii = dat.P.notnull()
+chisq = chdtri(1, dat['P'][ii])
 mean_chisq = np.mean(chisq)
 print >>mfh, 'Mean Chi-Square = ' + str(round(mean_chisq,3))
 if mean_chisq < 1.02:
