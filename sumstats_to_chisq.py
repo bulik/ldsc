@@ -242,11 +242,13 @@ if 'A1' in dat.columns and 'A2' in dat.columns:
 	INC_ALLELE = dat.A1
 	DEC_ALLELE = dat.A2
 	if flip.any():
+		x = dat.A1[flip]
 		INC_ALLELE[flip] = dat.A2[flip]
-		DEC_ALLELE[flip] = dat.A1[flip]
-		
+		DEC_ALLELE[flip] = x
+				
 	dat['INC_ALLELE'] = INC_ALLELE
 	dat['DEC_ALLELE'] = DEC_ALLELE
+	del dat['A1']; del dat['A2']
 	
 elif args.alleles:
 	raise ValueError('The --alleles flag is set, but there are no allele columns.')
