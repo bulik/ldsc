@@ -131,9 +131,10 @@ class _sumstats(object):
 		log.log(log_msg.format(N=len(ref_ldscores)))
 		return ref_ldscores
 
-
-	def _parse_sumstats(self, log, fh, require_alleles=False, keep_na=False):
-		chisq = fh+'.chisq.gz'
+	def _parse_sumstats(self, args, log, fh, require_alleles=False, keep_na=False):
+		# priority is pickle, bz2, gz, uncompressed
+		chisq = fh + '.chisq'
+		chisq += ps.which_compression(fh+'.chisq')[0]
 		self.log.log('Reading summary statistics from {S} ...'.format(S=chisq))
 		sumstats = ps.chisq(chisq, require_alleles, keep_na)
 		log_msg = 'Read summary statistics for {N} SNPs.'
@@ -363,7 +364,7 @@ class H2(_sumstats):
 			self.log.log(header)
 		
 		# WARNING: sumstats contains NA values to speed up merge
-		sumstats = self._parse_sumstats(self.log, args.h2, keep_na=True)
+		sumstats = self._parse_sumstats(args, self.log, args.h2, keep_na=True)
 		ref_ldscores = self._read_ref_ld(args, self.log)
 		M_annot = self._read_M(args, self.log)
 		M_annot, ref_ldscores = self._keep_ld(args, self.log, M_annot, ref_ldscores)
@@ -455,7 +456,7 @@ class Intercept(H2):
 			self.log.log(header)
 
 		# WARNING: sumstats contains NA values to speed up merge
-		sumstats = self._parse_sumstats(self.log, args.h2, keep_na=True)
+		sumstats = self._parse_sumstats(args, self.log, args.h2, keep_na=True)
 		ref_ldscores = self._read_ref_ld(args, self.log)
 		M_annot = self._read_M(args, self.log)
 		M_annot, ref_ldscores = self._keep_ld(args, self.log, M_annot, ref_ldscores)
@@ -508,7 +509,7 @@ class Rg(_sumstats):
 		rg_suffix_list = [x.split('/')[-1] for x in rg_file_list]
 		pheno1 = rg_file_list[0]
 		out_prefix = args.out + rg_suffix_list[0]
-		sumstats = self._parse_sumstats(self.log, pheno1, require_alleles=True, keep_na=True)
+		sumstats = self._parse_sumstats(args, self.log, pheno1, require_alleles=True, keep_na=True)
 		print len(sumstats)
 	
 		ref_ldscores = self._read_ref_ld(args, self.log)
@@ -528,7 +529,7 @@ class Rg(_sumstats):
 			else:
 				self.log.log('Computing genetic correlation.')
 			try:
-				sumstats2 = self._parse_sumstats(self.log, pheno2, require_alleles=True, keep_na=True)
+				sumstats2 = self._parse_sumstats(args, self.log, pheno2, require_alleles=True, keep_na=True)
 				out_prefix_loop = out_prefix + '_' + rg_suffix_list[i+1]
 				sumstats_loop = self._merge_sumstats_sumstats(self.sumstats, sumstats2, self.log)
 				# missing data has now been removed

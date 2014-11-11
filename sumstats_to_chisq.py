@@ -54,13 +54,16 @@ colnames_conversion = {
 	'ALLELE1': 'A1',
 	'EFFECT_ALLELE': 'A1',
 	'RISK_ALLELE': 'A1',
-	'REFERENCE_ALLELE': 'A1',	
+	'REFERENCE_ALLELE': 'A1',
+	'INC_ALLELE': 'A1',
+	
 
 	# ALLELE 2
 	'A2' : 'A2',
 	'ALLELE2': 'A2',
 	'OTHER_ALLELE' : 'A2',
 	'NON_EFFECT_ALLELE' : 'A2',
+	'DEC_ALLELE': 'A2',
 
 	# N
 	'N': 'N',
@@ -95,8 +98,8 @@ colnames_conversion = {
 }
 
 parser = argparse.ArgumentParser()
-parser.add_argument('--sumstats', default=None, type=str)
- help="Input filename.")
+parser.add_argument('--sumstats', default=None, type=str,
+	help="Input filename.")
 parser.add_argument('--N', default=None, type=float,
 	help="Sample size If this option is not set, will try to infer the sample "
 	"size from the input file. If the input file contains a sample size "
@@ -124,9 +127,12 @@ parser.add_argument('--merge', default=None, type=str,
 	help="Path to file with a list of SNPs to merge w/ the SNPs in the input file. "
 	"Will print the same SNPs in the same order as the --merge file, "
 	"with NA's for SNPs in the --merge file and not in the input file." )
-parser.add_argument('--alleles', default=None, type=float,
+parser.add_argument('--alleles', default=False, action="store_true" ,
 	help="Raise an error if the input file does not contain allele columns. "
 	"Useful if the .chisq files are to be used for rg estimation.")
+parser.add_argument('--pickle', default=None, action='store_true',
+	help="Save .chisq file as python pickle.")
+
 
 args = parser.parse_args()
 
@@ -154,6 +160,14 @@ if args.daner:
 # convert colnames
 dat.columns = map(str.upper, dat.columns)
 dat.rename(columns=colnames_conversion, inplace=True)
+
+# remove NA's
+M = len(dat)
+dat.dropna(axis=0, how="any", inplace=True)
+if len(dat) == 0:
+	raise ValueError('All SNPs had at least one missing value.')
+elif len(dat) < M:
+	print "Removed {M} SNPs with missing values.".format(M=(M-len(dat)))
 
 # capitalize alleles
 dat.A1 = dat.A1.apply(lambda y: y.upper())
@@ -251,9 +265,45 @@ if args.merge:
 	remain = dat.P.notnull().sum()
 	print 'After merging with --merge SNPs, {M} SNPs remain.'.format(M=remain)
 
-# chisq.gz
-print 'Writing P-values for {M} SNPs to {F}.'.format(M=len(dat), F=out_chisq+'.gz')
+# write chisq file
 chisq_colnames = [c for c in ['SNP','INFO','N','P','MAF','INC_ALLELE','DEC_ALLELE'] 
 	if c in dat.columns]
-dat.ix[:,chisq_colnames].to_csv(out_chisq, sep="\t", index=False)
-os.system('gzip -f {F}'.format(F=out_chisq))
+if not args.pickle:
+	print 'Writing P-values for {M} SNPs to {F}.'.format(M=len(dat), F=out_chisq+'.gz')
+	dat.ix[:,chisq_colnames].to_csv(out_chisq, sep="\t", index=False)
+	os.system('gzip -f {F}'.format(F=out_chisq))
+else:
+	print 'Writing P-values for {M} SNPs to {F}.'.format(M=len(dat), F=out_chisq+'.pickle')
+	out_chisq += '.pickle'
+	dat.ix[:,chisq_colnames].to_pickle(out_chisq)
+
+# write metadata
+np.set_printoptions(precision=4)
+pd.set_option('precision', 4)
+pd.set_option('display.max_rows', 100000)
+
+metadat_fh = args.out+'.chisq.metadata'
+mfh = open(metadat_fh, 'w')
+print 'Writing metadata to {F}.'.format(M=len(dat), F=metadat_fh)
+# mean chi^2 
+chisq = chdtri(1, dat['P'])
+mean_chisq = np.mean(chisq)
+print >>mfh, 'Mean Chi-Square = ' + str(round(mean_chisq,3))
+if mean_chisq < 1.02:
+	print "WARNING: mean chi^2 may be too small."
+
+# lambda GC 
+lambda_gc = np.median(chisq) / 0.4549
+print >>mfh, 'Lambda GC = ' + str(round(lambda_gc,3))
+
+# min p-value
+print >>mfh, 	'Min P = ' + str(np.matrix(np.min(dat.P))).replace('[[','').replace(']]','').replace('  ',' ')
+
+# most significant SNPs
+print >>mfh, "Genome-wide significant SNPs:"
+ii = dat.P < 1e-8
+print >>mfh, dat[ii]
+
+
+	
+	

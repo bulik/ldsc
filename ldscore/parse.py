@@ -9,7 +9,7 @@ from __future__ import division
 import numpy as np
 import pandas as pd
 from scipy.special import chdtri
-import gzip
+import gzip, bz2
 import os
 
 
@@ -19,6 +19,8 @@ def get_compression(fh):
 		compression='gzip'
 	elif fh.endswith('bz2'):
 		compression='bz2'
+	elif fh.endswith('pickle'):
+		compression='pickle'
 	else:
 		compression=None
 	return compression
@@ -203,25 +205,33 @@ def chisq(fh, require_alleles=False, keep_na=False):
 		'INC_ALLELE': str,
 		'DEC_ALLELE': str
 	}
-	if fh.endswith('gz'):
-		openfunc = gzip.open
-		compression='gzip'
-	else:
-		openfunc = open
-		compression=None
+	
+	compression = get_compression(fh)
+	if compression != 'pickle':
+		if compression == 'gzip':
+			openfunc = gzip.open
+		elif compression == 'bz2':
+			raise NotImplementedError('bzipped chisq files not currently supported.')
+		else:
+			openfunc = open
 		
-	colnames = openfunc(fh,'rb').readline().split()
-	if require_alleles:
-		usecols = ['SNP','P','CHISQ','N','MAF','INFO','INC_ALLELE','DEC_ALLELE']	
-	else:
-		usecols = ['SNP','P','CHISQ','N','MAF','INFO']	
-	usecols = [x for x in usecols if x in colnames]
-	try:
-		x = pd.read_csv(fh, header=0, delim_whitespace=True, usecols=usecols, 
-			dtype=dtype_dict, compression=compression)
-	except AttributeError as e:
-		raise AttributeError('Improperly formatted chisq file: '+str(e.args))
-
+		colnames = openfunc(fh,'rb').readline().split()
+		if require_alleles:
+			usecols = ['SNP','P','CHISQ','N','MAF','INFO','INC_ALLELE','DEC_ALLELE']	
+		else:
+			usecols = ['SNP','P','CHISQ','N','MAF','INFO']	
+		
+		usecols = [x for x in usecols if x in colnames]
+		try:
+			print fh, compression
+			x = pd.read_csv(fh, header=0, delim_whitespace=True, usecols=usecols, 
+				dtype=dtype_dict, compression=compression)
+		except AttributeError as e:
+			raise AttributeError('Improperly formatted chisq file: '+str(e.args))
+			
+	else: 
+		x = pd.read_pickle(fh)
+	
 	try:
 		check_N(x['N'])	
 	except KeyError as e:
@@ -326,7 +336,6 @@ def which_compression(fh):
 		msg = 'Could not open {F}[.pickle/gz/bz2]'
 		raise IOError(msg.format(F=fh))
 		
-
 	return [suffix, compression]
 
 
