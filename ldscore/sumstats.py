@@ -657,7 +657,7 @@ class Rg(_sumstats):
 			strand1 = (x.INC_ALLELE+x.DEC_ALLELE).apply(lambda y: STRAND_AMBIGUOUS[y])
 			strand2 = (x.INC_ALLELE2+x.DEC_ALLELE2).apply(lambda y: STRAND_AMBIGUOUS[y])
 			ii = ~(strand1 | strand2)
-			x = x.ix[~(strand1 | strand2)]
+			x = x[~(strand1 | strand2)]
 			if len(x) == 0:
 				raise ValueError('All remaining SNPs are strand ambiguous')
 			else:
@@ -665,7 +665,7 @@ class Rg(_sumstats):
 				log.log(msg.format(N=len(x)))
 
 			# remove SNPs where the alleles do not match
-		if not args.no_check_mismatch:
+		if not args.no_check_alleles:
 			alleles = x.INC_ALLELE+x.DEC_ALLELE+x.INC_ALLELE2+x.DEC_ALLELE2
 			match = alleles.apply(lambda y: MATCH_ALLELES[y])
 			x = x[match]
@@ -674,8 +674,8 @@ class Rg(_sumstats):
 			else:
 				msg = 'After removing SNPs with mismatched alleles, {N} SNPs remain.'
 				log.log(msg.format(N=len(x)))
-			# flip sign of betahat where ref alleles differ
 		
+		# flip sign of betahat where ref alleles differ
 		alleles = x.INC_ALLELE+x.DEC_ALLELE+x.INC_ALLELE2+x.DEC_ALLELE2
 		flip = (-1)**alleles.apply(lambda y: FLIP_ALLELES[y])
 		x['BETAHAT2'] *= flip

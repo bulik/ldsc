@@ -716,12 +716,15 @@ if __name__ == '__main__':
 	parser.add_argument('--no-check', default=True, action='store_false',
 		help='Don\'t check the contents of chisq files. These checks can be slow, and are '
 		'redundant for chisq files generated using sumstats_to_chisq.py.')
-	parser.add_argument('--no-check-mismatch', default=False, action='store_true',
+	parser.add_argument('--no-check-alleles', default=False, action='store_true',
 		help='For rg estimation, skip checking whether the alleles match. This check is '
 		'redundant for pairs of chisq files generated using sumstats_to_chisq.py with the '
 		'--merge-alleles flag.')
 
 	args = parser.parse_args()
+	
+	if args.no_check_alleles:
+		args.no_check = False
 
 	defaults = vars(parser.parse_args(''))
 	opts = vars(args)
