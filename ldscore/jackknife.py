@@ -95,7 +95,6 @@ def _append_intercept(x):
 	x_new = np.concatenate((x, int), axis=1)
 	return x_new
 
-	
 def _gencov_weights(ld, w_ld, N1, N2, No, M, h1, h2, rho_g, rho):
 
 	'''
@@ -151,7 +150,6 @@ def _gencov_weights(ld, w_ld, N1, N2, No, M, h1, h2, rho_g, rho):
 	# the 3 makes the h2 weights equal to the gencov weights
 	w = 3*np.multiply(het_w, oc_w)
 	return w
-
 
 def _hsq_weights(ld, w_ld, N, M, hsq):
 
@@ -312,7 +310,6 @@ class Hsq(object):
 		Returns a summary of the LD Score regression focused on the intercept.
 		
 	'''
-	
 	def __init__(self, chisq, ref_ld, w_ld, N, M, num_blocks=200, non_negative=False,
 		intercept=None):
 	
@@ -550,7 +547,6 @@ class Gencov(object):
 		Jackknife object.
 		
 	'''
-	
 	def __init__(self, bhat1, bhat2, ref_ld, w_ld, N1, N2, M, hsq1, hsq2, N_overlap=None,
 		rho=None, num_blocks=200, intercept=None):
 		
@@ -708,7 +704,6 @@ class Gencor(object):
 		Jackknife used for estimating genetic correlation. 
 
 	'''
-	
 	def __init__(self, bhat1, bhat2, ref_ld, w_ld, N1, N2, M, intercepts, 
 		N_overlap=None,	rho=None, num_blocks=200, return_silly_things=False, first_hsq=None):
 

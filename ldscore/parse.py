@@ -186,8 +186,7 @@ def read_cts(fh, match_snps):
 
 	return cts.ANNOT.values
 
-
-def chisq(fh, require_alleles=False, keep_na=False):
+def chisq(fh, require_alleles=False, keep_na=False, check=True):
 	'''
 	Parses .chisq files. See docs/file_formats_sumstats.txt
 	
@@ -230,66 +229,58 @@ def chisq(fh, require_alleles=False, keep_na=False):
 			raise AttributeError('Improperly formatted chisq file: '+str(e.args))
 			
 	else: 
-		print 'start'
 		x = pd.read_pickle(fh)
-		print '1'
-	
-	print '2'
-	try:
-		check_N(x['N'])	
-	except KeyError as e:
-		raise KeyError('No column named N in .chisq: '+str(e.args))
+		
+	if check:
+		'''
+		Check that all the columns make sense. These checks are somewhat slow, and are 
+		completely redundant for chisq files generated using sumstats_to_chisq.py.
+		'''
+		try:
+			check_N(x['N'])	
+		except KeyError as e:
+			raise KeyError('No column named N in .chisq: '+str(e.args))
 
-	x['N'] = x['N'].astype(float)
+		x['N'] = x['N'].astype(float)
 	
-	print '3'
-	try:
-		check_rsid(x['SNP'])
-	except KeyError as e:
-		raise KeyError('No column named SNP in .chisq: '+str(e.args))
+		try:
+			check_rsid(x['SNP'])
+		except KeyError as e:
+			raise KeyError('No column named SNP in .chisq: '+str(e.args))
 	
-	print '4'
-	ii = x.N.notnull()
-	print '5'
-	if 'MAF' in x.columns:
-		check_maf(x['MAF'][ii])
-		x['MAF'][ii] = np.fmin(x['MAF'][ii], 1-x['MAF'][ii])	
-	print '6'
-	if 'P' in x.columns:
-		check_pvalue(x['P'][ii])
-		x['P'][ii] = chdtri(1, x['P'][ii]); 
-		x.rename(columns={'P': 'CHISQ'}, inplace=True)
-	elif 'CHISQ' in x.columns:
-		check_chisq(x['CHISQ'][ii])
-	else:
-		raise ValueError('.chisq file must have a column labeled either P or CHISQ.')
-	
-	print '7'
-	if 'INC_ALLELE' in x.columns:
-		x.INC_ALLELE[ii] = x.INC_ALLELE[ii].apply(lambda y: y.upper())
-		y = x.INC_ALLELE[ii].unique()
-		p = ( (y == 'A') | (y == 'C') | (y == 'T') | (y == 'G')).all()
-		if not p:
-			raise ValueError('INC_ALLELE column must contain only A/C/T/G. Do you have indels?')
+		ii = x.N.notnull()
+		if 'MAF' in x.columns:
+			check_maf(x['MAF'][ii])
+			x['MAF'][ii] = np.fmin(x['MAF'][ii], 1-x['MAF'][ii])	
+		if 'P' in x.columns:
+			check_pvalue(x['P'][ii])
+			x['P'][ii] = chdtri(1, x['P'][ii]); 
+			x.rename(columns={'P': 'CHISQ'}, inplace=True)
+		elif 'CHISQ' in x.columns:
+			check_chisq(x['CHISQ'][ii])
+		else:
+			raise ValueError('.chisq file must have a column labeled either P or CHISQ.')
+		
+		if require_alleles:
+			if not ('INC_ALLELE' in x.columns and 'DEC_ALLELE' in x.columns):
+				msg = '.chisq file must have an INC_ALLELE and DEC_ALLELE column for rg estimation.'
+				raise ValueError(msg)
 
-	print '8'
-	if 'DEC_ALLELE' in x.columns:
-		x.DEC_ALLELE[ii] = x.DEC_ALLELE[ii].apply(lambda y: y.upper())
-		y = x.DEC_ALLELE[ii].unique()
-		p = ( (y == 'A') | (y == 'C') | (y == 'T') | (y == 'G')).all()
-		if not p:
-			raise ValueError('DEC_ALLELE column must contain only A/C/T/G. Do you have indels?')
+			x.INC_ALLELE[ii] = x.INC_ALLELE[ii].apply(lambda y: y.upper())
+			y = x.INC_ALLELE[ii].unique()
+			p = ( (y == 'A') | (y == 'C') | (y == 'T') | (y == 'G')).all()
+			if not p:
+				raise ValueError('INC_ALLELE column must contain only A/C/T/G. Do you have indels?')
 
-	print '9'	
-	if 'INC_ALLELE' in x.columns and 'DEC_ALLELE' in x.columns:
-		if np.any(x.INC_ALLELE[ii] == x.DEC_ALLELE[ii]):
-			raise ValueError('INC_ALLELE cannot equal DEC_ALLELE.')
-	print '10'
-	if require_alleles:
-		if not ('INC_ALLELE' in x.columns and 'DEC_ALLELE' in x.columns):
-			msg = '.chisq file must have an INC_ALLELE and DEC_ALLELE column for rg estimation.'
-			raise ValueError(msg)
-	print '11'
+			x.DEC_ALLELE[ii] = x.DEC_ALLELE[ii].apply(lambda y: y.upper())
+			y = x.DEC_ALLELE[ii].unique()
+			p = ( (y == 'A') | (y == 'C') | (y == 'T') | (y == 'G')).all()
+			if not p:
+				raise ValueError('DEC_ALLELE column must contain only A/C/T/G. Do you have indels?')
+
+			if np.any(x.INC_ALLELE[ii] == x.DEC_ALLELE[ii]):
+				raise ValueError('INC_ALLELE cannot equal DEC_ALLELE.')
+	
 	if not keep_na:
 		x = x[ii]
 

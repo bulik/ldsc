@@ -14,6 +14,7 @@ import jackknife as jk
 import parse as ps
 import sys, traceback
 import itertools as it
+import time
 
 # complementary bases
 COMPLEMENT = {
@@ -51,14 +52,24 @@ FLIP_ALLELES = {''.join(x):
 	(x[0] != COMPLEMENT[x[1]]) and (x[2] != COMPLEMENT[x[3]])
 	and MATCH_ALLELES[''.join(x)]}
 	
+def sec_to_str(t):
+	[d, h, m, s, n] = reduce(lambda ll,b : divmod(ll[0],b) + ll[1:], [(t, 1), 60,60, 24])
+	f = ''
+	if d > 0:
+		f += '{D}d:'.format(D=d)
+	if h > 0:
+		f += '{H}h:'.format(H=h)
+	if m > 0: 
+		f += '{M}m:'.format(M=m)
+	
+	f += '{S}s'.format(S=s)
+	return f
 
 def smart_merge(x, y):
 	'''Check if SNP columns are equal. If so, save time by using concat instead of merge.'''
 	if len(x.SNP) == len(y.SNP) and (x.SNP == y.SNP).all():
-		print 'concatenating'
 		out = pd.concat([x,y.ix[:,y.columns != 'SNP' ]], axis=1)
 	else:
-		print 'merging'
 		out = pd.merge(x, y, how="inner", on="SNP")
 	
 	return out
@@ -136,7 +147,7 @@ class _sumstats(object):
 		chisq = fh + '.chisq'
 		chisq += ps.which_compression(fh+'.chisq')[0]
 		self.log.log('Reading summary statistics from {S} ...'.format(S=chisq))
-		sumstats = ps.chisq(chisq, require_alleles, keep_na)
+		sumstats = ps.chisq(chisq, require_alleles, keep_na, args.no_check)
 		log_msg = 'Read summary statistics for {N} SNPs.'
 		log.log(log_msg.format(N=len(sumstats)))
 		
@@ -352,17 +363,28 @@ class _sumstats(object):
 				out_mat = out_mat[:,0:ncol-1]
 		
 			np.savetxt(ofh, out_mat)
-
+	
+	def _masthead_and_time(self, args, header):
+		self.log = logger(args.out + ".log")
+		if header:
+			self.log.log(header)
+		
+		self.log.log('Beginning analysis at {T}'.format(T=time.ctime()))
+		self.start_time = time.time()
+	
+	def _print_end_time(self, args, log):
+		log.log('Analysis finished at {T}'.format(T=time.ctime()) )
+		time_elapsed = round(time.time()-self.start_time,2)
+		log.log('Total time elapsed: {T}'.format(T=sec_to_str(time_elapsed)))
+	
 
 class H2(_sumstats):
 	'''
 	Implements h2 and partitioned h2 estimation
 	'''
 	def __init__(self, args, header):
-		self.log = logger(args.out + ".log")
-		if header:
-			self.log.log(header)
 		
+		self._masthead_and_time(args, header)
 		# WARNING: sumstats contains NA values to speed up merge
 		sumstats = self._parse_sumstats(args, self.log, args.h2, keep_na=True)
 		ref_ldscores = self._read_ref_ld(args, self.log)
@@ -373,9 +395,10 @@ class H2(_sumstats):
 		w_ld_colname, ref_ld_colnames, self.sumstats =\
 			self._merge_sumstats_ld(args, self.log, sumstats, M_annot, ref_ldscores, w_ldscores)
 		del sumstats
+
 		# Remove NA values from sumstats
 		ii = self.sumstats.CHISQ.notnull()
-		self.log.log('Removing {N} SNPs with NA values.'.format(N=(len(self.sumstats)-ii.sum()))
+		self.log.log('{N} SNPs with nonmissing values.'.format(N=ii.sum()))
 		self.sumstats = self.sumstats[ii]
 		self._check_ld_condnum(args, self.log, M_annot, self.sumstats[ref_ld_colnames])
 		self._warn_length(self.log, self.sumstats)
@@ -432,6 +455,8 @@ class H2(_sumstats):
 		self.log.log(hsqhat.summary(ref_ld_colnames, args.overlap_annot))
 		self.M_annot = M_annot
 		self.hsqhat = hsqhat
+		self.log.log('\n')
+		self._print_end_time(args, self.log)
 		
 	def _filter_chisq(self, args, log, sumstats, N_factor):
 		max_N = np.max(sumstats['N'])
@@ -444,7 +469,7 @@ class H2(_sumstats):
 				raise ValueError(log_msg.format(C=max_chisq, N='no'))
 			else:
 				log.log(log_msg.format(C=max_chisq, N=snp_count))
-				
+		
 		return sumstats
 	
 
@@ -453,12 +478,9 @@ class Intercept(H2):
 	LD Score regression intercept
 	'''
 	def __init__(self, args, header):
-		self.log = logger(args.out + ".log")
-		if header:
-			self.log.log(header)
-
+		self._masthead_and_time(args, header)
 		# WARNING: sumstats contains NA values to speed up merge
-		sumstats = self._parse_sumstats(args, self.log, args.h2, keep_na=True)
+		sumstats = self._parse_sumstats(args, self.log, args.intercept, keep_na=True)
 		ref_ldscores = self._read_ref_ld(args, self.log)
 		M_annot = self._read_M(args, self.log)
 		M_annot, ref_ldscores = self._keep_ld(args, self.log, M_annot, ref_ldscores)
@@ -469,7 +491,7 @@ class Intercept(H2):
 		del sumstats
 		# Remove NA values from sumstats
 		ii = self.sumstats.CHISQ.notnull()
-		self.log.log('Removing {N} SNPs with NA values.'.format(N=(len(self.sumstats)-ii.sum())))
+		self.log.log('{N} SNPs with nonmissing values.'.format(N=ii.sum()))
 		self.sumstats = self.sumstats[ii]
 		self._check_ld_condnum(args, self.log, M_annot, self.sumstats[ref_ld_colnames])
 		self._warn_length(self.log, self.sumstats)
@@ -490,7 +512,7 @@ class Intercept(H2):
 		hsqhat = jk.Hsq(chisq, ref_ld, w_ld, N, M_annot, args.num_blocks)				
 		self.log.log(hsqhat.summary_intercept())
 		self.hsqhat = hsqhat
-
+		self._print_end_time(args, self.log)
 
 class Rg(_sumstats):
 	'''
@@ -498,10 +520,9 @@ class Rg(_sumstats):
 	a list (possibly with length one) of other phenotypes.
 	
 	'''
+	
 	def __init__(self, args, header):
-		self.log = logger(args.out + ".log")
-		if header:
-			self.log.log(header)
+		self._masthead_and_time(args, header)
 		if args.rg:
 			rg_file_list = args.rg.split(',')
 		elif args.rg_list:
@@ -513,9 +534,8 @@ class Rg(_sumstats):
 		rg_suffix_list = [x.split('/')[-1] for x in rg_file_list]
 		pheno1 = rg_file_list[0]
 		out_prefix = args.out + rg_suffix_list[0]
-		sumstats = self._parse_sumstats(args, self.log, pheno1, require_alleles=True, keep_na=True)
-		print len(sumstats)
-	
+		sumstats = self._parse_sumstats(args, self.log, pheno1, require_alleles=True, 
+			keep_na=True)	
 		ref_ldscores = self._read_ref_ld(args, self.log)
 		M_annot = self._read_M(args, self.log)
 		M_annot, ref_ldscores = self._keep_ld(args, self.log, M_annot, ref_ldscores)
@@ -533,15 +553,16 @@ class Rg(_sumstats):
 			else:
 				self.log.log('Computing genetic correlation.')
 			try:
-				sumstats2 = self._parse_sumstats(args, self.log, pheno2, require_alleles=True, keep_na=True)
+				sumstats2 = self._parse_sumstats(args, self.log, pheno2, require_alleles=True, 
+					keep_na=True)
 				out_prefix_loop = out_prefix + '_' + rg_suffix_list[i+1]
-				sumstats_loop = self._merge_sumstats_sumstats(self.sumstats, sumstats2, self.log)
+				sumstats_loop = self._merge_sumstats_sumstats(args, self.sumstats, sumstats2, self.log)
 				# missing data has now been removed
 				sumstats_loop = self._filter_chisq(args, self.log, sumstats_loop, 0.001)
 				self._check_ld_condnum(args, self.log, M_annot, sumstats_loop[ref_ld_colnames])
 				self._warn_length(self.log, sumstats_loop)
 				snp_count = len(sumstats_loop); n_annot = len(ref_ld_colnames)
-				if i == 1:
+				if i == 0:
 					rghat = self._rg(sumstats_loop, args, self.log, M_annot, ref_ld_colnames, 
 						w_ld_colname)
 					hsq1 = rghat.hsq1
@@ -565,7 +586,7 @@ class Rg(_sumstats):
 					gencov_delete_ofh = out_prefix_loop+'.gencov.delete_k'
 					self._print_delete_k(rghat.gencov, gencov_delete_ofh, self.log)
 			
-				self._print_gencor(args, self.log, rghat, ref_ld_colnames, i, rg_file_list, i==1)
+				self._print_gencor(args, self.log, rghat, ref_ld_colnames, i, rg_file_list, i==0)
 				self.rghat.append(rghat)
 			
 			except Exception as e:
@@ -575,13 +596,14 @@ class Rg(_sumstats):
 				
 				'''
 				
-				msg = 'Error computing rg for phenotype {I}/{N}'
-				self.log.log(msg.format(I=i+2, N=len(rg_file_list)))
+				msg = 'ERROR computing rg for phenotype {I}/{N}, from file {F}.'
+				self.log.log(msg.format(I=i+2, N=len(rg_file_list), F=rg_file_list[i+1]))
 				ex_type, ex, tb = sys.exc_info()
 				self.log.log( traceback.format_exc(ex) )
 				self.log.log('\n')
-
-				
+			
+			self._print_end_time(args, self.log)
+			
 	def _print_gencor(self, args, log, rghat, ref_ld_colnames,i, rg_file_list, print_hsq1):
 		if print_hsq1:
 			self.log.log( '\n' )
@@ -603,58 +625,64 @@ class Rg(_sumstats):
 		self.log.log( '-------------------' )
 		self.log.log(rghat.summary() )
 		self.log.log( '\n' )
-		
-	def _merge_sumstats_sumstats(self, sumstats1, sumstats2, log):
+
+	def _merge_sumstats_sumstats(self, args, sumstats1, sumstats2, log):
 		'''
 		Merge two sets of summary statistics and align strand + reference alleles.
 		
 		This function filters out NA's
 				
 		'''
-		
 		# rename and merge (ideally just concatenate sideways)
 		sumstats2.rename(columns={'INC_ALLELE': 'INC_ALLELE2',
-			'DEC_ALLELE': 'DEC_ALLELE2',
-			'N': 'N2',
-			'CHISQ': 'CHISQ2'}, inplace=True)
-		sumstats1.rename(columns={'N': 'N1', 'CHISQ': 'CHISQ1'}, inplace=True)
-
+			'DEC_ALLELE': 'DEC_ALLELE2', 'N': 'N2',	'CHISQ': 'BETAHAT2'}, inplace=True)
+		if 'BETAHAT1' not in sumstats1.columns:
+			sumstats1.rename(columns={'CHISQ': 'BETAHAT1', 'N': 'N1'}, inplace=True)
+	 		sumstats1['BETAHAT1'] = np.sqrt(sumstats1['BETAHAT1']/sumstats1['N1']) 
+			
 		x = smart_merge(sumstats1, sumstats2)
 		if len(x) == 0:
 			raise ValueError('No SNPs remain after merge.')
-
 		# remove NA's
-		ii = x.CHISQ1.notnull() & x.CHISQ2.notnull()
-		self.log.log('Removing {N} SNPs with NA values.'.format(N=(len(x)-ii.sum()))
-
+		ii = x.BETAHAT1.notnull() & x.BETAHAT2.notnull()
+		self.log.log('{N} SNPs with nonmissing values.'.format(N=ii.sum()))
 		x = x[ii]
-		if len(x) == 0:
-			raise ValueError('All remaining SNPs have null betahat.')
-		x['BETAHAT1'] = np.sqrt(x['CHISQ1'])/np.sqrt(x['N1'])
-		x['BETAHAT2'] = np.sqrt(x['CHISQ2'])/np.sqrt(x['N2'])	
-		del x['CHISQ1']; del x['CHISQ2']
+ 		if len(x) == 0:
+ 			raise ValueError('All remaining SNPs have null betahat.')
+ 	
+ 		x['BETAHAT2'] = np.sqrt(x['BETAHAT2']/x['N2'])
 
-		# remove strand ambiguous SNPs
-		strand1 = (x.INC_ALLELE+x.DEC_ALLELE).apply(lambda y: STRAND_AMBIGUOUS[y])
-		strand2 = (x.INC_ALLELE2+x.DEC_ALLELE2).apply(lambda y: STRAND_AMBIGUOUS[y])
-		x = x.ix[~(strand1 | strand2)]
-		if len(x) == 0:
-			raise ValueError('All remaining SNPs are strand ambiguous')
+ 		if args.no_check:
+			# remove strand ambiguous SNPs
+			strand1 = (x.INC_ALLELE+x.DEC_ALLELE).apply(lambda y: STRAND_AMBIGUOUS[y])
+			strand2 = (x.INC_ALLELE2+x.DEC_ALLELE2).apply(lambda y: STRAND_AMBIGUOUS[y])
+			ii = ~(strand1 | strand2)
+			x = x.ix[~(strand1 | strand2)]
+			if len(x) == 0:
+				raise ValueError('All remaining SNPs are strand ambiguous')
+			else:
+				msg = 'After removing strand ambiguous SNPs, {N} SNPs remain.'
+				log.log(msg.format(N=len(x)))
+
+			# remove SNPs where the alleles do not match
+		if not args.no_check_mismatch:
+			alleles = x.INC_ALLELE+x.DEC_ALLELE+x.INC_ALLELE2+x.DEC_ALLELE2
+			match = alleles.apply(lambda y: MATCH_ALLELES[y])
+			x = x[match]
+			if len(x) == 0:
+				raise ValueError('All SNPs have mismatched alleles.')
+			else:
+				msg = 'After removing SNPs with mismatched alleles, {N} SNPs remain.'
+				log.log(msg.format(N=len(x)))
+			# flip sign of betahat where ref alleles differ
 		
-		# remove SNPs where the alleles do not match
-		alleles = x.INC_ALLELE+x.DEC_ALLELE+x.INC_ALLELE2+x.DEC_ALLELE2
-		match = alleles.apply(lambda y: MATCH_ALLELES[y])
-		x = x[match]
-		if len(x) == 0:
-			raise ValueError('All SNPs have mismatched alleles.')
-			
-		# flip sign of betahat where ref alleles differ
 		alleles = x.INC_ALLELE+x.DEC_ALLELE+x.INC_ALLELE2+x.DEC_ALLELE2
 		flip = (-1)**alleles.apply(lambda y: FLIP_ALLELES[y])
 		x['BETAHAT2'] *= flip
 		del x['INC_ALLELE']; del x['DEC_ALLELE']; del x['INC_ALLELE2']; del x['DEC_ALLELE2']
+			
 		return x
-		
+	
 	def _rg(self, sumstats_loop, args, log, M_annot, ref_ld_colnames, w_ld_colname, first_hsq=None):
 		self.log.log('Estimating genetic correlation.')
 		snp_count = len(sumstats_loop); n_annot = len(ref_ld_colnames)
@@ -710,18 +738,12 @@ class Rg(_sumstats):
 				first_hsq=first_hsq)
 		
 		return rghat
-			
+	
 	def _filter_chisq(self, args, log, sumstats, N_factor):
-		max_N1 = np.max(sumstats['N1'])
-		max_N2 = np.max(sumstats['N2'])
 		if not args.no_filter_chisq:
-			max_chisq1 = max(0.001*max_N1, args.max_chisq)
-			max_chisq2 = max(0.001*max_N2, args.max_chisq)
-			chisq1 = sumstats.BETAHAT1**2 * sumstats.N1
-			chisq2 = sumstats.BETAHAT2**2 * sumstats.N2
-			ii = np.logical_and(chisq1 < max_chisq1, chisq2 < max_chisq2)
-			sumstats = sumstats[ii]
-			log_msg = 'After filtering on chi^2 < ({C},{D}), {N} SNPs remain.'
-			log.log(log_msg.format(C=max_chisq1, D=max_chisq2, N=np.sum(ii)))
+			bound = np.sqrt(N_factor)
+			sumstats = sumstats[(sumstats.BETAHAT1.abs() < bound) & (sumstats.BETAHAT2.abs() < bound)]
+			log_msg = 'After filtering on chi^2, {N} SNPs remain.'
+			log.log(log_msg.format(N=len(sumstats)))
 	
 		return sumstats

@@ -14,12 +14,12 @@ from __future__ import division
 import ldscore.ldscore as ld
 import ldscore.parse as ps
 import ldscore.jackknife as jk
+import ldscore.sumstats as sumstats
 import argparse
 import numpy as np
 import pandas as pd
 from subprocess import call
 from itertools import product
-import ldscore.sumstats as sumstats
 
 __version__ = '0.0.2 (alpha)'
 
@@ -713,6 +713,13 @@ if __name__ == '__main__':
 		help='Print block jackknife delete-k values.')
 	parser.add_argument('--return-silly-things', default=False, action='store_true',
 		help='Force ldsc to return silly genetic correlation estimates.')
+	parser.add_argument('--no-check', default=True, action='store_false',
+		help='Don\'t check the contents of chisq files. These checks can be slow, and are '
+		'redundant for chisq files generated using sumstats_to_chisq.py.')
+	parser.add_argument('--no-check-mismatch', default=False, action='store_true',
+		help='For rg estimation, skip checking whether the alleles match. This check is '
+		'redundant for pairs of chisq files generated using sumstats_to_chisq.py with the '
+		'--merge-alleles flag.')
 
 	args = parser.parse_args()
 
@@ -791,7 +798,7 @@ if __name__ == '__main__':
 				raise ValueError('--rho and --overlap can only be used with --rg.')
 			if not (args.rho and args.overlap):
 				raise ValueError('Must specify either both or neither of --rho and --overlap.')
-					
+		
 		if args.rg or args.rg_list:
 			sumstats.Rg(args, header)
 		elif args.h2:
