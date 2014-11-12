@@ -222,15 +222,20 @@ def chisq(fh, require_alleles=False, keep_na=False, check=True):
 		
 		usecols = [x for x in usecols if x in colnames]
 		try:
-			print fh, compression
 			x = pd.read_csv(fh, header=0, delim_whitespace=True, usecols=usecols, 
-				dtype=dtype_dict, compression=compression)
+				dtype=dtype_dict, compression=compression, index_col='SNP')
 		except AttributeError as e:
 			raise AttributeError('Improperly formatted chisq file: '+str(e.args))
 			
 	else: 
 		x = pd.read_pickle(fh)
-		
+	
+	if 'P' in x.columns:
+		ii = x.P.notnull()
+		check_pvalue(x['P'][ii])
+		x['P'][ii] = chdtri(1, x['P'][ii]); 
+		x.rename(columns={'P': 'CHISQ'}, inplace=True)
+			
 	if check:
 		'''
 		Check that all the columns make sense. These checks are somewhat slow, and are 
@@ -244,7 +249,7 @@ def chisq(fh, require_alleles=False, keep_na=False, check=True):
 		x['N'] = x['N'].astype(float)
 	
 		try:
-			check_rsid(x['SNP'])
+			check_rsid(x.index)
 		except KeyError as e:
 			raise KeyError('No column named SNP in .chisq: '+str(e.args))
 	
@@ -252,10 +257,6 @@ def chisq(fh, require_alleles=False, keep_na=False, check=True):
 		if 'MAF' in x.columns:
 			check_maf(x['MAF'][ii])
 			x['MAF'][ii] = np.fmin(x['MAF'][ii], 1-x['MAF'][ii])	
-		if 'P' in x.columns:
-			check_pvalue(x['P'][ii])
-			x['P'][ii] = chdtri(1, x['P'][ii]); 
-			x.rename(columns={'P': 'CHISQ'}, inplace=True)
 		elif 'CHISQ' in x.columns:
 			check_chisq(x['CHISQ'][ii])
 		else:
@@ -341,7 +342,8 @@ def which_compression(fh):
 def l2_parser(fh, compression):
 	'''For parsing LD Score files'''
 	if compression == "gzip" or compression == 'bz2' or compression == None:
-		x = pd.read_csv(fh, header=0, delim_whitespace=True,	compression=compression)
+		x = pd.read_csv(fh, header=0, delim_whitespace=True, compression=compression, 
+			index_col='SNP')
 	elif compression == 'pickle':
 		x = pd.read_pickle(fh)
 		
@@ -357,9 +359,6 @@ def ldscore(fh, num=None):
 
 	'''
 						
-	parsefunc = lambda y, compression : pd.read_csv(y, header=0, delim_whitespace=True,
-		compression=compression).drop(['CHR','BP','CM','MAF'], axis=1)
-	
 	if num is not None:
 		'''22 files, one for each chromosome'''
 		suffix = '.l2.ldscore'
@@ -384,9 +383,9 @@ def ldscore(fh, num=None):
 		suffix += s
 		x = l2_parser(fh+suffix, compression)
 	
-	ii = x['SNP'] != '.'
+	ii = x.index != '.'
 	x = x[ii]	
-	check_rsid(x['SNP']) 
+	check_rsid(x.index) 
 	for col in x.columns[1:]:
 		x[col] = x[col].astype(float)
 	

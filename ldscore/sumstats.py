@@ -67,10 +67,10 @@ def sec_to_str(t):
 
 def smart_merge(x, y):
 	'''Check if SNP columns are equal. If so, save time by using concat instead of merge.'''
-	if len(x.SNP) == len(y.SNP) and (x.SNP == y.SNP).all():
-		out = pd.concat([x,y.ix[:,y.columns != 'SNP' ]], axis=1)
+	if len(x.index) == len(y.index) and (x.index == y.index).all():
+		out = pd.concat([x, y], axis=1)
 	else:
-		out = pd.merge(x, y, how="inner", on="SNP")
+		out = pd.merge(x, y, how="inner", left_index=True, right_index=True)
 	
 	return out
 	
@@ -150,7 +150,12 @@ class _sumstats(object):
 		sumstats = ps.chisq(chisq, require_alleles, keep_na, args.no_check)
 		log_msg = 'Read summary statistics for {N} SNPs.'
 		log.log(log_msg.format(N=len(sumstats)))
-		
+		if args.no_check:
+			m = len(sumstats)
+			sumstats = sumstats.reset_index().drop_duplicates(subset='SNP').set_index('SNP')
+			if m > len(sumstats):
+				log.log('Dropped {M} SNPs with duplicated rs numbers.'.format(M=m-len(sumstats)))
+			
 		return sumstats
 
 	def _read_M(self, args, log):
@@ -225,11 +230,11 @@ class _sumstats(object):
 			log.log('Error parsing regression SNP LD.')
 			raise e
 	
-		if len(w_ldscores.columns) != 2:
+		if len(w_ldscores.columns) != 1:
 			raise ValueError('--w-ld must point to a file with a single (non-partitioned) LD Score.')
 	
 		# to keep the column names from being the same
-		w_ldscores.columns = ['SNP','LD_weights'] 
+		w_ldscores.columns = ['LD_weights'] 
 
 		log_msg = 'Read LD Scores for {N} SNPs to be retained for regression.'
 		log.log(log_msg.format(N=len(w_ldscores)))
@@ -254,7 +259,7 @@ class _sumstats(object):
 
 	def _check_variance(self, log, M_annot, ref_ldscores):
 		'''Remove zero-variance LD Scores'''
-		ii = np.squeeze(np.array(ref_ldscores.iloc[:,1:len(ref_ldscores.columns)].var(axis=0) == 0))
+		ii = np.squeeze(np.array(ref_ldscores.iloc[:,0:len(ref_ldscores.columns)].var(axis=0) == 0))
 		if np.all(ii):
 			raise ValueError('All LD Scores have zero variance.')
 		elif np.any(ii):
@@ -306,7 +311,7 @@ class _sumstats(object):
 			log_msg = 'After merging with regression SNP LD, {N} SNPs remain.'
 			log.log(log_msg.format(N=len(sumstats)))
 	
-		ref_ld_colnames = ref_ldscores.columns[1:len(ref_ldscores.columns)]	
+		ref_ld_colnames = ref_ldscores.columns[0:len(ref_ldscores.columns)]	
 		w_ld_colname = sumstats.columns[-1]
 		return(w_ld_colname, ref_ld_colnames, sumstats)
 	
@@ -514,6 +519,7 @@ class Intercept(H2):
 		self.hsqhat = hsqhat
 		self._print_end_time(args, self.log)
 
+
 class Rg(_sumstats):
 	'''
 	Implements rg estimation with fixed LD Scores, one fixed phenotype, and a loop over
@@ -644,14 +650,13 @@ class Rg(_sumstats):
 		if len(x) == 0:
 			raise ValueError('No SNPs remain after merge.')
 		# remove NA's
+		x['BETAHAT2'] = np.sqrt(x['BETAHAT2']/x['N2'])
 		ii = x.BETAHAT1.notnull() & x.BETAHAT2.notnull()
 		self.log.log('{N} SNPs with nonmissing values.'.format(N=ii.sum()))
 		x = x[ii]
  		if len(x) == 0:
  			raise ValueError('All remaining SNPs have null betahat.')
  	
- 		x['BETAHAT2'] = np.sqrt(x['BETAHAT2']/x['N2'])
-
  		if args.no_check:
 			# remove strand ambiguous SNPs
 			strand1 = (x.INC_ALLELE+x.DEC_ALLELE).apply(lambda y: STRAND_AMBIGUOUS[y])
@@ -664,7 +669,7 @@ class Rg(_sumstats):
 				msg = 'After removing strand ambiguous SNPs, {N} SNPs remain.'
 				log.log(msg.format(N=len(x)))
 
-			# remove SNPs where the alleles do not match
+		# remove SNPs where the alleles do not match
 		if not args.no_check_mismatch:
 			alleles = x.INC_ALLELE+x.DEC_ALLELE+x.INC_ALLELE2+x.DEC_ALLELE2
 			match = alleles.apply(lambda y: MATCH_ALLELES[y])
@@ -743,7 +748,10 @@ class Rg(_sumstats):
 		if not args.no_filter_chisq:
 			bound = np.sqrt(N_factor)
 			sumstats = sumstats[(sumstats.BETAHAT1.abs() < bound) & (sumstats.BETAHAT2.abs() < bound)]
-			log_msg = 'After filtering on chi^2, {N} SNPs remain.'
-			log.log(log_msg.format(N=len(sumstats)))
+			if len(sumstats) > 0:
+				log_msg = 'After filtering on chi^2, {N} SNPs remain.'
+				log.log(log_msg.format(N=len(sumstats)))
+			else:
+				raise ValueError('After filtering on chi^2, no SNPs remain.')
 	
 		return sumstats

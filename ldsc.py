@@ -497,6 +497,7 @@ def ldscore(args, header=None):
 	elif args.pickle:
 		l2_suffix = '.pickle'
 		log.log("Writing LD Scores for {N} SNPs to {f}.pickle".format(f=out_fname, N=len(df)))
+		df.set_index('SNP')
 		out_fname_pickle = out_fname+l2_suffix
 		df.to_pickle(out_fname_pickle)
 		
