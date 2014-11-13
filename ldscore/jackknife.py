@@ -324,6 +324,7 @@ class Hsq(object):
 		self.lambda_gc = np.median(np.asarray(chisq)) / 0.4549 
 		ref_ld_tot = np.sum(ref_ld, axis=1)
 
+
 		x = np.multiply(N, ref_ld)
 		if self.constrain_intercept is None:
 			x = _append_intercept(x)
@@ -357,6 +358,14 @@ class Hsq(object):
 		self.tot_hsq_se = np.sqrt(np.sum(M*self._jknife.jknife_cov[0:self.n_annot,\
 			0:self.n_annot]*self.M.T))
 
+		numer_delete_vals = np.multiply(self.M,self._jknife.delete_values[:,0:self.n_annot])
+		denom_delete_vals = np.sum(numer_delete_vals,axis=1)*np.ones(self.n_annot)
+		prop_hsq_est = self.cat_hsq/self.tot_hsq
+		self.prop_hsq_j = RatioJackknife(prop_hsq_est,numer_delete_vals,denom_delete_vals)
+		self.prop_hsq = self.prop_hsq_j.est
+		self.prop_hsq_se = self.prop_hsq_j.jknife_se
+		self.prop_hsq_cov = self.prop_hsq_j.jknife_cov
+
 		if intercept is None:
 			self.intercept = self._jknife.est[0,self.n_annot] + 1
 			self.intercept_se = self._jknife.jknife_se[0,self.n_annot]
@@ -367,7 +376,6 @@ class Hsq(object):
 				self.ratio = float('nan')
 				self.ratio_se = float('nan')
 
-		self.prop_hsq = self.cat_hsq / self.tot_hsq
 		self.M_prop = self.M / self.M_tot
 		self.enrichment = np.divide(self.cat_hsq, self.M) / (self.tot_hsq/self.M_tot)
 		
@@ -378,22 +386,23 @@ class Hsq(object):
 		agg = numerator / denominator
 		return agg
 
-	def summary(self, ref_ld_colnames, overlap=False):
+	def summary(self, ref_ld_colnames, overlap=False, outfile = None):
 		'''Print information about LD Score Regression'''
 		out = []
 		out.append('Total observed scale h2: '+str(np.matrix(self.tot_hsq))+\
 			' ('+str(np.matrix(self.tot_hsq_se))+')')
 		if self.n_annot > 1:
-			out.append( 'Categories: '+' '.join(ref_ld_colnames))
 			if not overlap:
+				out.append( 'Categories: '+' '.join(ref_ld_colnames))
 				out.append( 'Observed scale h2: '+ str(np.matrix(self.cat_hsq)))
 				out.append( 'Observed scale h2 SE: '+str(np.matrix(self.cat_hsq_se)))
 				out.append( 'Proportion of SNPs: '+str(np.matrix(self.M_prop)))
 				out.append( 'Proportion of h2g: ' +str(np.matrix(self.prop_hsq)))
-				out.append( 'Enrichment: '+str(np.matrix(self.enrichment)))
-	
-		out.append( 'Coefficients: '+str(self.coef))
-		out.append( 'Coefficient SE: '+str(self.coef_se))
+				out.append( 'Enrichment: '+str(np.matrix(self.enrichment)))	
+				out.append( 'Coefficients: '+str(self.coef))
+				out.append( 'Coefficient SE: '+str(self.coef_se))
+			else:
+				out.append( 'Partitioned heritabilities and enrichments printed to {}.overlap'.format(outfile))
 		out.append( 'Lambda GC: '+ str(np.matrix(self.lambda_gc)))
 		out.append( 'Mean Chi^2: '+ str(np.matrix(self.mean_chisq)))
 		if self.constrain_intercept is not None:

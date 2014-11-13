@@ -142,6 +142,43 @@ class _sumstats(object):
 		log.log(log_msg.format(N=len(ref_ldscores)))
 		return ref_ldscores
 
+	def _read_annot(self,args,log):
+		'''Read annot matrix'''
+		try:
+			if args.ref_ld:
+				log.log('Reading annot matrix from {F} ...'.format(F=args.ref_ld))
+				[overlap_matrix, M_tot] = ps.annot([args.ref_ld],frqfile=args.frqfile)
+			elif args.ref_ld_chr:	
+				if '@' in args.ref_ld_chr:
+					f = args.ref_ld_chr.replace('@','[1-22]')
+				else:
+					f = args.ref_ld_chr+'[1-22]'
+				log.log('Reading annot matrices from {F} ...'.format(F=f))
+				[overlap_matrix, M_tot] = ps.annot([args.ref_ld_chr], 22,frqfile=args.frqfile)
+			elif args.ref_ld_file:
+				log.log('Reading annot matrices listed in {F} ...'.format(F=args.ref_ld_file))
+				[overlap_matrix, M_tot] = ps.annot_fromfile(args.ref_ld_file,frqfile=args.frqfile)
+			elif args.ref_ld_file_chr:
+				log.log('Reading annot matrices listed in {F} ...'.format(F=args.ref_ld_file_chr))
+				[overlap_matrix, M_tot] = ps.annot_fromfile(args.ref_ld_file_chr, 22,frqfile=args.frqfile)		
+			elif args.ref_ld_list:
+				log.log('Reading annot matrices...')
+				flist = args.ref_ld_list.split(',')
+				[overlap_matrix, M_tot] = ps.annot(flist,frqfile=args.frqfile)	
+			elif args.ref_ld_list_chr:
+				log.log('Reading annot matrices...')
+				flist = args.ref_ld_list_chr.split(',')
+				[overlap_matrix, M_tot] = ps.annot(flist, 22,frqfile=args.frqfile)
+					
+		except ValueError as e:
+			log.log('Error reading annot matrix.')
+			raise e
+
+		log_msg = 'Read annot matrix.'
+		log.log(log_msg)
+
+		return [overlap_matrix, M_tot]	
+
 	def _parse_sumstats(self, args, log, fh, require_alleles=False, keep_na=False):
 		# priority is pickle, bz2, gz, uncompressed
 		chisq = fh + '.chisq'
@@ -152,7 +189,7 @@ class _sumstats(object):
 		log.log(log_msg.format(N=len(sumstats)))
 		if args.no_check:
 			m = len(sumstats)
-			sumstats = sumstats.reset_index().drop_duplicates(subset='SNP').set_index('SNP')
+			#sumstats = sumstats.reset_index().drop_duplicates(subset='SNP').set_index('SNP')
 			if m > len(sumstats):
 				log.log('Dropped {M} SNPs with duplicated rs numbers.'.format(M=m-len(sumstats)))
 			
@@ -291,7 +328,8 @@ class _sumstats(object):
 			except IndexError as e:
 				raise IndexError('--keep-ld column numbers are out of bounds: '+str(e.args))
 	
-		log.log('Using M = '+jk.kill_brackets(str(np.array(M_annot))).replace(' ','') ) 
+		log.log('Using M = '+', '.join(map(str,np.array(M_annot))))
+		#log.log('Using M = '+jk.kill_brackets(str(np.array(M_annot))).replace(' ','') ) 
 		return(M_annot, ref_ldscores)
 
 	def _merge_sumstats_ld(self, args, log, sumstats, M_annot, ref_ldscores, w_ldscores):
@@ -310,9 +348,10 @@ class _sumstats(object):
 		else:
 			log_msg = 'After merging with regression SNP LD, {N} SNPs remain.'
 			log.log(log_msg.format(N=len(sumstats)))
-	
-		ref_ld_colnames = ref_ldscores.columns[0:len(ref_ldscores.columns)]	
+
 		w_ld_colname = sumstats.columns[-1]
+		ref_ld_colnames = ref_ldscores.columns[0:len(ref_ldscores.columns)]	
+
 		return(w_ld_colname, ref_ld_colnames, sumstats)
 	
 	def _filter(self, args, log, sumstats):
@@ -382,6 +421,34 @@ class _sumstats(object):
 		time_elapsed = round(time.time()-self.start_time,2)
 		log.log('Total time elapsed: {T}'.format(T=sec_to_str(time_elapsed)))
 	
+	def _overlap_output(self, args, overlap_matrix, M_annot, n_annot, hsqhat, category_names, M_tot):
+
+			for i in range(n_annot):
+				overlap_matrix[i,:] = overlap_matrix[i,:]/M_annot
+			
+			prop_hsq_overlap = np.dot(overlap_matrix,hsqhat.prop_hsq.T).reshape((1,n_annot))
+			prop_hsq_overlap_var = np.diag(np.dot(np.dot(overlap_matrix,hsqhat.prop_hsq_cov),overlap_matrix.T))
+			prop_hsq_overlap_se = np.sqrt(prop_hsq_overlap_var).reshape((1,n_annot))
+
+			prop_M_overlap = M_annot/M_tot
+			enrichment = prop_hsq_overlap/prop_M_overlap
+			enrichment_se = prop_hsq_overlap_se/prop_M_overlap
+
+			one_d_convert = lambda x : np.array(x)[0]
+			df = pd.DataFrame({
+				'Category':category_names,
+				'Prop. SNPs':one_d_convert(prop_M_overlap),
+				'Prop. h2':one_d_convert(prop_hsq_overlap),
+				'Prop. h2 std error': one_d_convert(prop_hsq_overlap_se),
+				'Enrichment': one_d_convert(enrichment),
+				'Enrichment std error': one_d_convert(enrichment_se)
+				})
+			df = df[['Category','Prop. SNPs','Prop. h2','Prop. h2 std error','Enrichment','Enrichment std error']]
+			if args.print_coefficients:
+				df['Coefficient'] = one_d_convert(hsqhat.coef)
+				df['Coefficient std error'] = one_d_convert(hsqhat.coef_se)
+				df['Coefficient z-score'] = one_d_convert(hsqhat.coef/hsqhat.coef_se)
+			df.to_csv(args.out+'.overlap',sep="\t",index=False)
 
 class H2(_sumstats):
 	'''
@@ -391,9 +458,17 @@ class H2(_sumstats):
 		
 		self._masthead_and_time(args, header)
 		# WARNING: sumstats contains NA values to speed up merge
+
+		if args.overlap_annot:
+			[overlap_matrix, M_tot] = self._read_annot(args,self.log)
+			
+			#check that M_annot == np.sum(annot_matrix,axis=0) and n_annot == annot_matrix.shape[1]
+			# make --overlap-annot versions of __keep_ld and _check_variance
+			
 		sumstats = self._parse_sumstats(args, self.log, args.h2, keep_na=True)
 		ref_ldscores = self._read_ref_ld(args, self.log)
 		M_annot = self._read_M(args, self.log)
+		#update the next three functions
 		M_annot, ref_ldscores = self._keep_ld(args, self.log, M_annot, ref_ldscores)
 		M_annot, ref_ldscores = self._check_variance(self.log, M_annot, ref_ldscores)
 		w_ldscores = self._read_w_ld(args, self.log)
@@ -448,16 +523,18 @@ class H2(_sumstats):
 				annot_matrix = np.matrix(annot.df.iloc[:,4:])
 			else:
 				raise ValueError("No annot file specified.")
-
+ 
 			hsqhat = jk.Hsq_aggregate(chisq, ref_ld, w_ld, N, M_annot, annot_matrix, args.num_blocks)
 		else:
 			hsqhat = jk.Hsq(chisq, ref_ld, w_ld, N, M_annot, args.num_blocks, args.non_negative)
 				
 		self._print_cov(args, self.log, hsqhat, n_annot)
 		self._print_delete_k(args, self.log, hsqhat)	
-				
-	
-		self.log.log(hsqhat.summary(ref_ld_colnames, args.overlap_annot))
+		
+		if args.overlap_annot:
+			self._overlap_output(args, overlap_matrix, M_annot, n_annot, hsqhat, ref_ld_colnames, M_tot)
+
+		self.log.log(hsqhat.summary(ref_ld_colnames, args.overlap_annot, args.out))
 		self.M_annot = M_annot
 		self.hsqhat = hsqhat
 		self.log.log('\n')

@@ -722,6 +722,13 @@ if __name__ == '__main__':
 		'redundant for pairs of chisq files generated using sumstats_to_chisq.py with the '
 		'--merge-alleles flag.')
 
+	parser.add_argument('--print-coefficients',default=False,action='store_true',
+		help='when categories are overlapping, print coefficients as well as heritabilities.')
+	parser.add_argument('--frqfile', type=str, 
+		help='For use with --overlap-annot. Provides allele frequencies to prune to common '
+		'snps if --not-M-5-50 is not set.')
+
+
 	args = parser.parse_args()
 	
 	if args.no_check_alleles:
