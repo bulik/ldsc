@@ -293,6 +293,12 @@ def ldscore_fromfile(fh, num=None):
 	lines = [x.rstrip('\n') for x in f.readlines()]
 	return ldscore_fromlist(lines, num)
 
+def annot_fromfile(fh, num=None, frqfile=None):
+	'''Sideways concatenation of a list of annot matrices from a file.'''
+	f = open(fh,'r')
+	lines = [x.rstrip('\n') for x in f.readlines()]
+	return annot_fromlist(lines, num, frqfile)
+
 
 def ldscore_fromlist(flist, num=None):
 	'''Sideways concatenation of a list of LD Score files.'''
@@ -314,6 +320,28 @@ def ldscore_fromlist(flist, num=None):
 		ldscore_array.append(y) 
 		
 	x = pd.concat(ldscore_array, axis=1) 
+	return x
+
+def annot_fromlist(flist, num=None, frqfile=None):
+	'''Sideways concatenation of a list of annot matrices.'''
+	annot_array = []
+	for i,fh in enumerate(flist):			
+		fh = fh.rstrip('\n')
+		y = annot(fh, num, frqfile)
+		if i > 0:
+			if not np.all(y.SNP == annot_array[0].SNP):
+				msg = 'All files in --ref-ld-list or --ref-ld-file must contain the same SNPs '
+				msg += 'in the same order.'
+				raise ValueError(msg)
+				
+			y = y.ix[:,1:len(y.columns)] # remove SNP column
+		
+		# force unique column names
+		new_col_dict = {c: c+'_'+str(i) for c in y.columns if c != 'SNP'}
+		y.rename(columns=new_col_dict, inplace=True)
+		annot_array.append(y) 
+		
+	x = pd.concat(annot_array, axis=1) 
 	return x
 
 
@@ -346,7 +374,23 @@ def l2_parser(fh, compression):
 		x = pd.read_pickle(fh)
 		
 	return x.drop(['CHR','BP','CM','MAF'], axis=1)
+
+def annot_parser(fh, compression):
+	'''For parsing LD Score files'''
+	if compression == "gzip" or compression == 'bz2' or compression == None:
+		x = pd.read_csv(fh, header=0, delim_whitespace=True,	compression=compression)
+	elif compression == 'pickle':
+		x = pd.read_pickle(fh)
 		
+	return x.drop(['CHR','BP','CM'], axis=1)
+
+def frq_parser(fh, compression):
+	'''For parsing frequency files'''
+	if compression == "gzip" or compression == 'bz2' or compression == None:
+		x = pd.read_csv(fh, header=0, delim_whitespace=True,	compression=compression)
+	elif compression == 'pickle':
+		x = pd.read_pickle(fh)
+	return x
 		
 def ldscore(fh, num=None):
 	'''
@@ -390,6 +434,83 @@ def ldscore(fh, num=None):
 	for col in x.columns[1:]:
 		x[col] = x[col].astype(float)
 	
+	return x
+	
+		
+def annot(fh, num=None, frqfile=None):
+	'''
+	Parses .annot files. See docs/file_formats_ld.txt
+
+	If num is not None, parses .annot files split across [num] chromosomes (e.g., the 
+	output of parallelizing ldsc.py --l2 across chromosomes).
+
+	'''
+						
+	parsefunc = lambda y, compression : pd.read_csv(y, header=0, delim_whitespace=True,
+		compression=compression).drop(['CHR','BP','CM'], axis=1)
+	
+	if num is not None:
+		'''22 files, one for each chromosome'''
+		suffix = '.annot'
+		if '@' in fh:
+			first_fh = fh.replace('@', '1')+suffix
+		else:
+			first_fh = fh+'1'+suffix
+		
+		[s, compression] = which_compression(first_fh)
+		suffix += s		
+		if '@' in fh:
+			chr_annot = [annot_parser(fh.replace('@',str(i))+suffix, compression) for i in xrange(1,num+1)]
+		else:
+			chr_annot = [annot_parser(fh + str(i) + suffix, compression) for i in xrange(1,num+1)]
+
+		x = pd.concat(chr_annot)
+	
+	else:
+		'''Just one file'''
+		suffix = '.annot'
+		[s, compression] = which_compression(fh+suffix)
+		suffix += s
+		x = annot_parser(fh+suffix, compression)
+	
+
+	if frqfile:    
+		if num is not None:
+			'''22 files, one for each chromosome'''
+			suffix = '.frq'
+			if '@' in frqfile:
+				first_frqfile = frqfile.replace('@', '1')+suffix
+			else:
+				first_frqfile = frqfile+'1'+suffix
+			
+			[s, compression] = which_compression(first_frqfile)
+			suffix += s		
+			if '@' in fh:
+				chr_frq = [frq_parser(frqfile.replace('@',str(i))+suffix, compression) for i in xrange(1,num+1)]
+			else:
+				chr_frq = [frq_parser(frqfile + str(i) + suffix, compression) for i in xrange(1,num+1)]
+
+			df_frq = pd.concat(chr_frq)
+		
+		else:
+			'''Just one file'''
+			suffix = '.frq'
+			[s, compression] = which_compression(frqfile+suffix)
+			suffix += s
+			df_frq = frq_parser(frqfile+suffix, compression)
+
+
+    	frq = np.array(df_frq['FRQ'])
+    	x = x[frq > 0.05]
+    	x = x[frq < 0.95]
+
+	ii = x['SNP'] != '.'
+	x = x[ii]	
+	check_rsid(x['SNP']) 
+	for col in x.columns[1:]:
+		x[col] = x[col].astype(float)
+
+    
 	return x
 	
 	
