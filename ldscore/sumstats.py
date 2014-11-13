@@ -147,28 +147,28 @@ class _sumstats(object):
 		try:
 			if args.ref_ld:
 				log.log('Reading annot matrix from {F} ...'.format(F=args.ref_ld))
-				annot_matrix = ps.annot(args.ref_ld,frqfile=args.frqfile)
+				[overlap_matrix, M_tot] = ps.annot([args.ref_ld],frqfile=args.frqfile)
 			elif args.ref_ld_chr:	
 				if '@' in args.ref_ld_chr:
 					f = args.ref_ld_chr.replace('@','[1-22]')
 				else:
 					f = args.ref_ld_chr+'[1-22]'
 				log.log('Reading annot matrices from {F} ...'.format(F=f))
-				annot_matrix = ps.annot(args.ref_ld_chr, 22,frqfile=args.frqfile)
+				[overlap_matrix, M_tot] = ps.annot([args.ref_ld_chr], 22,frqfile=args.frqfile)
 			elif args.ref_ld_file:
 				log.log('Reading annot matrices listed in {F} ...'.format(F=args.ref_ld_file))
-				annot_matrix = ps.annot_fromfile(args.ref_ld_file,frqfile=args.frqfile)
+				[overlap_matrix, M_tot] = ps.annot_fromfile(args.ref_ld_file,frqfile=args.frqfile)
 			elif args.ref_ld_file_chr:
 				log.log('Reading annot matrices listed in {F} ...'.format(F=args.ref_ld_file_chr))
-				annot_matrix = ps.annot_fromfile(args.ref_ld_file_chr, 22,frqfile=args.frqfile)		
+				[overlap_matrix, M_tot] = ps.annot_fromfile(args.ref_ld_file_chr, 22,frqfile=args.frqfile)		
 			elif args.ref_ld_list:
 				log.log('Reading annot matrices...')
 				flist = args.ref_ld_list.split(',')
-				annot_matrix = ps.annot_fromlist(flist,frqfile=args.frqfile)	
+				[overlap_matrix, M_tot] = ps.annot(flist,frqfile=args.frqfile)	
 			elif args.ref_ld_list_chr:
 				log.log('Reading annot matrices...')
 				flist = args.ref_ld_list_chr.split(',')
-				annot_matrix = ps.annot_fromlist(flist, 22,frqfile=args.frqfile)
+				[overlap_matrix, M_tot] = ps.annot(flist, 22,frqfile=args.frqfile)
 					
 		except ValueError as e:
 			log.log('Error reading annot matrix.')
@@ -177,7 +177,7 @@ class _sumstats(object):
 		log_msg = 'Read annot matrix.'
 		log.log(log_msg)
 
-		return annot_matrix	
+		return [overlap_matrix, M_tot]	
 
 	def _parse_sumstats(self, args, log, fh, require_alleles=False, keep_na=False):
 		# priority is pickle, bz2, gz, uncompressed
@@ -460,15 +460,11 @@ class H2(_sumstats):
 		# WARNING: sumstats contains NA values to speed up merge
 
 		if args.overlap_annot:
-			df_annot = self._read_annot(args,self.log)
-			M_tot = len(df_annot)
-			annot_matrix = np.matrix(df_annot[df_annot.columns[1:]])	
-			del df_annot
+			[overlap_matrix, M_tot] = self._read_annot(args,self.log)
+			
 			#check that M_annot == np.sum(annot_matrix,axis=0) and n_annot == annot_matrix.shape[1]
-			# make --overlap-annot version __keep_ld and _check_variance
-			overlap_matrix = np.dot(annot_matrix.T,annot_matrix)
-			del annot_matrix
-
+			# make --overlap-annot versions of __keep_ld and _check_variance
+			
 		sumstats = self._parse_sumstats(args, self.log, args.h2, keep_na=True)
 		ref_ldscores = self._read_ref_ld(args, self.log)
 		M_annot = self._read_M(args, self.log)
