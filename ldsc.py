@@ -497,6 +497,7 @@ def ldscore(args, header=None):
 	elif args.pickle:
 		l2_suffix = '.pickle'
 		log.log("Writing LD Scores for {N} SNPs to {f}.pickle".format(f=out_fname, N=len(df)))
+		df.set_index('SNP')
 		out_fname_pickle = out_fname+l2_suffix
 		df.to_pickle(out_fname_pickle)
 		
@@ -716,7 +717,7 @@ if __name__ == '__main__':
 	parser.add_argument('--no-check', default=True, action='store_false',
 		help='Don\'t check the contents of chisq files. These checks can be slow, and are '
 		'redundant for chisq files generated using sumstats_to_chisq.py.')
-	parser.add_argument('--no-check-mismatch', default=False, action='store_true',
+	parser.add_argument('--no-check-alleles', default=False, action='store_true',
 		help='For rg estimation, skip checking whether the alleles match. This check is '
 		'redundant for pairs of chisq files generated using sumstats_to_chisq.py with the '
 		'--merge-alleles flag.')
@@ -729,6 +730,9 @@ if __name__ == '__main__':
 
 
 	args = parser.parse_args()
+	
+	if args.no_check_alleles:
+		args.no_check = False
 
 	defaults = vars(parser.parse_args(''))
 	opts = vars(args)
