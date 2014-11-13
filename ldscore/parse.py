@@ -432,13 +432,16 @@ def annot(fh_list, num=None, frqfile=None):
     
     if num is not None:
         '''22 files, one for each chromosome'''
-        annot_suffix = '.annot'
-        if '@' in fh_list[0]:
-            first_fh = fh_list[0].replace('@', '1')+annot_suffix
-        else:
-            first_fh = fh_list[0]+'1'+annot_suffix
-        [annot_s, annot_compression] = which_compression(first_fh)
-        annot_suffix += annot_s 
+        annot_suffix = ['.annot' for fh in fh_list]
+        annot_compression = []
+        for (i,fh) in enumerate(fh_list):
+            if '@' in fh:
+                first_fh = fh.replace('@', '1')+annot_suffix[i]
+            else:
+                first_fh = fh+'1'+annot_suffix[i]
+            [annot_s,annot_comp_single] = which_compression(first_fh)
+            annot_suffix[i] += annot_s 
+            annot_compression.append(annot_comp_single)
 
         frq_suffix = '.frq'
         if '@' in frqfile:
@@ -450,14 +453,14 @@ def annot(fh_list, num=None, frqfile=None):
         
         y = []
         M_tot = 0
-        for i in xrange(1,num+1):
+        for chr in xrange(1,num+1):
 
             if '@' in fh_list[0]:
-                df_annot_chr_list = [annot_parser(fh.replace('@',str(i))+annot_suffix, annot_compression,
-                    frqfile.replace('@',str(i))+frq_suffix,frq_compression) for fh in fh_list]
+                df_annot_chr_list = [annot_parser(fh.replace('@',str(chr))+annot_suffix[i], annot_compression[i],
+                    frqfile.replace('@',str(chr))+frq_suffix,frq_compression) for (i,fh) in enumerate(fh_list)]
             else:
-                df_annot_chr_list = [annot_parser(fh + str(i) + annot_suffix, annot_compression, 
-                    frqfile+str(i)+frq_suffix, frq_compression) for fh in fh_list]
+                df_annot_chr_list = [annot_parser(fh + str(chr) + annot_suffix[i], annot_compression[i], 
+                    frqfile+str(chr)+frq_suffix, frq_compression) for (i,fh) in enumerate(fh_list)]
         
             df_annot_chr = pd.concat(df_annot_chr_list,axis=1)
             
