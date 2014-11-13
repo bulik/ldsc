@@ -263,6 +263,12 @@ def chisq(fh, require_alleles=False, keep_na=False, check=True):
 			raise ValueError('.chisq file must have a column labeled either P or CHISQ.')
 		
 		if require_alleles:
+			'''
+			Checks that only matter for rg estimation, where the alleles need to be aligned to
+			the same ref allele. These checks are redundant for chisq files generated using
+			sumstats_to_chisq.py and --merge-alleles.
+					
+			'''
 			if not ('INC_ALLELE' in x.columns and 'DEC_ALLELE' in x.columns):
 				msg = '.chisq file must have an INC_ALLELE and DEC_ALLELE column for rg estimation.'
 				raise ValueError(msg)

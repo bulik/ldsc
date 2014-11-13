@@ -731,7 +731,7 @@ class Gencor(object):
 			self.hsq1 = first_hsq
 			
 		self.hsq2 = Hsq(chisq2, ref_ld, w_ld, N2, M, num_blocks=num_blocks, 
-			non_negative=False, intercept=intercepts[1])
+			non_negative=False, intercept=intercepts[1])	
 		self.gencov = Gencov(bhat1, bhat2, ref_ld, w_ld, N1, N2, M, self.hsq1.tot_hsq,
 			self.hsq2.tot_hsq, N_overlap=self.N_overlap, rho=self.rho, num_blocks=num_blocks,
 			intercept=intercepts[2])

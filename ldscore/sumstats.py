@@ -538,6 +538,8 @@ class Rg(_sumstats):
 			self.log.log('\n')
 			
 		rg_suffix_list = [x.split('/')[-1] for x in rg_file_list]
+		if len(rg_file_list) < 2:
+			raise ValueError('Must specify at least two phenotypes for rg estimation.')
 		pheno1 = rg_file_list[0]
 		out_prefix = args.out + rg_suffix_list[0]
 		sumstats = self._parse_sumstats(args, self.log, pheno1, require_alleles=True, 
