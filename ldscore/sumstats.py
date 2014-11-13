@@ -189,7 +189,7 @@ class _sumstats(object):
 		log.log(log_msg.format(N=len(sumstats)))
 		if args.no_check:
 			m = len(sumstats)
-			sumstats = sumstats.reset_index().drop_duplicates(subset='SNP').set_index('SNP')
+			#sumstats = sumstats.reset_index().drop_duplicates(subset='SNP').set_index('SNP')
 			if m > len(sumstats):
 				log.log('Dropped {M} SNPs with duplicated rs numbers.'.format(M=m-len(sumstats)))
 			
@@ -353,7 +353,7 @@ class _sumstats(object):
 			log.log(log_msg.format(N=len(sumstats)))
 
 		w_ld_colname = sumstats.columns[-1]
-		ref_ld_colnames = ref_ldscores.columns[1:len(ref_ldscores.columns)]	
+		ref_ld_colnames = ref_ldscores.columns[0:len(ref_ldscores.columns)]	
 
 		return(w_ld_colname, ref_ld_colnames, sumstats)
 	
@@ -497,6 +497,7 @@ class H2(_sumstats):
 		self.log.log(log_msg.format(N=args.num_blocks))
 		ref_ld = np.matrix(self.sumstats[ref_ld_colnames]).reshape((snp_count, n_annot))
 		w_ld = np.matrix(self.sumstats[w_ld_colname]).reshape((snp_count, 1))
+		print M_annot, n_annot, ref_ld_colnames
 		M_annot = np.matrix(M_annot).reshape((1,n_annot))
 		chisq = np.matrix(self.sumstats.CHISQ).reshape((snp_count, 1))
 		N = np.matrix(self.sumstats.N).reshape((snp_count,1))
