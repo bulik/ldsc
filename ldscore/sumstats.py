@@ -294,7 +294,7 @@ class _sumstats(object):
 					log.log(warn.format(C=cond_num))
 					raise ValueError(warn.format(C=cond_num))
 
-	def _check_variance(self, log, M_annot, ref_ldscores, annot_matrix):
+	def _check_variance(self, log, M_annot, ref_ldscores):
 		'''Remove zero-variance LD Scores'''
 		ii = np.squeeze(np.array(ref_ldscores.iloc[:,0:len(ref_ldscores.columns)].var(axis=0) == 0))
 		if np.all(ii):
@@ -303,14 +303,12 @@ class _sumstats(object):
 			log.log('Removing partitioned LD Scores with zero variance.')
 			ii = np.insert(ii, 0, False) # keep the SNP column		
 			ref_ldscores = ref_ldscores.ix[:,np.logical_not(ii)]
-			if annot_matrix is not None:
-				annot_matrix = annot_matrix.ix[:,np.logical_not(ii)]
 			M_annot = [M_annot[i] for i in xrange(1,len(ii)) if not ii[i]]
 			n_annot = len(M_annot)
 
-		return(M_annot, ref_ldscores, annot_matrix)
+		return(M_annot, ref_ldscores)
 		
-	def _keep_ld(self, args, log, M_annot, ref_ldscores, annot_matrix):
+	def _keep_ld(self, args, log, M_annot, ref_ldscores):
 		'''Filter down to SNPs specified by --keep-ld'''
 		if args.keep_ld is not None:
 			try:
@@ -327,13 +325,12 @@ class _sumstats(object):
 			try:
 				M_annot = [M_annot[i] for i in keep_M_indices]
 				ref_ldscores = ref_ldscores.ix[:,keep_ld_colnums]
-				if annot_matrix is not None:
-					annot_matrix = annot_matrix.ix[:,keep_ld_columns]
 			except IndexError as e:
 				raise IndexError('--keep-ld column numbers are out of bounds: '+str(e.args))
 	
-		log.log('Using M = '+jk.kill_brackets(str(np.array(M_annot))).replace(' ','') ) 
-		return(M_annot, ref_ldscores, annot_matrix)
+		log.log('Using M = '+', '.join(map(str,np.array(M_annot))))
+		#log.log('Using M = '+jk.kill_brackets(str(np.array(M_annot))).replace(' ','') ) 
+		return(M_annot, ref_ldscores)
 
 	def _merge_sumstats_ld(self, args, log, sumstats, M_annot, ref_ldscores, w_ldscores):
 		'''Merges summary statistics and LD into one data frame'''
@@ -424,20 +421,15 @@ class _sumstats(object):
 		time_elapsed = round(time.time()-self.start_time,2)
 		log.log('Total time elapsed: {T}'.format(T=sec_to_str(time_elapsed)))
 	
-	def _overlap_output(self, args, df_annot, M_annot, n_annot, hsqhat, category_names):
-			annot_matrix = np.matrix(df_annot[df_annot.columns[1:]])
-			
-			#check that M_annot == np.sum(annot_matrix,axis=0) and n_annot == annot_matrix.shape[1]
+	def _overlap_output(self, args, overlap_matrix, M_annot, n_annot, hsqhat, category_names, M_tot):
 
-			Overlap_matrix = np.dot(annot_matrix.T,annot_matrix)
 			for i in range(n_annot):
-				Overlap_matrix[i,:] = Overlap_matrix[i,:]/M_annot
+				overlap_matrix[i,:] = overlap_matrix[i,:]/M_annot
 			
-			prop_hsq_overlap = np.dot(Overlap_matrix,hsqhat.prop_hsq.T).reshape((1,n_annot))
-			prop_hsq_overlap_var = np.diag(np.dot(np.dot(Overlap_matrix,hsqhat.prop_hsq_cov),Overlap_matrix.T))
+			prop_hsq_overlap = np.dot(overlap_matrix,hsqhat.prop_hsq.T).reshape((1,n_annot))
+			prop_hsq_overlap_var = np.diag(np.dot(np.dot(overlap_matrix,hsqhat.prop_hsq_cov),overlap_matrix.T))
 			prop_hsq_overlap_se = np.sqrt(prop_hsq_overlap_var).reshape((1,n_annot))
 
-			M_tot = annot_matrix.shape[0]
 			prop_M_overlap = M_annot/M_tot
 			enrichment = prop_hsq_overlap/prop_M_overlap
 			enrichment_se = prop_hsq_overlap_se/prop_M_overlap
@@ -466,16 +458,23 @@ class H2(_sumstats):
 		
 		self._masthead_and_time(args, header)
 		# WARNING: sumstats contains NA values to speed up merge
+
+		if args.overlap_annot:
+			df_annot = self._read_annot(args,self.log)
+			M_tot = len(df_annot)
+			annot_matrix = np.matrix(df_annot[df_annot.columns[1:]])	
+			del df_annot
+			#check that M_annot == np.sum(annot_matrix,axis=0) and n_annot == annot_matrix.shape[1]
+			# make --overlap-annot version __keep_ld and _check_variance
+			overlap_matrix = np.dot(annot_matrix.T,annot_matrix)
+			del annot_matrix
+
 		sumstats = self._parse_sumstats(args, self.log, args.h2, keep_na=True)
 		ref_ldscores = self._read_ref_ld(args, self.log)
 		M_annot = self._read_M(args, self.log)
-		if ref_ldscores.shape[1] > 1:
-			annot_matrix_df = self._read_annot(args,self.log)
-		else:
-			annot_matrix_df = None
 		#update the next three functions
-		M_annot, ref_ldscores, annot_matrix_df = self._keep_ld(args, self.log, M_annot, ref_ldscores, annot_matrix_df)
-		M_annot, ref_ldscores, annot_matrix_df = self._check_variance(self.log, M_annot, ref_ldscores, annot_matrix_df)
+		M_annot, ref_ldscores = self._keep_ld(args, self.log, M_annot, ref_ldscores)
+		M_annot, ref_ldscores = self._check_variance(self.log, M_annot, ref_ldscores)
 		w_ldscores = self._read_w_ld(args, self.log)
 		w_ld_colname, ref_ld_colnames, self.sumstats =\
 			self._merge_sumstats_ld(args, self.log, sumstats, M_annot, ref_ldscores, w_ldscores)
@@ -497,7 +496,6 @@ class H2(_sumstats):
 		self.log.log(log_msg.format(N=args.num_blocks))
 		ref_ld = np.matrix(self.sumstats[ref_ld_colnames]).reshape((snp_count, n_annot))
 		w_ld = np.matrix(self.sumstats[w_ld_colname]).reshape((snp_count, 1))
-		print M_annot, n_annot, ref_ld_colnames
 		M_annot = np.matrix(M_annot).reshape((1,n_annot))
 		chisq = np.matrix(self.sumstats.CHISQ).reshape((snp_count, 1))
 		N = np.matrix(self.sumstats.N).reshape((snp_count,1))
@@ -538,7 +536,7 @@ class H2(_sumstats):
 		self._print_delete_k(args, self.log, hsqhat)	
 		
 		if args.overlap_annot:
-			self._overlap_output(args, annot_matrix_df, M_annot, n_annot, hsqhat, ref_ld_colnames)
+			self._overlap_output(args, overlap_matrix, M_annot, n_annot, hsqhat, ref_ld_colnames, M_tot)
 
 		self.log.log(hsqhat.summary(ref_ld_colnames, args.overlap_annot, args.out))
 		self.M_annot = M_annot

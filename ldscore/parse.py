@@ -444,7 +444,7 @@ def annot(fh, num=None, frqfile=None):
 	output of parallelizing ldsc.py --l2 across chromosomes).
 
 	'''
-						
+	
 	parsefunc = lambda y, compression : pd.read_csv(y, header=0, delim_whitespace=True,
 		compression=compression).drop(['CHR','BP','CM'], axis=1)
 	
@@ -471,7 +471,6 @@ def annot(fh, num=None, frqfile=None):
 		[s, compression] = which_compression(fh+suffix)
 		suffix += s
 		x = annot_parser(fh+suffix, compression)
-	
 
 	if frqfile:    
 		if num is not None:
@@ -498,10 +497,10 @@ def annot(fh, num=None, frqfile=None):
 			suffix += s
 			df_frq = frq_parser(frqfile+suffix, compression)
 
-
     	frq = np.array(df_frq['FRQ'])
     	x = x[frq > 0.05]
     	x = x[frq < 0.95]
+
 
 	ii = x['SNP'] != '.'
 	x = x[ii]	
