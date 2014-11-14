@@ -343,7 +343,7 @@ class Hsq(object):
 		if non_negative:
 			self._jknife = LstsqJackknifeNN(x, y, num_blocks)
 		elif self.n_annot > 1:
-			self._jknife = LstsqJackknife(x, y, num_blocks)
+			self._jknife = LstsqJackknifeFast(x, y, num_blocks)
 		else:
 			self._jknife = LstsqJackknifeFast(x, y, num_blocks)
 
@@ -588,7 +588,7 @@ class Gencov(object):
 		x = _weight(x, weights)
 		y = _weight(y, weights)
 		if self.n_annot > 1:
-			self._jknife = LstsqJackknife(x, y, num_blocks)
+			self._jknife = LstsqJackknifeFast(x, y, num_blocks)
 		else:
 			self._jknife = LstsqJackknifeFast(x, y, num_blocks)
 
@@ -865,7 +865,7 @@ class Jackknife(object):
 		return self.autocov(lag) / np.var(self.pseudovalues, axis=0)
 
 
-class LstsqJackknife(Jackknife):
+class LstsqJackknifeSlow(Jackknife):
 
 	def __init__(self, x, y, num_blocks):
 		if len(x.shape) <= 1:

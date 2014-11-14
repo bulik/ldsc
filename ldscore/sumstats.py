@@ -67,10 +67,13 @@ def sec_to_str(t):
 
 def smart_merge(x, y):
 	'''Check if SNP columns are equal. If so, save time by using concat instead of merge.'''
-	if len(x.index) == len(y.index) and (x.index == y.index).all():
+	if len(x.SNP) == len(y.SNP) and (x.SNP == y.SNP).all():
+		x = x.reset_index(drop=True)
+		y = y.reset_index(drop=True).drop('SNP',1)
 		out = pd.concat([x, y], axis=1)
+	
 	else:
-		out = pd.merge(x, y, how="inner", left_index=True, right_index=True)
+		out = pd.merge(x, y, how='inner', on='SNP')
 	
 	return out
 	
@@ -189,7 +192,7 @@ class _sumstats(object):
 		log.log(log_msg.format(N=len(sumstats)))
 		if args.no_check:
 			m = len(sumstats)
-			#sumstats = sumstats.reset_index().drop_duplicates(subset='SNP').set_index('SNP')
+			sumstats = sumstats.drop_duplicates(subset='SNP')
 			if m > len(sumstats):
 				log.log('Dropped {M} SNPs with duplicated rs numbers.'.format(M=m-len(sumstats)))
 			
@@ -267,12 +270,11 @@ class _sumstats(object):
 			log.log('Error parsing regression SNP LD.')
 			raise e
 	
-		print w_ldscores.head()
-		if len(w_ldscores.columns) != 1:
+		if len(w_ldscores.columns) != 2:
 			raise ValueError('--w-ld must point to a file with a single (non-partitioned) LD Score.')
 	
 		# to keep the column names from being the same
-		w_ldscores.columns = ['LD_weights'] 
+		w_ldscores.columns = ['SNP','LD_weights'] 
 
 		log_msg = 'Read LD Scores for {N} SNPs to be retained for regression.'
 		log.log(log_msg.format(N=len(w_ldscores)))
@@ -351,7 +353,7 @@ class _sumstats(object):
 			log.log(log_msg.format(N=len(sumstats)))
 
 		w_ld_colname = sumstats.columns[-1]
-		ref_ld_colnames = ref_ldscores.columns[0:len(ref_ldscores.columns)]	
+		ref_ld_colnames = ref_ldscores.columns[1:len(ref_ldscores.columns)]	
 
 		return(w_ld_colname, ref_ld_colnames, sumstats)
 	
@@ -827,6 +829,7 @@ class Rg(_sumstats):
 	def _filter_chisq(self, args, log, sumstats, N_factor):
 		if not args.no_filter_chisq:
 			bound = np.sqrt(N_factor)
+			print bound
 			sumstats = sumstats[(sumstats.BETAHAT1.abs() < bound) & (sumstats.BETAHAT2.abs() < bound)]
 			if len(sumstats) > 0:
 				log_msg = 'After filtering on chi^2, {N} SNPs remain.'
