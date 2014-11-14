@@ -667,7 +667,7 @@ if __name__ == '__main__':
 		help="Force inversion of ill-conditioned matrices.")
 	parser.add_argument('--no-filter-chisq', default=False, action='store_true',
 		help='Don\'t remove SNPs with large chi-square.')
-	parser.add_argument('--max-chisq', default=80, type=float,
+	parser.add_argument('--max-chisq', default=None, type=float,
 		help='Max chi^2 for SNPs in the regression.')
 
 	parser.add_argument('--no-intercept', action='store_true',

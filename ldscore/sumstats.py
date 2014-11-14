@@ -546,7 +546,11 @@ class H2(_sumstats):
 	def _filter_chisq(self, args, log, sumstats, N_factor):
 		max_N = np.max(sumstats['N'])
 		if not args.no_filter_chisq:
-			max_chisq = max(0.001*max_N, args.max_chisq)
+			if args.max_chisq is None:
+				max_chisq_min = 80
+				max_chisq = max(N_factor*max_N, max_chisq_min)
+			else:
+				max_chisq = args.max_chisq
 			sumstats = sumstats[sumstats['CHISQ'] < max_chisq]
 			log_msg = 'After filtering on chi^2 < {C}, {N} SNPs remain.'
 			snp_count = len(sumstats)
@@ -828,12 +832,22 @@ class Rg(_sumstats):
 	
 	def _filter_chisq(self, args, log, sumstats, N_factor):
 		if not args.no_filter_chisq:
-			bound = np.sqrt(N_factor)
-			print bound
-			sumstats = sumstats[(sumstats.BETAHAT1.abs() < bound) & (sumstats.BETAHAT2.abs() < bound)]
+			max_N1 = np.max(sumstats['N1'])
+			max_N2 = np.max(sumstats['N2'])
+			if args.max_chisq is None:
+				max_chisq_min = 80
+				max_chisq1 = max(N_factor*max_N1, max_chisq_min)
+				max_chisq2 = max(N_factor*max_N2, max_chisq_min)
+			else:
+				max_chisq1, max_chisq2 = args.max_chisq, args.max_chisq
+			
+			bound1 = np.sqrt(max_chisq1 / max_N1)
+			bound2 = np.sqrt(max_chisq2 / max_N2)
+			# betahat should be in units of standard deviation
+			sumstats = sumstats[(sumstats.BETAHAT1.abs() < bound1) & (sumstats.BETAHAT2.abs() < bound2)]
 			if len(sumstats) > 0:
-				log_msg = 'After filtering on chi^2, {N} SNPs remain.'
-				log.log(log_msg.format(N=len(sumstats)))
+				log_msg = 'After filtering on chi^2 < ({B1},{B2}), {N} SNPs remain.'
+				log.log(log_msg.format(N=len(sumstats), B1=round(max_chisq1,2), B2=round(max_chisq2,2)))
 			else:
 				raise ValueError('After filtering on chi^2, no SNPs remain.')
 	

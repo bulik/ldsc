@@ -913,7 +913,7 @@ class LstsqJackknifeSlow(Jackknife):
 		return delete_values
 	
 	
-class LstsqJackknifeFast(LstsqJackknife):
+class LstsqJackknifeFast(LstsqJackknifeSlow):
 
 	'''
 	Fast least-squares block jackknife.
@@ -1010,7 +1010,7 @@ class LstsqJackknifeFast(LstsqJackknife):
 		return np.matrix(np.dot(xtx_inv, xty).T)
 
 		
-class JackknifeAggregate(LstsqJackknife):
+class JackknifeAggregate(LstsqJackknifeSlow):
 
 	def __init__(self, x, y, annot_matrix, num_blocks):
 		if len(x.shape) <= 1:
