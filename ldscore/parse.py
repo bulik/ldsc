@@ -187,7 +187,7 @@ def read_cts(fh, match_snps):
     return cts.ANNOT.values
 
 def chisq(fh, require_alleles=False, keep_na=False, check=True):
-<<<<<<< HEAD
+
 	'''
 	Parses .chisq files. See docs/file_formats_sumstats.txt
 	
@@ -420,8 +420,7 @@ def ldscore(fh, num=None):
         suffix += s
         x = l2_parser(fh+suffix, compression)
     
-    ii = x.index != '.'
-    x = x[ii]   
+    x = x[~x.index.isin(['.'])]
     check_rsid(x.index) 
     for col in x.columns[1:]:
         x[col] = x[col].astype(float)

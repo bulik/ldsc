@@ -267,6 +267,7 @@ class _sumstats(object):
 			log.log('Error parsing regression SNP LD.')
 			raise e
 	
+		print w_ldscores.head()
 		if len(w_ldscores.columns) != 1:
 			raise ValueError('--w-ld must point to a file with a single (non-partitioned) LD Score.')
 	
