@@ -654,14 +654,18 @@ class Rg(_sumstats):
 				self._check_ld_condnum(args, self.log, M_annot, sumstats_loop[ref_ld_colnames])
 				self._warn_length(self.log, sumstats_loop)
 				snp_count = len(sumstats_loop); n_annot = len(ref_ld_colnames)
-				if i == 0:
-					rghat = self._rg(sumstats_loop, args, self.log, M_annot, ref_ld_colnames, 
-						w_ld_colname)
-					hsq1 = rghat.hsq1
-				else:
-					rghat = self._rg(sumstats_loop, args, self.log, M_annot, ref_ld_colnames, 
-						w_ld_colname, first_hsq=hsq1)
-			
+				#if i == 0:
+				#	rghat = self._rg(sumstats_loop, args, self.log, M_annot, ref_ld_colnames, 
+				#		w_ld_colname)
+				#	hsq1 = rghat.hsq1
+				#else:
+				#	rghat = self._rg(sumstats_loop, args, self.log, M_annot, ref_ld_colnames, 
+				#		w_ld_colname, first_hsq=hsq1)
+				
+				# estimate hsq1 each time so that the jackknife blocks use the same SNPs
+				# this is clearly not optimal w.r.t. runtime
+				rghat = self._rg(sumstats_loop, args, self.log, M_annot, ref_ld_colnames, 
+					w_ld_colname)
 				if not args.human_only and n_annot > 1:
 					gencov_jknife_ofh = out_prefix_loop+'.gencov.cov'
 					hsq1_jknife_ofh = out_prefix_loop+'.hsq1.cov'
