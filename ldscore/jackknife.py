@@ -341,7 +341,7 @@ class Hsq(object):
 		y = _weight(chisq_m_int, weights)
 		self.w_mean_chisq = np.average(chisq, weights=weights)
 		if non_negative:
-			self._jknife = LstsqJackknifeNN(x, y, num_blocks)
+			self._jknife = LstsqJackknifeSlow(x, y, num_blocks, nn=True)
 		elif self.n_annot > 1:
 			self._jknife = LstsqJackknifeFast(x, y, num_blocks)
 		else:
@@ -745,7 +745,6 @@ class Gencor(object):
 			self.hsq2.tot_hsq, N_overlap=self.N_overlap, rho=self.rho, num_blocks=num_blocks,
 			intercept=intercepts[2])
 		
-		
 		if (self.hsq1.tot_hsq <= 0 or self.hsq2.tot_hsq <= 0):
 			self.negative_hsq_flag = True
 			
@@ -823,6 +822,26 @@ class Gencor(object):
 
 class Jackknife(object):
 	
+	def __init__(self, x, y, num_blocks, separators=None, *args, **kwargs):
+		if len(x.shape) <= 1:
+			x = np.atleast_2d(x).T
+		if len(y.shape) <= 1:
+			y = np.atleast_2d(y).T
+	
+		self.N = y.shape[0]
+		if self.N != x.shape[0]:
+			raise ValueError('Number of data points in y != number of data points in x.')
+		
+		self.num_blocks = num_blocks
+		self.separators = separators	
+		self.output_dim = x.shape[1]
+		if self.num_blocks > self.N:
+			msg = 'Number of jackknife blocks ({N1}) > number of SNPs ({N2}). '
+			msg += 'Reduce the number of jackknife blocks with the --num-blocks flag.'
+			raise ValueError(msg.format(N1=num_blocks, N2=N))
+		
+		self.__init_specific__(x, y, *args, **kwargs)
+	
 	def __jknife__(self, pseudovalues, num_blocks):
 		'''Converts pseudovalues to jackknife estimates'''
 		jknife_est = np.atleast_2d(np.mean(pseudovalues, axis=0) )
@@ -864,56 +883,54 @@ class Jackknife(object):
 		
 		return self.autocov(lag) / np.var(self.pseudovalues, axis=0)
 
+	def __get_separators__(self):
+		'''Define block boundaries'''
+		if self.separators is None:	
+			N = self.N
+			block_size = int(N/self.num_blocks)
+			separators = np.arange(0,N,block_size)
+			remainder = N - separators[-1]
+		
+			if len(separators) == self.num_blocks:
+				separators = np.hstack([separators,N])
+			else:
+				for r in range(remainder):
+					separators[-(r+1)] += remainder - r
+		else:
+			separators = self.separators
+		
+		return separators
+	
 
 class LstsqJackknifeSlow(Jackknife):
 
-	def __init__(self, x, y, num_blocks):
-		if len(x.shape) <= 1:
-			x = np.atleast_2d(x).T
-		if len(y.shape) <= 1:
-			y = np.atleast_2d(y).T
-	
-		self.N = y.shape[0]
-		if self.N != x.shape[0]:
-			raise ValueError('Number of data points in y != number of data points in x.')
-		
-		self.output_dim = x.shape[1]
-		self.num_blocks = num_blocks		
-		if self.num_blocks > self.N:
-			raise ValueError('Number of blocks > number of data points.')
-
-		self.est = np.matrix(np.linalg.lstsq(x,np.array(y).T[0])[0])
-		self.delete_values = self.__compute_delete_values__(x,y,num_blocks)
-
+	def __init_specific__(self, x, y, nn=False):
+		if nn:
+			self.reg_func = lambda x,y: nnls(x, y)[0]
+		else:
+			self.ref_func = lambda x,y: np.linalg.lstsq(x, y)[0]
+		self.est = np.matrix(self.reg_func(x,np.array(y).T[0]))
+		self.delete_values = self.__compute_delete_values__(x, y, self.num_blocks)
 		self.pseudovalues = self.__delete_values_to_pseudovals__(self.delete_values,self.est)
 		(self.jknife_est, self.jknife_var, self.jknife_se, self.jknife_cov) =\
 			self.__jknife__(self.pseudovalues, self.num_blocks)
 			
 	def __compute_delete_values__(self, x, y, num_blocks):
 		N = self.N
-		block_size = int(N/num_blocks)
-		separators = np.arange(0,N,block_size)
-		remainder = N - separators[-1]
-		
-		if len(separators) == num_blocks:
-			separators = np.hstack([separators,N])
-		else:
-			for r in range(remainder):
-				separators[-(r+1)] += remainder - r
-
+		separators = self.__get_separators__()
 		delete_values = np.matrix(np.zeros((self.num_blocks, self.output_dim)))
-		for i in range(num_blocks):	
+		for i in range(self.num_blocks):	
 			# s = block start SNP index; e = block end SNP index
 			s = separators[i]
 			e = separators[i+1]
 			x_delete = np.vstack([x[0:s,...],x[e:,...]])
 			y_delete = np.array(np.vstack([y[0:s,...],y[e:,...]])).T[0]
-			delete_values[i,...] = np.linalg.lstsq(x_delete,y_delete)[0]
+			delete_values[i,...] = self.reg_func(x_delete,y_delete)[0]
 
 		return delete_values
 	
 	
-class LstsqJackknifeFast(LstsqJackknifeSlow):
+class LstsqJackknifeFast(Jackknife):
 
 	'''
 	Fast least-squares block jackknife.
@@ -922,43 +939,17 @@ class LstsqJackknifeFast(LstsqJackknifeSlow):
 	regression. Fine for univariate regression.
 	
 	'''
-	def __init__(self, x, y, num_blocks):
-		if len(x.shape) <= 1:
-			x = np.atleast_2d(x).T
-		if len(y.shape) <= 1:
-			y = np.atleast_2d(y).T
-	
-		self.N = y.shape[0]
-		if self.N != x.shape[0]:
-			raise ValueError('Number of data points in y != number of data points in x.')
-		
-		self.output_dim = x.shape[1]
-		self.num_blocks = num_blocks		
-		if self.num_blocks > self.N:
-			msg = 'Number of jackknife blocks ({N1}) > number of SNPs ({N2}). '
-			msg += 'Reduce the number of jackknife blocks with the --num-blocks flag.'
-			raise ValueError(msg.format(N1=self.num_blocks, N2=self.N))
-
-		self.block_vals = self.__compute_block_vals__(x, y, num_blocks)
+	def __init_specific__(self, x, y):
+		self.block_vals = self.__compute_block_vals__(x, y, self.num_blocks)
 		self.est = self.__block_vals_to_est__(self.block_vals)
 		(self.pseudovalues, self.delete_values) =\
 			self.__block_vals_to_pseudovals__(self.block_vals, self.est)
 		(self.jknife_est, self.jknife_var, self.jknife_se, self.jknife_cov) =\
-			self.__jknife__(self.pseudovalues, self.num_blocks)
-			
+			self.__jknife__(self.pseudovalues, self.num_blocks)		
 	
 	def __compute_block_vals__(self, x, y, num_blocks):
 		N = self.N
-		block_size = int(N/num_blocks)
-		separators = np.arange(0,N,block_size)
-		remainder = N - separators[-1]
-		
-		if len(separators) == num_blocks:
-			separators = np.hstack([separators,N])
-		else:
-			for r in range(remainder):
-				separators[-(r+1)] += remainder - r
-
+		separators = self.__get_separators__()
 		xty_block_vals = []; xtx_block_vals = []
 		for i in range(len(separators)-1):	
 			# s = block start SNP index; e = block end SNP index
@@ -1012,22 +1003,7 @@ class LstsqJackknifeFast(LstsqJackknifeSlow):
 		
 class JackknifeAggregate(LstsqJackknifeSlow):
 
-	def __init__(self, x, y, annot_matrix, num_blocks):
-		if len(x.shape) <= 1:
-			x = np.atleast_2d(x).T
-		if len(y.shape) <= 1:
-			y = np.atleast_2d(y).T
-	
-		self.N = y.shape[0]
-		if self.N != x.shape[0]:
-			raise ValueError('Number of data points in y != number of data points in x.')
-		
-		self.output_dim = x.shape[1]
-		self.num_blocks = num_blocks		
-		if self.num_blocks > self.N:
-			raise ValueError('Number of blocks > number of data points.')
-		
-		print annot_matrix
+	def __init_specific__(self, x, y, annot_matrix):
 		x_small = np.dot(annot_matrix.T,x)
 		y_small = np.dot(annot_matrix.T,y)
 		self.est = np.dot(np.linalg.inv(x_small),y_small).T
@@ -1038,16 +1014,7 @@ class JackknifeAggregate(LstsqJackknifeSlow):
 			
 	def __compute_delete_values__(self, x, y, annot_matrix, num_blocks):
 		N = self.N
-		block_size = int(N/num_blocks)
-		separators = np.arange(0,N,block_size)
-		remainder = N - separators[-1]
-		
-		if len(separators) == num_blocks:
-			separators = np.hstack([separators,N])
-		else:
-			for r in range(remainder):
-				separators[-(r+1)] += remainder - r
-
+		separators = self.__get_separators__()
 		delete_values = np.matrix(np.zeros((self.num_blocks, self.output_dim)))
 		for i in range(num_blocks):	
 			# s = block start SNP index; e = block end SNP index
@@ -1059,54 +1026,6 @@ class JackknifeAggregate(LstsqJackknifeSlow):
 			y_delete = np.vstack([y[0:s,...],y[e:,...]])
 			y_small_delete = np.dot(annot_delete.T,y_delete)
 			delete_values[i,...] = np.dot(np.linalg.inv(x_small_delete),y_small_delete).T
-
-		return delete_values
-
-
-class LstsqJackknifeNN(Jackknife):
-
-	def __init__(self, x, y, num_blocks):
-		if len(x.shape) <= 1:
-			x = np.atleast_2d(x).T
-		if len(y.shape) <= 1:
-			y = np.atleast_2d(y).T
-	
-		self.N = y.shape[0]
-		if self.N != x.shape[0]:
-			raise ValueError('Number of data points in y != number of data points in x.')
-		
-		self.output_dim = x.shape[1]
-		self.num_blocks = num_blocks		
-		if self.num_blocks > self.N:
-			raise ValueError('Number of blocks > number of data points.')
-
-		self.est = np.matrix(nnls(x,np.array(y).T[0])[0])
-		self.delete_values = self.__compute_delete_values__(x,y,num_blocks)
-
-		self.pseudovalues = self.__delete_values_to_pseudovals__(self.delete_values,self.est)
-		(self.jknife_est, self.jknife_var, self.jknife_se, self.jknife_cov) =\
-			self.__jknife__(self.pseudovalues, self.num_blocks)
-			
-	def __compute_delete_values__(self, x, y, num_blocks):
-		N = self.N
-		block_size = int(N/num_blocks)
-		separators = np.arange(0,N,block_size)
-		remainder = N - separators[-1]
-		
-		if len(separators) == num_blocks:
-			separators = np.hstack([separators,N])
-		else:
-			for r in range(remainder):
-				separators[-(r+1)] += remainder - r
-
-		delete_values = np.matrix(np.zeros((self.num_blocks, self.output_dim)))
-		for i in range(num_blocks):	
-			# s = block start SNP index; e = block end SNP index
-			s = separators[i]
-			e = separators[i+1]
-			x_delete = np.vstack([x[0:s,...],x[e:,...]])
-			y_delete = np.array(np.vstack([y[0:s,...],y[e:,...]])).T[0]
-			delete_values[i,...] = nnls(x_delete,y_delete)[0]
 
 		return delete_values
 
@@ -1219,3 +1138,28 @@ class RatioJackknife(Jackknife):
 # 		denominator = lbar 
 # 		agg = numerator / denominator
 # 		return agg
+#
+#
+# class LstsqJackknifeNN(Jackknife):
+# 
+# 	def __init_specific__(self, x, y):
+# 		self.est = np.matrix(nnls(x,np.array(y).T[0])[0])
+# 		self.delete_values = self.__compute_delete_values__(x,y,self.num_blocks)
+# 
+# 		self.pseudovalues = self.__delete_values_to_pseudovals__(self.delete_values,self.est)
+# 		(self.jknife_est, self.jknife_var, self.jknife_se, self.jknife_cov) =\
+# 			self.__jknife__(self.pseudovalues, self.num_blocks)
+# 			
+# 	def __compute_delete_values__(self, x, y, num_blocks):
+# 		separators = self.__get_separators__()
+# 		delete_values = np.matrix(np.zeros((self.num_blocks, self.output_dim)))
+# 		for i in range(self.num_blocks):	
+# 			# s = block start SNP index; e = block end SNP index
+# 			s = separators[i]
+# 			e = separators[i+1]
+# 			x_delete = np.vstack([x[0:s,...],x[e:,...]])
+# 			y_delete = np.array(np.vstack([y[0:s,...],y[e:,...]])).T[0]
+# 			delete_values[i,...] = nnls(x_delete,y_delete)[0]
+# 
+# 		return delete_values
+

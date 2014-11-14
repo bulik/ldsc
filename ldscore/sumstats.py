@@ -782,7 +782,7 @@ class Rg(_sumstats):
 		else:
 			num_blocks = args.num_blocks
 			
-		self.log.log('Estimating standard errors using a block jackknife with {N} blocks.'.format(N=args.num_blocks))
+		self.log.log('Estimating standard errors using a block jackknife with {N} blocks.'.format(N=num_blocks))
 		ref_ld = np.matrix(sumstats_loop[ref_ld_colnames]).reshape((snp_count, n_annot))
 		w_ld = np.matrix(sumstats_loop[w_ld_colname]).reshape((snp_count, 1))
 		M_annot = np.matrix(M_annot).reshape((1, n_annot))
