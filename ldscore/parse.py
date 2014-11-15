@@ -230,7 +230,7 @@ def chisq(fh, require_alleles=False, keep_na=False, check=True):
 			raise AttributeError('Improperly formatted chisq file: '+str(e.args))
 			
 	else: 
-		x = pd.read_pickle(fh)
+		x = pd.read_pickle(fh).reset_index(drop=True)
 	
 	if 'P' in x.columns:
 		ii = x.P.notnull()
@@ -359,7 +359,7 @@ def l2_parser(fh, compression):
 	if compression == "gzip" or compression == 'bz2' or compression == None:
 		x = pd.read_csv(fh, header=0, delim_whitespace=True, compression=compression)
 	elif compression == 'pickle':
-		x = pd.read_pickle(fh).reset_index()
+		x = pd.read_pickle(fh).reset_index(drop=True)
 					
 	return x.drop(['CHR','BP','CM','MAF'], axis=1)
 

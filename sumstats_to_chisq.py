@@ -291,7 +291,7 @@ if __name__ == '__main__':
 			merge_alleles.A2 = merge_alleles.A2.apply(lambda y: y.upper())
 			# WARNING: dat now contains many NaN values
 			
-			dat = pd.merge(merge_alleles, dat, how='inner', on='SNP', sort=False).reset_index()
+			dat = pd.merge(merge_alleles, dat, how='inner', on='SNP', sort=False).reset_index(drop=True)
 			ii = dat.N.notnull()
 			print 'After LOJ on --merge-alleles, we have {N} SNPs of which {M} have nonmissing data'.format(N=len(dat), M=ii.sum())
 			alleles = dat.INC_ALLELE[ii] + dat.DEC_ALLELE[ii] + dat.A1[ii] + dat.A2[ii]
@@ -331,7 +331,7 @@ if __name__ == '__main__':
 		print 'Read list of {M} SNPs to retain from {F}.'.format(M=len(merge_snplist),
 			F=args.merge)
 	
-		dat = pd.merge(merge_snplist, dat, on='SNP', how='left', sort=False).reset_index()
+		dat = pd.merge(merge_snplist, dat, on='SNP', how='left', sort=False).reset_index(drop=True)
 		remain = dat.CHISQ.notnull().sum()
 		print 'After merging with --merge SNPs, {M} SNPs remain.'.format(M=remain)
 
@@ -345,7 +345,7 @@ if __name__ == '__main__':
 	else:
 		print 'Writing chi^2-statistics for {M} SNPs to {F}.'.format(M=len(dat), F=out_chisq+'.pickle')
 		out_chisq += '.pickle'
-		dat.ix[:,chisq_colnames].reset_index().to_pickle(out_chisq)
+		dat.ix[:,chisq_colnames].reset_index(drop=True).to_pickle(out_chisq)
 
 	# write metadata
 	np.set_printoptions(precision=4)
