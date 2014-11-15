@@ -630,6 +630,9 @@ class Gencov(object):
 		out = []
 		out.append('Total observed scale gencov: '+str(np.matrix(self.tot_gencov))+' ('+\
 			str(np.matrix(self.tot_gencov_se))+')')
+		out.append('Z-score: '+str(np.matrix(self.Z)))
+		out.append('P: '+str(np.matrix(self.P_val)))		
+
 		if self.n_annot > 1:
 			out.append( 'Categories: '+ str(' '.join(ref_ld_colnames)))
 			if not overlap:

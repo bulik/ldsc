@@ -499,7 +499,6 @@ class H2(_sumstats):
 		chisq = np.matrix(self.sumstats.CHISQ).reshape((snp_count, 1))
 		N = np.matrix(self.sumstats.N).reshape((snp_count,1))
 		
-		print self.sumstats.head()
 		if args.no_intercept:
 			args.constrain_intercept = 1
 
