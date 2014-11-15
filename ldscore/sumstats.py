@@ -337,7 +337,7 @@ class _sumstats(object):
 
 	def _merge_sumstats_ld(self, args, log, sumstats, M_annot, ref_ldscores, w_ldscores):
 		'''Merges summary statistics and LD into one data frame'''
-		sumstats = smart_merge(sumstats, ref_ldscores)
+		sumstats = smart_merge(ref_ldscores, sumstats)
 		if len(sumstats) == 0:
 			raise ValueError('No SNPs remain after merging with reference panel LD')
 		else:
@@ -499,6 +499,7 @@ class H2(_sumstats):
 		chisq = np.matrix(self.sumstats.CHISQ).reshape((snp_count, 1))
 		N = np.matrix(self.sumstats.N).reshape((snp_count,1))
 		
+		print self.sumstats.head()
 		if args.no_intercept:
 			args.constrain_intercept = 1
 
@@ -529,7 +530,8 @@ class H2(_sumstats):
  
 			hsqhat = jk.Hsq_aggregate(chisq, ref_ld, w_ld, N, M_annot, annot_matrix, args.num_blocks)
 		else:
-			hsqhat = jk.Hsq(chisq, ref_ld, w_ld, N, M_annot, args.num_blocks, args.non_negative)
+			hsqhat = jk.Hsq(chisq, ref_ld, w_ld, N, M_annot, args.num_blocks, args.non_negative,
+				slow=args.slow)
 				
 		self._print_cov(args, self.log, hsqhat, n_annot)
 		self._print_delete_k(args, self.log, hsqhat)	
@@ -598,7 +600,7 @@ class Intercept(H2):
 		M_annot = np.matrix(M_annot).reshape((1, n_annot))
 		chisq = np.matrix(self.sumstats.CHISQ).reshape((snp_count, 1))
 		N = np.matrix(self.sumstats.N).reshape((snp_count,1))
-		hsqhat = jk.Hsq(chisq, ref_ld, w_ld, N, M_annot, args.num_blocks)				
+		hsqhat = jk.Hsq(chisq, ref_ld, w_ld, N, M_annot, args.num_blocks, slow=args.slow)				
 		self.log.log(hsqhat.summary_intercept())
 		self.hsqhat = hsqhat
 		self._print_end_time(args, self.log)
@@ -826,11 +828,12 @@ class Rg(_sumstats):
 			intercepts = [None, None, None]
 		if first_hsq is None:
 			rghat = jk.Gencor(betahat1, betahat2, ref_ld, w_ld, N1, N2, M_annot, intercepts,
-				args.overlap,	args.rho, num_blocks, return_silly_things=args.return_silly_things)
+				args.overlap,	args.rho, num_blocks, return_silly_things=args.return_silly_things,
+				slow=args.slow)
 		else:
 			rghat = jk.Gencor(betahat1, betahat2, ref_ld, w_ld, N1, N2, M_annot, intercepts,
 				args.overlap,	args.rho, num_blocks, return_silly_things=args.return_silly_things,
-				first_hsq=first_hsq)
+				first_hsq=first_hsq, slow=args.slow)
 		
 		return rghat
 	

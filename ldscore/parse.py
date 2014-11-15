@@ -361,7 +361,7 @@ def l2_parser(fh, compression):
 	elif compression == 'pickle':
 		x = pd.read_pickle(fh).reset_index(drop=True)
 					
-	return x.drop(['CHR','BP','CM','MAF'], axis=1)
+	return x.drop(['MAF','CM'], axis=1)
 
 
 def annot_parser(fh, compression, frqfile_full, compression_frq):
@@ -370,7 +370,7 @@ def annot_parser(fh, compression, frqfile_full, compression_frq):
 		x = pd.read_csv(fh, header=0, delim_whitespace=True, compression=compression)
 	elif compression == 'pickle':
 		x = pd.read_pickle(fh)
-	df_annot = x.drop(['CHR','BP','CM'], axis=1)
+	df_annot = x.drop(['CHR','BP'], axis=1)
 	
 	if frqfile_full is not None:
 		df_frq = frq_parser(frqfile_full, compression_frq) 
@@ -413,7 +413,8 @@ def ldscore(fh, num=None):
 			chr_ld = [l2_parser(fh.replace('@',str(i))+suffix, compression) for i in xrange(1,num+1)]
 		else:
 			chr_ld = [l2_parser(fh + str(i) + suffix, compression) for i in xrange(1,num+1)]
-
+		
+		# automatically sorted by chromosome
 		x = pd.concat(chr_ld)
 	
 	else:
@@ -422,8 +423,10 @@ def ldscore(fh, num=None):
 		[s, compression] = which_compression(fh+suffix)
 		suffix += s
 		x = l2_parser(fh+suffix, compression)
- 
- 
+ 		# may need to sort
+ 		x = x.sort(['CHR','BP'])
+ 		x = x.drop(['CHR','BP'], axis=1)
+ 		
 	x = x.drop_duplicates(subset='SNP')
 	x = x[x.SNP != '.']			
 	#check_rsid(x.index) 

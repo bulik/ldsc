@@ -26,6 +26,7 @@ from __future__ import division
 import numpy as np
 from scipy.stats import norm
 from scipy.stats import chi2
+#import statsmodels.api as sm
 from scipy.optimize import nnls
 
 
@@ -311,7 +312,7 @@ class Hsq(object):
 		
 	'''
 	def __init__(self, chisq, ref_ld, w_ld, N, M, num_blocks=200, non_negative=False,
-		intercept=None):
+		intercept=None, slow=False):
 	
 		self.N = N
 		self.M = M
@@ -323,9 +324,10 @@ class Hsq(object):
 		# median and matrix don't play nice?
 		self.lambda_gc = np.median(np.asarray(chisq)) / 0.4549 
 		ref_ld_tot = np.sum(ref_ld, axis=1)
-
-
-		x = np.multiply(N, ref_ld)
+		# dividing by mean N keeps the condition number under control
+		Nbar = np.mean(N)
+		self.Nbar = Nbar
+		x = np.multiply(N, ref_ld) / Nbar
 		if self.constrain_intercept is None:
 			x = _append_intercept(x)
 			chisq_m_int = chisq - 1
@@ -342,24 +344,24 @@ class Hsq(object):
 		self.w_mean_chisq = np.average(chisq, weights=weights)
 		if non_negative:
 			self._jknife = LstsqJackknifeSlow(x, y, num_blocks, nn=True)
-		elif self.n_annot > 1:
+		elif not slow: 
 			self._jknife = LstsqJackknifeFast(x, y, num_blocks)
 		else:
-			self._jknife = LstsqJackknifeFast(x, y, num_blocks)
+			self._jknife = LstsqJackknifeSlow(x, y, num_blocks)
 
-		self.autocor = self._jknife.autocor(1)
-		no_intercept_cov = self._jknife.jknife_cov[0:self.n_annot,0:self.n_annot]
-		self.hsq_cov = np.multiply(np.dot(self.M.T,self.M), no_intercept_cov)
-		self.coef = self._jknife.est[0,0:self.n_annot]
-		self.coef_se = np.sqrt(np.diag(no_intercept_cov))
-		self.cat_hsq = np.multiply(self.M, self._jknife.est[0,0:self.n_annot])
-		self.cat_hsq_se = np.multiply(self.M, self._jknife.jknife_se[0,0:self.n_annot])
+		#self.autocor = self._jknife.autocor(1)
+		no_intercept_cov = self._jknife.jknife_cov[0:self.n_annot,0:self.n_annot] / Nbar
+		self.hsq_cov = np.multiply(np.dot(self.M.T,self.M), no_intercept_cov) / Nbar
+		self.coef = self._jknife.est[0,0:self.n_annot] / Nbar
+		self.coef_se = np.sqrt(np.diag(no_intercept_cov)) / Nbar
+		self.cat_hsq = np.multiply(self.M, self._jknife.est[0,0:self.n_annot]) / Nbar
+		self.cat_hsq_se = np.multiply(self.M, self._jknife.jknife_se[0,0:self.n_annot]) / Nbar
 		self.tot_hsq = np.sum(self.cat_hsq)
 		self.tot_hsq_se = np.sqrt(np.sum(M*self._jknife.jknife_cov[0:self.n_annot,\
-			0:self.n_annot]*self.M.T))
+			0:self.n_annot]*self.M.T)) / Nbar	
 
-		numer_delete_vals = np.multiply(self.M,self._jknife.delete_values[:,0:self.n_annot])
-		denom_delete_vals = np.sum(numer_delete_vals,axis=1)*np.ones(self.n_annot)
+		numer_delete_vals = np.multiply(self.M,self._jknife.delete_values[:,0:self.n_annot]) / Nbar
+		denom_delete_vals = np.sum(numer_delete_vals,axis=1)*np.ones(self.n_annot) / Nbar
 		prop_hsq_est = self.cat_hsq/self.tot_hsq
 		self.prop_hsq_j = RatioJackknife(prop_hsq_est,numer_delete_vals,denom_delete_vals)
 		self.prop_hsq = self.prop_hsq_j.est
@@ -436,49 +438,49 @@ class Hsq(object):
 		return kill_brackets(out)
 
 
-class Hsq_aggregate(Hsq):
-
-	'''
-	Aggregate estimator (equivalent to HE regression in multiple variance component case)
-
-	'''
-	
-	def __init__(self, chisq, ref_ld, w_ld, N, M, annot_matrix, num_blocks=200, 
-		non_negative=False, intercept=False):
-	
-		self.N = N
-		self.M = M
-		self.M_tot = float(np.sum(M))
-		self.annot_matrix = annot_matrix
-		self.n_annot = ref_ld.shape[1]
-		self.n_snp = ref_ld.shape[0]
-		self.constrain_intercept = 1
-		self.mean_chisq = np.mean(chisq)
-		# median and matrix don't play nice?
-		self.lambda_gc = np.median(np.asarray(chisq)) / 0.4549 
-		
-		ref_ld_tot = np.sum(ref_ld, axis=1)
-		agg_hsq = self._aggregate(chisq, np.multiply(N, ref_ld_tot), self.M_tot)
-		weights = _hsq_weights(ref_ld_tot, w_ld, N, self.M_tot, agg_hsq) 
-		if np.all(weights == 0):
-			raise ValueError('Something is wrong, all regression weights are zero.')	
-
-		x = np.multiply(N, ref_ld)
-		x = _weight(x, weights)
-		y = _weight(chisq-1, weights)
-
-		self._jknife = JackknifeAggregate(x, y, annot_matrix, num_blocks)
-		self.autocor = self._jknife.autocor(1)
-		self.hsq_cov = np.multiply(np.dot(self.M.T,self.M), self._jknife.jknife_cov)
-		self.cat_hsq = np.multiply(self.M, self._jknife.est)
-		self.cat_hsq_se = np.multiply(self.M, self._jknife.jknife_se)
-		self.tot_hsq = np.sum(self.cat_hsq)
-		self.tot_hsq_se = np.sqrt(np.sum(self.hsq_cov))
-		
-		self.prop_hsq = self.cat_hsq / self.tot_hsq
-		self.M_prop = self.M / self.M_tot
-		self.enrichment = np.divide(self.cat_hsq, self.M) / (self.tot_hsq/self.M_tot)
-		self.coef = self._jknife.est
+# class Hsq_aggregate(Hsq):
+# 
+# 	'''
+# 	Aggregate estimator (equivalent to HE regression in multiple variance component case)
+# 
+# 	'''
+# 	
+# 	def __init__(self, chisq, ref_ld, w_ld, N, M, annot_matrix, num_blocks=200, 
+# 		non_negative=False, intercept=False):
+# 	
+# 		self.N = N
+# 		self.M = M
+# 		self.M_tot = float(np.sum(M))
+# 		self.annot_matrix = annot_matrix
+# 		self.n_annot = ref_ld.shape[1]
+# 		self.n_snp = ref_ld.shape[0]
+# 		self.constrain_intercept = 1
+# 		self.mean_chisq = np.mean(chisq)
+# 		# median and matrix don't play nice?
+# 		self.lambda_gc = np.median(np.asarray(chisq)) / 0.4549 
+# 		
+# 		ref_ld_tot = np.sum(ref_ld, axis=1)
+# 		agg_hsq = self._aggregate(chisq, np.multiply(N, ref_ld_tot), self.M_tot)
+# 		weights = _hsq_weights(ref_ld_tot, w_ld, N, self.M_tot, agg_hsq) 
+# 		if np.all(weights == 0):
+# 			raise ValueError('Something is wrong, all regression weights are zero.')	
+# 
+# 		x = np.multiply(N, ref_ld)
+# 		x = _weight(x, weights)
+# 		y = _weight(chisq-1, weights)
+# 
+# 		self._jknife = JackknifeAggregate(x, y, annot_matrix, num_blocks)
+# 		self.autocor = self._jknife.autocor(1)
+# 		self.hsq_cov = np.multiply(np.dot(self.M.T,self.M), self._jknife.jknife_cov)
+# 		self.cat_hsq = np.multiply(self.M, self._jknife.est)
+# 		self.cat_hsq_se = np.multiply(self.M, self._jknife.jknife_se)
+# 		self.tot_hsq = np.sum(self.cat_hsq)
+# 		self.tot_hsq_se = np.sqrt(np.sum(self.hsq_cov))
+# 		
+# 		self.prop_hsq = self.cat_hsq / self.tot_hsq
+# 		self.M_prop = self.M / self.M_tot
+# 		self.enrichment = np.divide(self.cat_hsq, self.M) / (self.tot_hsq/self.M_tot)
+# 		self.coef = self._jknife.est
 	
 
 class Gencov(object):
@@ -557,7 +559,7 @@ class Gencov(object):
 		
 	'''
 	def __init__(self, bhat1, bhat2, ref_ld, w_ld, N1, N2, M, hsq1, hsq2, N_overlap=None,
-		rho=None, num_blocks=200, intercept=None):
+		rho=None, num_blocks=200, intercept=None, slow=False):
 		
 		self.N1 = N1
 		self.N2 = N2
@@ -578,7 +580,7 @@ class Gencov(object):
 			# input the intercept multiplied by N1*N2 for ease of use
 			# internally work with betahat rather than Z score
 			y = y - intercept/n1n2
-			
+		
 		agg_gencov = self._aggregate(y, ref_ld_tot, self.M_tot, rho, N_overlap)
 		weights = _gencov_weights(ref_ld_tot, w_ld, N1, N2, N_overlap, self.M_tot, hsq1, hsq2, 
 			agg_gencov, rho) 
@@ -587,12 +589,13 @@ class Gencov(object):
 	
 		x = _weight(x, weights)
 		y = _weight(y, weights)
-		if self.n_annot > 1:
+		
+		if not slow: 
 			self._jknife = LstsqJackknifeFast(x, y, num_blocks)
 		else:
-			self._jknife = LstsqJackknifeFast(x, y, num_blocks)
+			self._jknife = LstsqJackknifeSlow(x, y, num_blocks)
 
-		self.autocor = self._jknife.autocor(1)
+		#self.autocor = self._jknife.autocor(1)
 		no_intercept_cov = self._jknife.jknife_cov[0:self.n_annot,0:self.n_annot]
 		self.gencov_cov = np.multiply(np.dot(self.M.T,self.M), no_intercept_cov)
 		self.coef = self._jknife.est[0,0:self.n_annot]
@@ -714,7 +717,8 @@ class Gencor(object):
 
 	'''
 	def __init__(self, bhat1, bhat2, ref_ld, w_ld, N1, N2, M, intercepts, 
-		N_overlap=None,	rho=None, num_blocks=200, return_silly_things=False, first_hsq=None):
+		N_overlap=None,	rho=None, num_blocks=200, return_silly_things=False, first_hsq=None,
+		slow=False):
 
 		self.N1 = N1
 		self.N2 = N2
@@ -735,15 +739,15 @@ class Gencor(object):
 		
 		if first_hsq is None:
 			self.hsq1 = Hsq(chisq1, ref_ld, w_ld, N1, M, num_blocks=num_blocks, 
-				non_negative=False, intercept=intercepts[0])
+				non_negative=False, intercept=intercepts[0], slow=slow)
 		else:
 			self.hsq1 = first_hsq
 			
 		self.hsq2 = Hsq(chisq2, ref_ld, w_ld, N2, M, num_blocks=num_blocks, 
-			non_negative=False, intercept=intercepts[1])	
+			non_negative=False, intercept=intercepts[1], slow=slow)	
 		self.gencov = Gencov(bhat1, bhat2, ref_ld, w_ld, N1, N2, M, self.hsq1.tot_hsq,
 			self.hsq2.tot_hsq, N_overlap=self.N_overlap, rho=self.rho, num_blocks=num_blocks,
-			intercept=intercepts[2])
+			intercept=intercepts[2], slow=slow)
 		
 		if (self.hsq1.tot_hsq <= 0 or self.hsq2.tot_hsq <= 0):
 			self.negative_hsq_flag = True
@@ -752,11 +756,13 @@ class Gencor(object):
 		self.tot_gencor_biased = self.gencov.tot_gencov /\
 			np.sqrt(self.hsq1.tot_hsq * self.hsq2.tot_hsq)
 		numer_delete_values = self.cat_to_tot(self.gencov._jknife.delete_values[:,0:self.n_annot], self.M)
-		hsq1_delete_values = self.cat_to_tot(self.hsq1._jknife.delete_values[:,0:self.n_annot], self.M)
-		hsq2_delete_values = self.cat_to_tot(self.hsq2._jknife.delete_values[:,0:self.n_annot], self.M)
+		hsq1_delete_values = self.cat_to_tot(self.hsq1._jknife.delete_values[:,0:self.n_annot], self.M)\
+			/ self.hsq1.Nbar
+		hsq2_delete_values = self.cat_to_tot(self.hsq2._jknife.delete_values[:,0:self.n_annot], self.M)\
+			/ self.hsq2.Nbar
 		denom_delete_values = np.sqrt(np.multiply(hsq1_delete_values, hsq2_delete_values))
 		self.gencor = RatioJackknife(self.tot_gencor_biased, numer_delete_values, denom_delete_values)
-		self.autocor = self.gencor.autocor(1)
+		#self.	cor = self.gencor.autocor(1)
 		self.tot_gencor = float(self.gencor.jknife_est)
 		if (self.tot_gencor > 1.2 or self.tot_gencor < -1.2):
 			self.out_of_bounds_flag = True	
@@ -849,19 +855,7 @@ class Jackknife(object):
 		jknife_se = np.atleast_2d(np.std(pseudovalues, axis=0) / np.sqrt(num_blocks - 1))
 		jknife_cov = np.atleast_2d(np.cov(pseudovalues.T) / (num_blocks))
 		return (jknife_est, jknife_var, jknife_se, jknife_cov)
-
-	def autocov(self, lag):
-		'''Computes lag [lag] pseudovalue autocovariance'''
-		pseudoerrors = self.pseudovalues - np.mean(self.pseudovalues, axis=0)
-		if lag <= 0 or lag >= self.num_blocks:
-			error_msg = 'Lag >= number of blocks ({L} vs {N})'
-			raise ValueError(error_msg.format(L=lag, N=self.num_blocks))
-
-		v = pseudoerrors[lag:len(pseudoerrors),...]
-		w = pseudoerrors[0:len(pseudoerrors) - lag,...]
-		autocov = np.diag(np.dot(v.T, w)) / (self.num_blocks - lag)
-		return autocov
-		
+	
 	def __delete_values_to_pseudovals__(self, delete_values, est):
 		'''Converts block values to pseudovalues'''
 		pseudovalues = np.matrix(np.zeros((self.num_blocks, self.output_dim)))
@@ -870,19 +864,6 @@ class Jackknife(object):
 			
 		return pseudovalues
 		
-	def autocor(self, lag):
-	
-		'''
-		Computes lag [lag] pseudovalue autocorrelation. Note that this assumes that the 
-		psuedovalues are generated by a stationary process, which is not quite right. 
-		Nevertheless, if the lag-one autocorrelation is substantially higher than zero, it is 
-		a good sign that you should consider using a larger block size in order to estimate
-		the regre	ssion standard error.
-		
-		'''
-		
-		return self.autocov(lag) / np.var(self.pseudovalues, axis=0)
-
 	def __get_separators__(self):
 		'''Define block boundaries'''
 		if self.separators is None:	
@@ -900,6 +881,32 @@ class Jackknife(object):
 			separators = self.separators
 		
 		return separators
+		
+# 	def autocov(self, lag):
+# 		'''Computes lag [lag] pseudovalue autocovariance'''
+# 		pseudoerrors = self.pseudovalues - np.mean(self.pseudovalues, axis=0)
+# 		if lag <= 0 or lag >= self.num_blocks:
+# 			error_msg = 'Lag >= number of blocks ({L} vs {N})'
+# 			raise ValueError(error_msg.format(L=lag, N=self.num_blocks))
+# 
+# 		v = pseudoerrors[lag:len(pseudoerrors),...]
+# 		w = pseudoerrors[0:len(pseudoerrors) - lag,...]
+# 		autocov = np.diag(np.dot(v.T, w)) / (self.num_blocks - lag)
+# 		return autocov
+#			
+# 	def autocor(self, lag):
+# 	
+# 		'''
+# 		Computes lag [lag] pseudovalue autocorrelation. Note that this assumes that the 
+# 		psuedovalues are generated by a stationary process, which is not quite right. 
+# 		Nevertheless, if the lag-one autocorrelation is substantially higher than zero, it is 
+# 		a good sign that you should consider using a larger block size in order to estimate
+# 		the regre	ssion standard error.
+# 		
+# 		'''
+# 		
+# 		return self.autocov(lag) / np.var(self.pseudovalues, axis=0)
+
 	
 
 class LstsqJackknifeSlow(Jackknife):
@@ -908,7 +915,7 @@ class LstsqJackknifeSlow(Jackknife):
 		if nn:
 			self.reg_func = lambda x,y: nnls(x, y)[0]
 		else:
-			self.ref_func = lambda x,y: np.linalg.lstsq(x, y)[0]
+			self.reg_func = lambda x,y: np.linalg.lstsq(x, y)[0]
 		self.est = np.matrix(self.reg_func(x,np.array(y).T[0]))
 		self.delete_values = self.__compute_delete_values__(x, y, self.num_blocks)
 		self.pseudovalues = self.__delete_values_to_pseudovals__(self.delete_values,self.est)
@@ -925,7 +932,7 @@ class LstsqJackknifeSlow(Jackknife):
 			e = separators[i+1]
 			x_delete = np.vstack([x[0:s,...],x[e:,...]])
 			y_delete = np.array(np.vstack([y[0:s,...],y[e:,...]])).T[0]
-			delete_values[i,...] = self.reg_func(x_delete,y_delete)[0]
+			delete_values[i,...] = self.reg_func(x_delete,y_delete)
 
 		return delete_values
 	
@@ -946,6 +953,11 @@ class LstsqJackknifeFast(Jackknife):
 			self.__block_vals_to_pseudovals__(self.block_vals, self.est)
 		(self.jknife_est, self.jknife_var, self.jknife_se, self.jknife_cov) =\
 			self.__jknife__(self.pseudovalues, self.num_blocks)		
+		#reg = sm.OLS(y, x).fit()
+		#print reg.bse
+		#print reg.HC1_se
+		#print self.jknife_se
+		#print self.est
 	
 	def __compute_block_vals__(self, x, y, num_blocks):
 		N = self.N

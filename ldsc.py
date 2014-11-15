@@ -721,7 +721,8 @@ if __name__ == '__main__':
 		help='For rg estimation, skip checking whether the alleles match. This check is '
 		'redundant for pairs of chisq files generated using sumstats_to_chisq.py with the '
 		'--merge-alleles flag.')
-
+	parser.add_argument('--slow', default=False, action='store_true',
+		help='Use a slow (but possibly more numerically stable) jackknife algorithm.')
 	parser.add_argument('--print-coefficients',default=False,action='store_true',
 		help='when categories are overlapping, print coefficients as well as heritabilities.')
 	parser.add_argument('--frqfile', type=str, 
