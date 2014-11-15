@@ -760,7 +760,7 @@ def sumstats(args, header=None):
 	log.log(log_msg.format(N=len(w_ldscores)))
 	
 	# merge with reference panel LD Scores 
-	sumstats = pd.merge(sumstats, ref_ldscores, how="inner", on="SNP")
+	sumstats = pd.merge(ref_ldscores, sumstats, how="inner", on="SNP")
 	if len(sumstats) == 0:
 		raise ValueError('No SNPs remain after merging with reference panel LD')
 	else:
