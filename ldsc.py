@@ -499,7 +499,7 @@ def ldscore(args, header=None):
 		log.log("Writing LD Scores for {N} SNPs to {f}.pickle".format(f=out_fname, N=len(df)))
 		df.set_index('SNP')
 		out_fname_pickle = out_fname+l2_suffix
-		df.to_pickle(out_fname_pickle)
+		df.reset_index().to_pickle(out_fname_pickle)
 		
 	# print .M
 	if annot_matrix is not None:
@@ -533,7 +533,7 @@ def ldscore(args, header=None):
 			call(['gzip', '-f', out_fname_annot])
 		else:
 			out_fname_annot_pickle = out_fname_annot + '.pickle'
-			annot_df.to_pickle(out_fname_annot_pickle)
+			annot_df.reset_index().to_pickle(out_fname_annot_pickle)
 			
 	# print LD Score summary	
 	pd.set_option('display.max_rows', 200)

@@ -359,7 +359,7 @@ def l2_parser(fh, compression):
 	if compression == "gzip" or compression == 'bz2' or compression == None:
 		x = pd.read_csv(fh, header=0, delim_whitespace=True, compression=compression)
 	elif compression == 'pickle':
-		x = pd.read_pickle(fh)
+		x = pd.read_pickle(fh).reset_index()
 					
 	return x.drop(['CHR','BP','CM','MAF'], axis=1)
 

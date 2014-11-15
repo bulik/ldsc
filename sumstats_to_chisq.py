@@ -287,18 +287,35 @@ if __name__ == '__main__':
 			if (merge_alleles.columns != ["SNP","A1","A2"]).any():
 				raise ValueError('--merge-alleles must have columns SNP, A1, A2.')
 		
-			dat = pd.merge(merge_alleles, dat, how='left', on='SNP')
-			# remove SNPs whose alleles do not match the alleles in --merge-alleles
-			alleles = dat.INC_ALLELE + dat.DEC_ALLELE + dat.A1 + dat.A2
-			match = alleles.apply(lambda y: sumstats.MATCH_ALLELES[y])
-			dat = dat[match]
+			merge_alleles.A1 = merge_alleles.A1.apply(lambda y: y.upper())
+			merge_alleles.A2 = merge_alleles.A2.apply(lambda y: y.upper())
+			# WARNING: dat now contains many NaN values
+			
+			dat = pd.merge(merge_alleles, dat, how='inner', on='SNP', sort=False).reset_index()
+			ii = dat.N.notnull()
+			print 'After LOJ on --merge-alleles, we have {N} SNPs of which {M} have nonmissing data'.format(N=len(dat), M=ii.sum())
+			alleles = dat.INC_ALLELE[ii] + dat.DEC_ALLELE[ii] + dat.A1[ii] + dat.A2[ii]
+			try:
+				match = alleles.apply(lambda y: sumstats.MATCH_ALLELES[y])
+			except KeyError as e:
+				msg = "Does your --merge-alleles file contain indels or strand ambiguous SNPs?"
+				print msg
+				raise 
+				
+			x = dat[ii]
+			jj = pd.Series([False	 for j in xrange(len(dat))])
+			jj[ii] = match
+			dat.N[~jj] = float('nan')
+			dat.CHISQ[~jj] = float('nan')
+
 			if len(dat) == 0:
 				raise ValueError('All SNPs have mismatched alleles.')
 			else:
-				msg = 'After removing SNPs with mismatched alleles, {N} SNPs remain.'
-				print msg.format(N=len(dat))
+				msg = 'After removing SNPs with mismatched alleles, {N} SNPs remain. '
+				msg += 'of which {M} have non-missing data.'
+				print msg.format(N=len(dat), M=dat.CHISQ.notnull().sum())
 		
-			del dat['A2']; del dat['A1']
+			dat = dat.drop(['A1','A2'], axis=1)
 
 	elif not args.no_alleles:
 		raise ValueError('Could not find A1 and A2 columns in --sumstats.')
@@ -314,7 +331,7 @@ if __name__ == '__main__':
 		print 'Read list of {M} SNPs to retain from {F}.'.format(M=len(merge_snplist),
 			F=args.merge)
 	
-		dat = pd.merge(merge_snplist, dat, on='SNP', how='left', sort=False)	
+		dat = pd.merge(merge_snplist, dat, on='SNP', how='left', sort=False).reset_index()
 		remain = dat.CHISQ.notnull().sum()
 		print 'After merging with --merge SNPs, {M} SNPs remain.'.format(M=remain)
 
@@ -328,7 +345,7 @@ if __name__ == '__main__':
 	else:
 		print 'Writing chi^2-statistics for {M} SNPs to {F}.'.format(M=len(dat), F=out_chisq+'.pickle')
 		out_chisq += '.pickle'
-		dat.ix[:,chisq_colnames].to_pickle(out_chisq)
+		dat.ix[:,chisq_colnames].reset_index().to_pickle(out_chisq)
 
 	# write metadata
 	np.set_printoptions(precision=4)
