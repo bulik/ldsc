@@ -271,6 +271,8 @@ class _sumstats(object):
 			raise e
 	
 		if len(w_ldscores.columns) != 2:
+			print w_ldscores.columns
+			print w_ldscores[0:5]
 			raise ValueError('--w-ld must point to a file with a single (non-partitioned) LD Score.')
 	
 		# to keep the column names from being the same
