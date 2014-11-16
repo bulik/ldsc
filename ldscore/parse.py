@@ -307,7 +307,7 @@ def annot_fromfile(fh, num=None, frqfile=None):
 	'''Sideways concatenation of a list of annot matrices from a file.'''
 	f = open(fh,'r')
 	lines = [x.rstrip('\n') for x in f.readlines()]
-	return annot_fromlist(lines, num, frqfile)
+	return annot(lines, num, frqfile)
 
 
 def ldscore_fromlist(flist, num=None):
@@ -477,11 +477,10 @@ def annot(fh_list, num=None, frqfile=None):
 				df_annot_chr_list = [annot_parser(fh + str(chr) + annot_suffix[i], annot_compression[i], 
 					frqfile+str(chr)+frq_suffix, frq_compression) for (i,fh) in enumerate(fh_list)]
 	
-			df_annot_chr = pd.concat(df_annot_chr_list,axis=1)
-			
-			annot_matrix_chr = np.matrix(df_annot_chr[df_annot_chr.columns[1:]])
+			annot_matrix_chr_list = [np.matrix(y.ix[:,1:]) for y in df_annot_chr_list]
+			annot_matrix_chr = np.hstack(annot_matrix_chr_list)
 			y.append(np.dot(annot_matrix_chr.T, annot_matrix_chr))
-			M_tot += len(df_annot_chr)
+			M_tot += len(df_annot_chr[0])
 			del df_annot_chr
 			del annot_matrix_chr
 
