@@ -361,7 +361,7 @@ class Hsq(object):
 			0:self.n_annot]*self.M.T)) / Nbar	
 
 		numer_delete_vals = np.multiply(self.M,self._jknife.delete_values[:,0:self.n_annot]) / Nbar
-		denom_delete_vals = np.sum(numer_delete_vals,axis=1)*np.ones(self.n_annot) / Nbar
+		denom_delete_vals = np.sum(numer_delete_vals,axis=1)*np.ones(self.n_annot) 
 		prop_hsq_est = self.cat_hsq/self.tot_hsq
 		self.prop_hsq_j = RatioJackknife(prop_hsq_est,numer_delete_vals,denom_delete_vals)
 		self.prop_hsq = self.prop_hsq_j.est
@@ -910,7 +910,6 @@ class Jackknife(object):
 # 		
 # 		return self.autocov(lag) / np.var(self.pseudovalues, axis=0)
 
-	
 
 class LstsqJackknifeSlow(Jackknife):
 
