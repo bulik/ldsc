@@ -442,18 +442,18 @@ class _sumstats(object):
 			one_d_convert = lambda x : np.array(x)[0]
 			df = pd.DataFrame({
 				'Category':category_names,
-				'Prop. SNPs':one_d_convert(prop_M_overlap),
-				'Prop. h2':one_d_convert(prop_hsq_overlap),
-				'Prop. h2 std error': one_d_convert(prop_hsq_overlap_se),
+				'Prop._SNPs':one_d_convert(prop_M_overlap),
+				'Prop._h2':one_d_convert(prop_hsq_overlap),
+				'Prop._h2_std_error': one_d_convert(prop_hsq_overlap_se),
 				'Enrichment': one_d_convert(enrichment),
-				'Enrichment std error': one_d_convert(enrichment_se)
+				'Enrichment_std_error': one_d_convert(enrichment_se)
 				})
 			df = df[['Category','Prop. SNPs','Prop. h2','Prop. h2 std error','Enrichment','Enrichment std error']]
 			if args.print_coefficients:
 				df['Coefficient'] = one_d_convert(hsqhat.coef)
-				df['Coefficient std error'] = one_d_convert(hsqhat.coef_se)
-				df['Coefficient z-score'] = one_d_convert(hsqhat.coef/hsqhat.coef_se)
-			df.to_csv(args.out+'.overlap',sep="\t",index=False)
+				df['Coefficient_std_error'] = one_d_convert(hsqhat.coef_se)
+				df['Coefficient_z-score'] = one_d_convert(hsqhat.coef/hsqhat.coef_se)
+			df.to_csv(args.out+'.results',sep="\t",index=False)
 
 class H2(_sumstats):
 	'''

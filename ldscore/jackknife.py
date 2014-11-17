@@ -404,7 +404,7 @@ class Hsq(object):
 				out.append( 'Coefficients: '+str(self.coef))
 				out.append( 'Coefficient SE: '+str(self.coef_se))
 			else:
-				out.append( 'Partitioned heritabilities and enrichments printed to {}.overlap'.format(outfile))
+				out.append( 'Partitioned heritabilities and enrichments printed to {}.results'.format(outfile))
 		out.append( 'Lambda GC: '+ str(np.matrix(self.lambda_gc)))
 		out.append( 'Mean Chi^2: '+ str(np.matrix(self.mean_chisq)))
 		if self.constrain_intercept is not None:
