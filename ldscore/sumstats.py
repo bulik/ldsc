@@ -448,7 +448,7 @@ class _sumstats(object):
 				'Enrichment': one_d_convert(enrichment),
 				'Enrichment_std_error': one_d_convert(enrichment_se)
 				})
-			df = df[['Category','Prop. SNPs','Prop. h2','Prop. h2 std error','Enrichment','Enrichment std error']]
+			df = df[['Category','Prop._SNPs','Prop._h2','Prop._h2_std_error','Enrichment','Enrichment_std_error']]
 			if args.print_coefficients:
 				df['Coefficient'] = one_d_convert(hsqhat.coef)
 				df['Coefficient_std_error'] = one_d_convert(hsqhat.coef_se)
