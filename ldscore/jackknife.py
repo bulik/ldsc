@@ -368,6 +368,9 @@ class Hsq(object):
 		self.prop_hsq_se = self.prop_hsq_j.jknife_se
 		self.prop_hsq_cov = self.prop_hsq_j.jknife_cov
 
+		print self.prop_hsq
+		print self.prop_hsq_se
+
 		if intercept is None:
 			self.intercept = self._jknife.est[0,self.n_annot] + 1
 			self.intercept_se = self._jknife.jknife_se[0,self.n_annot]
