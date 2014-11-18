@@ -368,9 +368,6 @@ class Hsq(object):
 		self.prop_hsq_se = self.prop_hsq_j.jknife_se
 		self.prop_hsq_cov = self.prop_hsq_j.jknife_cov
 
-		print self.prop_hsq
-		print self.prop_hsq_se
-
 		if intercept is None:
 			self.intercept = self._jknife.est[0,self.n_annot] + 1
 			self.intercept_se = self._jknife.jknife_se[0,self.n_annot]
@@ -601,8 +598,8 @@ class Gencov(object):
 		#self.autocor = self._jknife.autocor(1)
 		no_intercept_cov = self._jknife.jknife_cov[0:self.n_annot,0:self.n_annot]
 		self.gencov_cov = np.multiply(np.dot(self.M.T,self.M), no_intercept_cov)
-		self.coef = self._jknife.est[0,0:self.n_annot] / Nbar
-		self.coef_se = np.sqrt(np.diag(no_intercept_cov)/ Nbar)
+		self.coef = self._jknife.est[0,0:self.n_annot]
+		self.coef_se = np.sqrt(np.diag(no_intercept_cov))
 		self.cat_gencov = np.multiply(self.M, self._jknife.est[0,0:self.n_annot])
 		self.cat_gencov_se = np.multiply(self.M, self._jknife.jknife_se[0,0:self.n_annot])	
 		self.tot_gencov = np.sum(self.cat_gencov)

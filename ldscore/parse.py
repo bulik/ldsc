@@ -234,8 +234,8 @@ def chisq(fh, require_alleles=False, keep_na=False, check=True):
 	
 	if 'P' in x.columns:
 		ii = x.P.notnull()
-		check_pvalue(x['P'][ii])
-		x['P'][ii] = chdtri(1, x['P'][ii]); 
+		check_pvalue(x.loc[ii,'P'])
+		x.loc[ii,'P'] = chdtri(1, x.loc[ii,'P'])
 		x.rename(columns={'P': 'CHISQ'}, inplace=True)
 			
 	if check:
@@ -257,10 +257,11 @@ def chisq(fh, require_alleles=False, keep_na=False, check=True):
 	
 		ii = x.N.notnull()
 		if 'MAF' in x.columns:
-			check_maf(x['MAF'][ii])
-			x['MAF'][ii] = np.fmin(x['MAF'][ii], 1-x['MAF'][ii])	
+			maf = x.loc[ii, 'MAF']
+			check_maf(maf)
+			x.loc[ii,'MAF'] = np.fmin(maf, 1-maf)	
 		elif 'CHISQ' in x.columns:
-			check_chisq(x['CHISQ'][ii])
+			check_chisq(x.loc[ii,'CHISQ'])
 		else:
 			raise ValueError('.chisq file must have a column labeled either P or CHISQ.')
 		
