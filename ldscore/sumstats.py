@@ -453,7 +453,7 @@ class _sumstats(object):
 			df = df[['Category','Prop._SNPs','Prop._h2','Prop._h2_std_error','Enrichment','Enrichment_std_error','Enrichment_p']]
 			if args.print_coefficients:
 				df['Coefficient'] = one_d_convert(hsqhat.coef)
-				df['Coefficient_std_error'] = one_d_convert(hsqhat.coef_se)
+				df['Coefficient_std_error'] = hsqhat.coef_se
 				df['Coefficient_z-score'] = one_d_convert(hsqhat.coef/hsqhat.coef_se)
 
 			df = df[np.logical_not(df['Prop._SNPs'] > .9999)]
