@@ -338,7 +338,7 @@ class Hsq(object):
 		weights = _hsq_weights(ref_ld_tot, w_ld, N, self.M_tot, agg_hsq) 
 		if np.all(weights == 0):
 			raise ValueError('Something is wrong, all regression weights are zero.')	
-
+		
 		x = _weight(x, weights)
 		y = _weight(chisq_m_int, weights)
 		self.w_mean_chisq = np.average(chisq, weights=weights)
@@ -353,7 +353,7 @@ class Hsq(object):
 		no_intercept_cov = self._jknife.jknife_cov[0:self.n_annot,0:self.n_annot] / Nbar
 		self.hsq_cov = np.multiply(np.dot(self.M.T,self.M), no_intercept_cov) / Nbar
 		self.coef = self._jknife.est[0,0:self.n_annot] / Nbar
-		self.coef_se = np.sqrt(np.diag(no_intercept_cov)) / Nbar
+		self.coef_se = np.sqrt(np.diag(no_intercept_cov)/ Nbar)
 		self.cat_hsq = np.multiply(self.M, self._jknife.est[0,0:self.n_annot]) / Nbar
 		self.cat_hsq_se = np.multiply(self.M, self._jknife.jknife_se[0,0:self.n_annot]) / Nbar
 		self.tot_hsq = np.sum(self.cat_hsq)
@@ -598,7 +598,8 @@ class Gencov(object):
 		#self.autocor = self._jknife.autocor(1)
 		no_intercept_cov = self._jknife.jknife_cov[0:self.n_annot,0:self.n_annot]
 		self.gencov_cov = np.multiply(np.dot(self.M.T,self.M), no_intercept_cov)
-		self.coef = self._jknife.est[0,0:self.n_annot]
+		self.coef = self._jknife.est[0,0:self.n_annot] / Nbar
+		self.coef_se = np.sqrt(np.diag(no_intercept_cov)/ Nbar)
 		self.cat_gencov = np.multiply(self.M, self._jknife.est[0,0:self.n_annot])
 		self.cat_gencov_se = np.multiply(self.M, self._jknife.jknife_se[0,0:self.n_annot])	
 		self.tot_gencov = np.sum(self.cat_gencov)
@@ -609,8 +610,8 @@ class Gencov(object):
 		self.Z = self.tot_gencov / self.tot_gencov_se
 		self.P_val = chi2.sf(self.Z**2, 1, loc=0, scale=1)
 		if intercept is None:
-			self.intercept = self._jknife.est[0,self.n_annot]*n1n2
-			self.intercept_se = self._jknife.jknife_se[0,self.n_annot]*n1n2
+			self.intercept = self._jknife.est[0,self.n_annot]*np.sqrt(n1n2)
+			self.intercept_se = self._jknife.jknife_se[0,self.n_annot]*np.sqrt(n1n2)
 
 	def _aggregate(self, y, x, M_tot, rho=None, N_overlap=None):
 		'''Aggregate estimator. For use in regression weights.'''
