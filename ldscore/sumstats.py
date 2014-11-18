@@ -15,6 +15,7 @@ import parse as ps
 import sys, traceback
 import itertools as it
 import time
+from scipy import stats
 
 # complementary bases
 COMPLEMENT = {
@@ -271,8 +272,6 @@ class _sumstats(object):
 			raise e
 	
 		if len(w_ldscores.columns) != 2:
-			print w_ldscores.columns
-			print w_ldscores[0:5]
 			raise ValueError('--w-ld must point to a file with a single (non-partitioned) LD Score.')
 	
 		# to keep the column names from being the same
@@ -435,24 +434,29 @@ class _sumstats(object):
 			prop_hsq_overlap_var = np.diag(np.dot(np.dot(overlap_matrix,hsqhat.prop_hsq_cov),overlap_matrix.T))
 			prop_hsq_overlap_se = np.sqrt(prop_hsq_overlap_var).reshape((1,n_annot))
 
+			one_d_convert = lambda x : np.array(x)[0]
+
 			prop_M_overlap = M_annot/M_tot
 			enrichment = prop_hsq_overlap/prop_M_overlap
 			enrichment_se = prop_hsq_overlap_se/prop_M_overlap
+			enrichment_p = stats.chi2.sf(one_d_convert((enrichment-1)/enrichment_se)**2, 1)
 
-			one_d_convert = lambda x : np.array(x)[0]
 			df = pd.DataFrame({
 				'Category':category_names,
 				'Prop._SNPs':one_d_convert(prop_M_overlap),
 				'Prop._h2':one_d_convert(prop_hsq_overlap),
 				'Prop._h2_std_error': one_d_convert(prop_hsq_overlap_se),
 				'Enrichment': one_d_convert(enrichment),
-				'Enrichment_std_error': one_d_convert(enrichment_se)
+				'Enrichment_std_error': one_d_convert(enrichment_se),
+				'Enrichment_p': enrichment_p
 				})
-			df = df[['Category','Prop._SNPs','Prop._h2','Prop._h2_std_error','Enrichment','Enrichment_std_error']]
+			df = df[['Category','Prop._SNPs','Prop._h2','Prop._h2_std_error','Enrichment','Enrichment_std_error','Enrichment_p']]
 			if args.print_coefficients:
 				df['Coefficient'] = one_d_convert(hsqhat.coef)
 				df['Coefficient_std_error'] = one_d_convert(hsqhat.coef_se)
 				df['Coefficient_z-score'] = one_d_convert(hsqhat.coef/hsqhat.coef_se)
+
+			df = df[np.logical_not(df['Prop._SNPs'] > .9999)]
 			df.to_csv(args.out+'.results',sep="\t",index=False)
 
 class H2(_sumstats):
