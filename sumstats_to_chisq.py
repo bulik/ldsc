@@ -284,7 +284,6 @@ if __name__ == '__main__':
 			(openfunc, compression) = get_compression(args.merge_alleles)
 			merge_alleles = pd.read_csv(args.merge_alleles, compression=compression, header=0, 
 				delim_whitespace=True)
-			print merge_alleles.columns
 			if len(merge_alleles.columns) == 1 | np.all(merge_alleles.columns != ["SNP","A1","A2"]):
 				raise ValueError('--merge-alleles must have columns SNP, A1, A2.')
 		
