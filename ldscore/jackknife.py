@@ -610,8 +610,8 @@ class Gencov(object):
 		self.Z = self.tot_gencov / self.tot_gencov_se
 		self.P_val = chi2.sf(self.Z**2, 1, loc=0, scale=1)
 		if intercept is None:
-			self.intercept = self._jknife.est[0,self.n_annot]*np.sqrt(n1n2)
-			self.intercept_se = self._jknife.jknife_se[0,self.n_annot]*np.sqrt(n1n2)
+			self.intercept = self._jknife.est[0,self.n_annot]*n1n2
+			self.intercept_se = self._jknife.jknife_se[0,self.n_annot]*n1n2
 
 	def _aggregate(self, y, x, M_tot, rho=None, N_overlap=None):
 		'''Aggregate estimator. For use in regression weights.'''
