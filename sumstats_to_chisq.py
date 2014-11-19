@@ -98,7 +98,7 @@ colnames_conversion = {
 if __name__ == '__main__':
 	parser = argparse.ArgumentParser()
 	parser.add_argument('--sumstats', default=None, type=str,
-		help="Input filename.")
+		help="Input filename.", required=True)
 	parser.add_argument('--N', default=None, type=float,
 		help="Sample size If this option is not set, will try to infer the sample "
 		"size from the input file. If the input file contains a sample size "
@@ -112,7 +112,7 @@ if __name__ == '__main__':
 		"of controls from the input file. If the input file contains a number of controls "
 		"column, and this flag is set, the argument to this flag has priority.")
 	parser.add_argument('--out', default=None, type=str,
-		help="Output filename prefix.")
+		help="Output filename prefix.", required=True)
 	#parser.add_argument('--gc', default=None, type=float.
 	#	help="Second GC correction factor. Will un-do second-level GC correction by "
 	#	"multiplying all chi^2 statistics by the argument to --gc.")
@@ -121,7 +121,7 @@ if __name__ == '__main__':
 	parser.add_argument('--maf', default=0.01, type=float,
 		help="Minimum MAF.")
 	parser.add_argument('--daner', default=False, action='store_true',
-		help="Use this flag to parse Stephan Ripke's daner* file format.")
+		help="Use this flag to parse Step	han Ripke's daner* file format.")
 	parser.add_argument('--merge', default=None, type=str,
 		help="Path to file with a list of SNPs to merge w/ the SNPs in the input file. "
 		"Will print the same SNPs in the same order as the --merge file, "
@@ -284,7 +284,8 @@ if __name__ == '__main__':
 			(openfunc, compression) = get_compression(args.merge_alleles)
 			merge_alleles = pd.read_csv(args.merge_alleles, compression=compression, header=0, 
 				delim_whitespace=True)
-			if (merge_alleles.columns != ["SNP","A1","A2"]).any():
+			print merge_alleles.columns
+			if len(merge_alleles.columns) == 1 | np.all(merge_alleles.columns != ["SNP","A1","A2"]):
 				raise ValueError('--merge-alleles must have columns SNP, A1, A2.')
 		
 			merge_alleles.A1 = merge_alleles.A1.apply(lambda y: y.upper())
