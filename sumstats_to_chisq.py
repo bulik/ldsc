@@ -39,6 +39,7 @@ colnames_conversion = {
 	'SNP': 'SNP',
 	'MARKERNAME': 'SNP',
 	'SNPID': 'SNP',
+	'RS' : 'SNP',
 	
 	# P-VALUE
 	'P': 'P',
