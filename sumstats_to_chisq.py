@@ -45,6 +45,8 @@ colnames_conversion = {
 	'PVALUE': 'P',
 	'P_VALUE': 	'P',
 	'PVAL' : 'P',
+        'P-VAL' : 'P',
+        'P-VALUE':	'P',
 	'GC.PVALUE': 'P',
 
 	# ALLELE 1
