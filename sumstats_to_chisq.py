@@ -53,6 +53,8 @@ colnames_conversion = {
 	# ALLELE 1
 	'A1': 'A1',
 	'ALLELE1': 'A1',
+	'ALLELE_1': 'A1',
+	'ALLELE-1': 'A1',
 	'EFFECT_ALLELE': 'A1',
 	'RISK_ALLELE': 'A1',
 	'REFERENCE_ALLELE': 'A1',
@@ -62,6 +64,8 @@ colnames_conversion = {
 	# ALLELE 2
 	'A2' : 'A2',
 	'ALLELE2': 'A2',
+        'ALLELE_2': 'A2',
+        'ALLELE-2': 'A2',
 	'OTHER_ALLELE' : 'A2',
 	'NON_EFFECT_ALLELE' : 'A2',
 	'DEC_ALLELE': 'A2',
