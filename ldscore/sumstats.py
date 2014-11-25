@@ -704,8 +704,18 @@ class Rg(_sumstats):
 				ex_type, ex, tb = sys.exc_info()
 				self.log.log( traceback.format_exc(ex) )
 				self.log.log('\n')
-			
-			self._print_end_time(args, self.log)
+		
+		rg_list = [x.tot_gencor for x in self.rghat]
+		se_list = [x.tot_gencor_se for x in self.rghat]
+		self.log.log('Summary of Genetic Correlation Results')
+		x = pd.DataFrame({
+			'p1': [rg_file_list[0] for i in xrange(1,len(rg_file_list))],
+			'p2': rg_file_list[1:len(rg_file_list)],
+			'rg': rg_list,
+			'se' : se_list }).to_string(header=True, index=False)
+		self.log.log( x )
+		self.log.log( '\n' )
+		self._print_end_time(args, self.log)
 			
 	def _print_gencor(self, args, log, rghat, ref_ld_colnames,i, rg_file_list, print_hsq1):
 		if print_hsq1:
