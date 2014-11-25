@@ -644,7 +644,7 @@ class Rg(_sumstats):
 		 self._merge_sumstats_ld(args, self.log, sumstats, M_annot, ref_ldscores, w_ldscores)
 		self.M_annot = M_annot
 		self.rghat = []
-				
+		self.rghat_se = []
 		for i,pheno2 in enumerate(rg_file_list[1:len(rg_file_list)]):
 			if len(rg_file_list) > 2:
 				log_msg = 'Computing genetic correlation for phenotype {I}/{N}'
@@ -690,7 +690,8 @@ class Rg(_sumstats):
 					self._print_delete_k(rghat.gencov, gencov_delete_ofh, self.log)
 			
 				self._print_gencor(args, self.log, rghat, ref_ld_colnames, i, rg_file_list, i==0)
-				self.rghat.append(rghat)
+				self.rghat.append(rghat.tot_gencor)
+				self.rghat_se.append(rghat.tot_gencor_se)
 			
 			except Exception as e:
 				'''
@@ -705,14 +706,12 @@ class Rg(_sumstats):
 				self.log.log( traceback.format_exc(ex) )
 				self.log.log('\n')
 		
-		rg_list = [x.tot_gencor for x in self.rghat]
-		se_list = [x.tot_gencor_se for x in self.rghat]
 		self.log.log('Summary of Genetic Correlation Results')
 		x = pd.DataFrame({
 			'p1': [rg_file_list[0] for i in xrange(1,len(rg_file_list))],
 			'p2': rg_file_list[1:len(rg_file_list)],
-			'rg': rg_list,
-			'se' : se_list }).to_string(header=True, index=False)
+			'rg': self.rghat,
+			'se': self.rghat_se }).to_string(header=True, index=False)
 		self.log.log( x )
 		self.log.log( '\n' )
 		self._print_end_time(args, self.log)
