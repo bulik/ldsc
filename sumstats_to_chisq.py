@@ -184,6 +184,8 @@ if __name__ == '__main__':
 	usecols = [x for x in colnames if x.upper() in colnames_conversion.keys()]
 	dat = pd.read_csv(args.sumstats, delim_whitespace=True, header=0, compression=compression,	
 		usecols=usecols, na_values='.')
+	print dat
+	print dat.dtypes
 	log.log( "Read summary statistics for {M} SNPs from {F}.".format(M=len(dat), F=args.sumstats))
 
 	# infer # cases and # controls from daner* column headers
@@ -204,16 +206,18 @@ if __name__ == '__main__':
 	new_len = len(dat)
 	msg = 'Removed {M} SNPs with duplicated rs numbers ({N} SNPs remain).'
 	log.log(msg.format(M=old_len-new_len, N=new_len))
-	
+	if new_len == 0:
+		raise ValueError('No SNPs remain.')
+		
 	# remove NA's
 	old_len = len(dat)
 	dat.dropna(axis=0, how="any", inplace=True)
 	new_len = len(dat)
+	msg = 'Removed {M} SNPs with missing values ({N} SNPs remain).'
+	log.log(msg.format(M=old_len-new_len, N=new_len))
 	if new_len == 0:
-		raise ValueError('All SNPs had at least one missing value.')
-	else:
-		msg = 'Removed {M} SNPs with missing values ({N} SNPs remain).'
-		log.log(msg.format(M=old_len-new_len, N=new_len))
+		raise ValueError('No SNPs remain.')
+
 	
 	if dat.P.dtype != 'float':
 		log.log( 'Coercing P-value column to float.')
@@ -250,7 +254,9 @@ if __name__ == '__main__':
 		new_len = len(dat)
 		msg = 'Removed {M} SNPs in --sumstats not in --merge-alleles ({N} SNPs remain).'
 		log.log(msg.format(M=old_len-new_len, N=new_len))
-		
+		if new_len == 0:
+			raise ValueError('No SNPs remain.')
+			
 	# N
 	if args.N:
 		dat['N'] = args.N
@@ -285,7 +291,9 @@ if __name__ == '__main__':
 	new_len = ii.sum()
 	msg = 'Removed {M} SNPs with p-values outside of (0,1] ({N} SNPs remain).'
 	log.log(msg.format(M=old_len-new_len, N=new_len))
-	
+	if new_len == 0:
+		raise ValueError('No SNPs remain.')
+
 	# filter on INFO
 	if 'INFO' in dat.columns:
 		ii = ii & (dat.INFO > args.info)
@@ -293,6 +301,9 @@ if __name__ == '__main__':
 		new_len = ii.sum()
 		msg = 'Removed {M} SNPs with INFO <= {C} ({N} SNPs remain).'
 		log.log( msg.format(C=args.info,	N=new_len, M=old_len-new_len))
+		if new_len == 0:
+			raise ValueError('No SNPs remain.')
+
 		dat.drop('INFO', inplace=True, axis=1)
 	
 	# convert FRQ to MAF and filter on MAF
@@ -303,6 +314,9 @@ if __name__ == '__main__':
 		new_len = ii.sum()		
 		msg = 'Removed {M} SNPs with MAF <= {C} ({N} SNPs remain).'
 		log.log( msg.format(C=args.maf,	N=new_len, M=old_len-new_len))
+		if new_len == 0:
+			raise ValueError('No SNPs remain.')
+
 		dat.drop('FRQ', inplace=True, axis=1)
 		
 	dat = dat[ii]
