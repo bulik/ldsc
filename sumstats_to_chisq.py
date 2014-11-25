@@ -198,29 +198,6 @@ if __name__ == '__main__':
 	dat.columns = map(str.upper, dat.columns)
 	dat.rename(columns=colnames_conversion, inplace=True)
 	
-	# check uniqueness of rs numbers & remove SNPs w/ rs == '.'
-	old_len = len(dat)
-	dat = dat.drop_duplicates('SNP')
-	new_len = len(dat)
-	msg = 'Removed {M} SNPs with duplicated rs numbers ({N} SNPs remain).'
-	log.log(msg.format(M=old_len-new_len, N=new_len))
-	if new_len == 0:
-		raise ValueError('No SNPs remain.')
-		
-	# remove NA's
-	old_len = len(dat)
-	dat.dropna(axis=0, how="any", inplace=True)
-	new_len = len(dat)
-	msg = 'Removed {M} SNPs with missing values ({N} SNPs remain).'
-	log.log(msg.format(M=old_len-new_len, N=new_len))
-	if new_len == 0:
-		raise ValueError('No SNPs remain.')
-
-	
-	if dat.P.dtype != 'float':
-		log.log( 'Coercing P-value column to float.')
-		dat.P = dat.P.astype('float')		
-
  	if args.merge:
 		pass
 # 		(openfunc, compression) = get_compression(args.merge)
@@ -254,7 +231,29 @@ if __name__ == '__main__':
 		log.log(msg.format(M=old_len-new_len, N=new_len))
 		if new_len == 0:
 			raise ValueError('No SNPs remain.')
-			
+		
+	# check uniqueness of rs numbers & remove SNPs w/ rs == '.'
+	old_len = len(dat)
+	dat = dat.drop_duplicates('SNP')
+	new_len = len(dat)
+	msg = 'Removed {M} SNPs with duplicated rs numbers ({N} SNPs remain).'
+	log.log(msg.format(M=old_len-new_len, N=new_len))
+	if new_len == 0:
+		raise ValueError('No SNPs remain.')
+		
+	# remove NA's
+	old_len = len(dat)
+	dat.dropna(axis=0, how="any", inplace=True)
+	new_len = len(dat)
+	msg = 'Removed {M} SNPs with missing values ({N} SNPs remain).'
+	log.log(msg.format(M=old_len-new_len, N=new_len))
+	if new_len == 0:
+		raise ValueError('No SNPs remain.')
+
+	if dat.P.dtype != 'float':
+		log.log( 'Coercing P-value column to float.')
+		dat.P = dat.P.astype('float')		
+	
 	# N
 	if args.N:
 		dat['N'] = args.N
@@ -356,9 +355,9 @@ if __name__ == '__main__':
 		# signed summary stat and alleles
 		if 'OR' in dat.columns:
 			log.log('Using OR (odds ratio) as the directional summary statistic.')
-			check = np.mean(dat.OR)
+			check = np.median(dat.OR)
 			if np.abs(check-1) > 0.1:
-				msg = 'WARNING: mean OR is {M} (should be close to 1). This column may be mislabeled.'
+				msg = 'WARNING: median OR is {M} (should be close to 1). This column may be mislabeled.'
 				log.log( msg.format(M=round(check,2)))
 
 			dat.OR = dat.OR.convert_objects(convert_numeric=True)
@@ -367,9 +366,9 @@ if __name__ == '__main__':
 
 		elif 'Z' in dat.columns:
 			log.log('Using Z (Z-score) as the directional summary statistic.')
-			check = np.mean(dat.Z)
+			check = np.medin(dat.Z)
 			if np.abs(check) > 0.1:
-				msg = 'WARNING: mean Z is {M} (should be close to 0). This column may be mislabeled.'
+				msg = 'WARNING: median Z is {M} (should be close to 0). This column may be mislabeled.'
 				log.log( msg.format(M=round(check,2)))
 
 			dat.Z = dat.Z.convert_objects(convert_numeric=True)
@@ -378,9 +377,9 @@ if __name__ == '__main__':
 			
 		elif 'BETA' in dat.columns:			
 			log.log('Using BETA as the directional summary statistic.')
-			check = np.mean(dat.BETA)
+			check = np.median(dat.BETA)
 			if np.abs(check) > 0.1:
-				msg = 'WARNING: mean BETA is {M} (should be close to 0). This column may be mislabeled.'
+				msg = 'WARNING: median BETA is {M} (should be close to 0). This column may be mislabeled.'
 				log.log( msg.format(M=round(check,2)))
 
 			dat.BETA = dat.BETA.convert_objects(convert_numeric=True)
@@ -391,7 +390,7 @@ if __name__ == '__main__':
 			log.log('Using Log odds  as the directional summary statistic.')
 			check = np.mean(dat.LOG_ODDS)
 			if np.abs(check) > 0.1:
-				msg = 'WARNING: mean Log odds is {M} (should be close to 0). This column may be mislabeled.'
+				msg = 'WARNING: median Log odds is {M} (should be close to 0). This column may be mislabeled.'
 				log.log( msg.format(M=round(check,2)))
 
 			dat.LOG_ODDS = dat.LOG_ODDS.convert_objects(convert_numeric=True)
