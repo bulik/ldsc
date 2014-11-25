@@ -185,14 +185,6 @@ if __name__ == '__main__':
 	dat = pd.read_csv(args.sumstats, delim_whitespace=True, header=0, compression=compression,	
 		usecols=usecols, na_values='.')
 	log.log( "Read summary statistics for {M} SNPs from {F}.".format(M=len(dat), F=args.sumstats))
-
-	# infer # cases and # controls from daner* column headers
-	if args.daner:
-		N_con = int(filter(lambda x: x.startswith('FRQ_U_'), colnames)[0].lstrip('FRQ_U_'))
-		N_cas = int(filter(lambda x: x.startswith('FRQ_A_'), colnames)[0].lstrip('FRQ_A_'))
-		dat['N'] = N_cas + N_con
-		log.log( 'Inferred that N_cas = {N} from the FRQ_A column.'.format(N=N_cas))
-		log.log( 'Inferred that N_con = {N} from the FRQ_U column.'.format(N=N_con))
 		
 	# convert colnames
 	dat.columns = map(str.upper, dat.columns)
@@ -231,7 +223,15 @@ if __name__ == '__main__':
 		log.log(msg.format(M=old_len-new_len, N=new_len))
 		if new_len == 0:
 			raise ValueError('No SNPs remain.')
-		
+	
+	# infer # cases and # controls from daner* column headers
+	if args.daner:
+		N_con = int(filter(lambda x: x.startswith('FRQ_U_'), colnames)[0].lstrip('FRQ_U_'))
+		N_cas = int(filter(lambda x: x.startswith('FRQ_A_'), colnames)[0].lstrip('FRQ_A_'))
+		dat['N'] = N_cas + N_con
+		log.log( 'Inferred that N_cas = {N} from the FRQ_A column.'.format(N=N_cas))
+		log.log( 'Inferred that N_con = {N} from the FRQ_U column.'.format(N=N_con))
+
 	# check uniqueness of rs numbers & remove SNPs w/ rs == '.'
 	old_len = len(dat)
 	dat = dat.drop_duplicates('SNP')
@@ -276,7 +276,7 @@ if __name__ == '__main__':
 		dat['N'] = N * P /	 P_max
 		dat.drop(['N_cas', 'N_con'], inplace=True, axis=1)
 	
-	elif 'N' in dat.columns:
+	elif 'N' in dat.columns and not args.daner:
 		log.log( 'Reading sample size from the N column. Median N = {N}'.format(N=round(np.median(dat.N), 0)))
 
 	else:
@@ -366,7 +366,7 @@ if __name__ == '__main__':
 
 		elif 'Z' in dat.columns:
 			log.log('Using Z (Z-score) as the directional summary statistic.')
-			check = np.medin(dat.Z)
+			check = np.median(dat.Z)
 			if np.abs(check) > 0.1:
 				msg = 'WARNING: median Z is {M} (should be close to 0). This column may be mislabeled.'
 				log.log( msg.format(M=round(check,2)))
@@ -388,7 +388,7 @@ if __name__ == '__main__':
 			
 		elif 'LOG_ODDS' in dat.columns:
 			log.log('Using Log odds  as the directional summary statistic.')
-			check = np.mean(dat.LOG_ODDS)
+			check = np.median(dat.LOG_ODDS)
 			if np.abs(check) > 0.1:
 				msg = 'WARNING: median Log odds is {M} (should be close to 0). This column may be mislabeled.'
 				log.log( msg.format(M=round(check,2)))
