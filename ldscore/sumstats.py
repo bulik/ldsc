@@ -645,6 +645,8 @@ class Rg(_sumstats):
 		self.M_annot = M_annot
 		self.rghat = []
 		self.rghat_se = []
+		self.Z = []
+		self.P = []
 		for i,pheno2 in enumerate(rg_file_list[1:len(rg_file_list)]):
 			if len(rg_file_list) > 2:
 				log_msg = 'Computing genetic correlation for phenotype {I}/{N}'
@@ -692,7 +694,9 @@ class Rg(_sumstats):
 				self._print_gencor(args, self.log, rghat, ref_ld_colnames, i, rg_file_list, i==0)
 				self.rghat.append(rghat.tot_gencor)
 				self.rghat_se.append(rghat.tot_gencor_se)
-			
+				self.Z.append(rghat.Z)
+				self.P.append(rghat.P_val)
+
 			except Exception as e:
 				'''
 				Better to print an error message then keep going if phenotype 50/100 causes an
@@ -705,13 +709,22 @@ class Rg(_sumstats):
 				ex_type, ex, tb = sys.exc_info()
 				self.log.log( traceback.format_exc(ex) )
 				self.log.log('\n')
-		
+				self.rghat_se.append('NA')
+				self.rghat.append('NA')
+				self.Z.append('NA')
+				self.P.append('NA')
+				
 		self.log.log('Summary of Genetic Correlation Results')
+
 		x = pd.DataFrame({
 			'p1': [rg_file_list[0] for i in xrange(1,len(rg_file_list))],
 			'p2': rg_file_list[1:len(rg_file_list)],
 			'rg': self.rghat,
-			'se': self.rghat_se }).to_string(header=True, index=False)
+			'se': self.rghat_se,
+			'z': self.Z,
+			'p': self.P
+			}).to_string(header=True, index=False)
+			
 		self.log.log( x )
 		self.log.log( '\n' )
 		self._print_end_time(args, self.log)
