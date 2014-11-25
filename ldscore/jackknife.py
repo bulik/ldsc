@@ -237,7 +237,7 @@ class Hsq(object):
 	chisq : np.matrix with shape (n_snp, 1)
 		Chi-square statistics. 
 	ld : np.matrix with shape (n_snp, n_annot) 
-		LD Scores.
+		LD Scores.	
 	w_ld : np.matrix with shape (n_snp, 1)
 		LD Scores (non-partitioned) computed with sum r^2 taken over only those SNPs included 
 		in the regression.
@@ -775,7 +775,7 @@ class Gencor(object):
 			
 		self.tot_gencor_se = float(self.gencor.jknife_se)
 		if self.tot_gencor_se > 0.25:
-			self.huge_se_flag = True
+			self.huge_se_flag	 = True
 		
 		self.Z = self.tot_gencor / self.tot_gencor_se
 		self.P_val = chi2.sf(self.Z**2, 1, loc=0, scale=1)

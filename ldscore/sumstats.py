@@ -78,7 +78,7 @@ def smart_merge(x, y):
 	
 	return out
 	
-class logger(object):
+class Logger(object):
 	'''
 	Lightweight logging.
 	
@@ -86,6 +86,7 @@ class logger(object):
 	
 	'''
 	def __init__(self, fh):
+		self.log_name = fh
 		self.log_fh = open(fh, 'wb')
 		
  	def log(self, msg):
@@ -413,7 +414,7 @@ class _sumstats(object):
 			np.savetxt(ofh, out_mat)
 	
 	def _masthead_and_time(self, args, header):
-		self.log = logger(args.out + ".log")
+		self.log = Logger(args.out + ".log")
 		if header:
 			self.log.log(header)
 		
