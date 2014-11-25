@@ -168,7 +168,7 @@ if __name__ == '__main__':
 	log.log('Beginning conversion at {T}'.format(T=time.ctime()))
 	start_time = time.time()
 
-	print  'Writing log to {F}'.format(F=log.log_name)
+	print 'Writing log to {F}'.format(F=log.log_name)
 	if args.merge and args.merge_alleles:
 		raise ValueError('--merge and --merge-alleles are not compatible.')
 
@@ -184,8 +184,6 @@ if __name__ == '__main__':
 	usecols = [x for x in colnames if x.upper() in colnames_conversion.keys()]
 	dat = pd.read_csv(args.sumstats, delim_whitespace=True, header=0, compression=compression,	
 		usecols=usecols, na_values='.')
-	print dat
-	print dat.dtypes
 	log.log( "Read summary statistics for {M} SNPs from {F}.".format(M=len(dat), F=args.sumstats))
 
 	# infer # cases and # controls from daner* column headers
