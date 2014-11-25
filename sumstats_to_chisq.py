@@ -40,6 +40,11 @@ colnames_conversion = {
 	'MARKERNAME': 'SNP',
 	'SNPID': 'SNP',
 	'RS' : 'SNP',
+	'RSID': 'SNP',
+        'RS_NUMBER': 'SNP',
+        'RS-NUMBER': 'SNP',
+	'RS_NUMBERS': 'SNP',
+	'RS-NUMBERS': 'SNP',
 	
 	# P-VALUE
 	'P': 'P',
@@ -59,7 +64,7 @@ colnames_conversion = {
 	'RISK_ALLELE': 'A1',
 	'REFERENCE_ALLELE': 'A1',
 	'INC_ALLELE': 'A1',
-	
+	'EA': 'A1',
 
 	# ALLELE 2
 	'A2' : 'A2',
@@ -69,15 +74,20 @@ colnames_conversion = {
 	'OTHER_ALLELE' : 'A2',
 	'NON_EFFECT_ALLELE' : 'A2',
 	'DEC_ALLELE': 'A2',
+	'NEA': 'A2',
+#	'REF_ALLELE': 'A2',
+#	'REFERENCE_ALLELE': 'A2',
 
 	# N
 	'N': 'N',
+	'NCASE': 'N_CAS',
 	'N_CASES': 'N_CAS',
 	'N_CONTROLS' : 'N_CON',
 	'N_CAS': 'N_CAS',
 	'N_CON' : 'N_CON',
 	'N_CASE': 'N_CAS',
-	'N_CONTROL' : 'N_CON',
+	'NCONTROL': 'N_CON',
+	'N_CONTROL': 'N_CON',
 	'WEIGHT' : 'N',              # risky
 	
 	# SIGNED STATISTICS
@@ -179,6 +189,7 @@ if __name__ == '__main__':
 		raise ValueError('All SNPs had at least one missing value.')
 	elif len(dat) < M:
 		print "Removed {M} SNPs with missing values.".format(M=(M-len(dat)))
+		dat.P = dat.P.astype('float')		
 
 	# filter p-vals
 	dat = dat[~np.isnan(dat.P)]
@@ -218,10 +229,11 @@ if __name__ == '__main__':
 	# check uniqueness of rs numbers
 	# if not unique, uniquify by taking the first row for each rs number
 	old = len(dat)
+	dat = dat[dat.SNP!='.']
 	dat.drop_duplicates('SNP', inplace=True)
 	new = len(dat)
 	if old != new:
-		print "Removed {N} SNPs with duplicated rs numbers.".format(N=old-new)
+		print "Removed {N} SNPs with duplicated rs numbers or rsid equal to a dot.".format(N=old-new)
 
 	# convert p-values to chi^2
 	chisq = chdtri(1, dat['P'])
@@ -237,7 +249,7 @@ if __name__ == '__main__':
 
 		# filter out indels
 		ii = (dat.A1 == 'A') | (dat.A1 == 'T') | (dat.A1 == 'C') | (dat.A1 == 'G')
-		ii = ii & (dat.A2 == 'A') | (dat.A2 == 'T') | (dat.A2 == 'C') | (dat.A2 == 'G')
+		ii = ii & ((dat.A2 == 'A') | (dat.A2 == 'T') | (dat.A2 == 'C') | (dat.A2 == 'G'))
 		if ii.sum() < len(dat):
 			print "Removed {M} variants not coded A/C/T/G.".format(M=(len(dat)-ii.sum()))
 		
