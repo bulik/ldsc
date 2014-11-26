@@ -137,8 +137,8 @@ COLNAMES_CONVERSION = {
 	'MAF': 'FRQ',
 	'FRQ_U': 'FRQ',
 	'F_U': 'FRQ',
-	'CEUAF': 'FRQ',
-	'CEU_AF': 'FRQ'
+	#'CEUAF': 'FRQ',
+	#'CEU_AF': 'FRQ'
 }
 
 
