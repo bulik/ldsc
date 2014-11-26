@@ -30,6 +30,24 @@ def get_compression(fh):
 
 	return (openfunc, compression)
 
+
+col_to_english = {
+	'SNP': 'Varian ID (e.g., rs number)',
+	'P': 'p-Value',
+	'A1': 'Allele 1',
+	'A2': 'Allele 2',
+	'N': 'Sample size',
+	'N_CAS': 'Number of cases',
+	'N_CON': 'Number of controls',
+	'Z': 'Z-score (0 --> no effect; above 0 --> trait/risk increasing)',
+	'OR': 'Odds ratio (1 --> no effect; above 1 --> trait/risk increasing)',
+	'BETA': '[linear/logistic] regression coefficient (0 --> no effect; above 0 --> trait/risk increasing)',
+	'LOG_ODDS': 'Log odds ratio (0 --> no effect; above 0 --> trait/risk increasing)',
+	'INFO': 'INFO score (imputation quality; assumed between 0 and 1, with 1 indicating perfect impuation)',
+	'FRQ': 'Allele frequency'	
+}
+
+
 colnames_conversion = {
 	# RS NUMBER
 	'SNP': 'SNP',
@@ -179,9 +197,16 @@ if __name__ == '__main__':
 	# also read FRQ_U_* and FRQ_A_* columns from Stephan Ripke's daner* files
 	if args.daner:
 		frq = filter(lambda x: x.startswith('FRQ_U_'), colnames)[0]
-		colnames_conversion[frq] = 'MAF'
+		colnames_conversion[frq] = 'FRQ'
+	
+	log.log('Interpreting column names as follows:\n')
 	
 	usecols = [x for x in colnames if x.upper() in colnames_conversion.keys()]
+	x = [c +': '+colnames_conversion[c.upper()]+' --> '+col_to_english[colnames_conversion[c.upper()]]
+		for c in usecols ]
+	log.log('\n'.join(x))
+	log.log('')
+	
 	dat = pd.read_csv(args.sumstats, delim_whitespace=True, header=0, compression=compression,	
 		usecols=usecols, na_values='.')
 	log.log( "Read summary statistics for {M} SNPs from {F}.".format(M=len(dat), F=args.sumstats))
@@ -240,7 +265,7 @@ if __name__ == '__main__':
 	log.log(msg.format(M=old_len-new_len, N=new_len))
 	if new_len == 0:
 		raise ValueError('No SNPs remain.')
-		
+			
 	# remove NA's
 	old_len = len(dat)
 	dat.dropna(axis=0, how="any", inplace=True)
@@ -284,7 +309,14 @@ if __name__ == '__main__':
 		
 	# filter p-vals
 	old_len = len(dat)
-	ii = (dat.P > 0) & (dat.P <= 1)
+	ii = (dat.P > 0) 
+	jj = (dat.P <= 1)
+	bad_p = (~jj).sum()
+	if bad_p > 0:
+		ii = ii & jj
+		msg = 'WARNING: {N} SNPs had P > 1. The P column may be mislabeled.'
+		log.log(msg.format(N=bad_p))
+			
 	new_len = ii.sum()
 	msg = 'Removed {M} SNPs with p-values outside of (0,1] ({N} SNPs remain).'
 	log.log(msg.format(M=old_len-new_len, N=new_len))
@@ -293,6 +325,12 @@ if __name__ == '__main__':
 
 	# filter on INFO
 	if 'INFO' in dat.columns:
+		jj = (dat.INFO > 1.5) | (dat.INFO < 0)
+		bad_info = jj.sum()
+		if bad_info > 0:
+			msg = 'WARNING: {N} SNPs had INFO outside of [0,1.5]. The INFO column may be mislabeled.'
+			log.log(msg.format(N=bad_info))
+
 		ii = ii & (dat.INFO > args.info)
 		old_len = new_len
 		new_len = ii.sum()
@@ -305,6 +343,12 @@ if __name__ == '__main__':
 	
 	# convert FRQ to MAF and filter on MAF
 	if 'FRQ' in dat.columns:
+		jj = (dat.FRQ < 0) | (dat.FRQ > 1)
+		bad_frq = jj.sum()
+		if bad_frq > 0:
+			msg = 'WARNING: {N} SNPs had FRQ outside of [0,1]. The FRQ column may be mislabeled.'
+			log.log(msg.format(N=bad_frq))
+			
 		dat.FRQ = np.minimum(dat.FRQ, 1-dat.FRQ)
 		ii = ii & (dat.FRQ > args.maf)
 		old_len = new_len
@@ -495,8 +539,9 @@ if __name__ == '__main__':
 
 	# most significant SNPs
 	ii = dat.CHISQ > 29
- 	if ii.sum() > 0:
-		log.log( "Genome-wide significant SNPs:\n")
+	ngwsig = ii.sum()
+ 	if ngwsig > 0:
+		log.log( "{N} Genome-wide significant SNPs:\n".format(N=ngwsig))
 		log.log( dat[ii])
 	else:
 		log.log('No genome-wide significant SNPs')
