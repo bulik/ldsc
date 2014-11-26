@@ -140,6 +140,7 @@ COLNAMES_CONVERSION = {
 	'INFO': 'INFO',
 	
 	# MAF
+	'EAF' : 'FRQ',
 	'FRQ': 'FRQ',
 	'MAF': 'FRQ',
 	'FRQ_U': 'FRQ',
