@@ -107,6 +107,7 @@ COLNAMES_CONVERSION = {
 	# N
 	'N': 'N',
 	'NCASE': 'N_CAS',
+	'N_CASE': 'N_CAS',
 	'N_CASES': 'N_CAS',
 	'N_CONTROLS' : 'N_CON',
 	'N_CAS': 'N_CAS',
