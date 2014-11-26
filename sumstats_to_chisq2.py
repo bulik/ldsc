@@ -293,16 +293,33 @@ if __name__ == '__main__':
 	if args.daner:
 		frq = filter(lambda x: x.startswith('FRQ_U_'), colnames)[0]
 		colnames_conversion[frq] = 'FRQ'
-
-	### TODO: die early if the colnames don't contain what we need.
 	
 	log.log('Interpreting column names as follows:\n')
-	
 	usecols = [x for x in colnames if x.upper().replace('-','_') in colnames_conversion.keys()]
 	x = [c +': '+colnames_conversion[c.upper().replace('-','_')]+' --> '+col_to_english[colnames_conversion[c.upper().replace('-','_')]]
 		for c in usecols ]
 	log.log('\n'.join(x))
 	log.log('')
+	
+	x = [colnames_conversion[c.upper().replace('-','_')] for c in usecols]
+	if ('N' not in x) and (args.N is None) and ((args.N_cas is None) or
+	(args.N_con is None)) and (('N_cas' not in x) or ('N_con' not in x)):
+		raise ValueError('Could not find an N / N_cas / N_con column and --N / --N-cas / --N-con are not set.')
+	if 'P' not in x:
+		raise ValueError('Could not find a p-value column.')
+	if ('Z' not in x) and ('BETA' not in x) and ('OR' not in x) and ('LOG_ODDS' not in x):
+		raise ValueError('Could not find a signed summary statistic column (Z, BETA, OR, LOG_ODDS).')
+	if 'SNP' not in x:
+		raise ValueError('Could not find a SNP column.')
+	if ('A1' not in x) or ('A2' not in x):
+		raise ValueError('Could not find allele columns.')
+	
+	if 'INFO' not in x:
+		msg = 'WARNING: Could not find an INFO column. Note that imputation quality is '
+		msg += 'a confounder for LD Score regression, and we recommend filtering on INFO > 0.9'
+		log.log(msg)
+	if 'FRQ' not in x:
+		log.log('Could not find a FRQ column. Note that we recommend filtering on MAF > 0.01')
 
 	if args.merge_alleles:
 		log.log('Reading list of SNPs for allele merge from {F}'.format(F=args.merge_alleles))
@@ -368,6 +385,7 @@ if __name__ == '__main__':
 			raise ValueError('No SNPs remain.')
 	
 	else:
+		''' Read everything into memory all at once '''
 		dat = pd.read_csv(args.sumstats, delim_whitespace=True, header=0, compression=compression,	
 			usecols=usecols, na_values='.')
 		log.log( "Read summary statistics for {M} SNPs from {F}.".format(M=len(dat), F=args.sumstats))
