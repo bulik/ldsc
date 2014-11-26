@@ -303,7 +303,7 @@ if __name__ == '__main__':
 	
 	x = [colnames_conversion[c.upper().replace('-','_')] for c in usecols]
 	if ('N' not in x) and (args.N is None) and ((args.N_cas is None) or
-	(args.N_con is None)) and (('N_cas' not in x) or ('N_con' not in x)):
+	(args.N_con is None)) and (('N_cas' not in x) or ('N_con' not in x)) and (not args.daner):
 		raise ValueError('Could not find an N / N_cas / N_con column and --N / --N-cas / --N-con are not set.')
 	if 'P' not in x:
 		raise ValueError('Could not find a p-value column.')
