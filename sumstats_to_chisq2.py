@@ -322,7 +322,9 @@ if __name__ == '__main__':
 	parser.add_argument('--nstudy', default=None, type=str,
 		help='Name of NSTUDY column (if not a name that ldsc understands). NB: case insensitive.')
 	parser.add_argument('--nstudy-min', default=None, type=float,
-		help='Minimum # of studies. Default is to remove everything below the max.')
+		help='Minimum # of studies. Default is to remove everything below the max, unless there is an N column, in which case do nothing.')
+	parser.add_argument('--ignore', default=None, type=str,
+		help='Comma-separated list of column names to ignore.')
 	
 	args = parser.parse_args()
 	log = sumstats.Logger(args.out + '.log')
@@ -628,7 +630,7 @@ if __name__ == '__main__':
 	
 	# drop low NSTUDY (NB can't do this inside of bigmem, because max NSTUDY may differ f
 	# from chunk to chunk (though this is not likely)
-	if 'NSTUDY' in dat.columns:
+	if 'NSTUDY' in dat.columns and ('N' not in dat.columns) and ('N_CAS' not in dat.columns):
 		if args.nstudy_min:
 			nstudy_thresh = args.nstudy_min
 		else:
