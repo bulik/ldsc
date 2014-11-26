@@ -63,7 +63,8 @@ COL_TO_ENGLISH = {
 	'LOG_ODDS': 'Log odds ratio (0 --> no effect; above 0 --> trait/risk increasing)',
 	'INFO': 'INFO score (imputation quality; assumed between 0 and 1, with 1 indicating perfect impuation)',
 	'FRQ': 'Allele frequency',
-	'SIGNED_SUMSTAT': 'Directional summary statistic as specified by --signed-sumstats.'
+	'SIGNED_SUMSTAT': 'Directional summary statistic as specified by --signed-sumstats.',
+	'NSTUDY': 'Number of studies in which the SNP was genotyped.'
 }
 
 
@@ -76,6 +77,10 @@ COLNAMES_CONVERSION = {
 	'RSID': 'SNP',
 	'RS_NUMBER': 'SNP',
 	'RS_NUMBERS': 'SNP',
+	
+	# NUMBER OF STUDIES
+	'NSTUDY': 'NSTUDY',
+	'N_STUDY': 'N_STUDY',
 	
 	# P-VALUE
 	'P': 'P',
@@ -230,7 +235,7 @@ def filter_snps(dat, args, log, block_num=None, drops=None, verbose=True):
 			drops['FRQ'] += old_len-new_len
 
 		dat.drop('FRQ', inplace=True, axis=1)
-		
+			
 	dat = dat[ii]
 	return (dat, drops)
 	
@@ -308,7 +313,11 @@ if __name__ == '__main__':
 		help='Name of INFO column (if not a name that ldsc understands). NB: case insensitive.')
 	parser.add_argument('--info-list', default=None, type=str,
 		help='Comma-separated list of INFO columns. Will filter on the mean. NB: case insensitive.')
-		
+	parser.add_argument('--nstudy', default=None, type=str,
+		help='Name of NSTUDY column (if not a name that ldsc understands). NB: case insensitive.')
+	parser.add_argument('--nstudy-min', default=None, type=float,
+		help='Minimum # of studies. Default is to remove everything below the max.')
+	
 	args = parser.parse_args()
 	log = sumstats.Logger(args.out + '.log')
 	if not (args.sumstats and args.out):
@@ -332,6 +341,15 @@ if __name__ == '__main__':
 		raise ValueError('--merge and --merge-alleles are not compatible.')
 
 	flag_colnames = dict()
+	if args.nstudy:
+		clean = clean_header(args.nstudy)
+		if clean in flag_colnames: 
+			raise ValueError('The --snp flag has overloaded a column name set by another flag.')
+		if clean in COLNAMES_CONVERSION and COLNAMES_CONVERSION[clean] != 'NSTUDY':
+			msg = 'The --snp flag conflicts with a protected column name, usually taken to mean {F}'
+			raise ValueError(msg.format(F=COLNAMES_CONVERSION[clean]))
+		flag_colnames[clean] = 'NSTUDY'
+
 	if args.snp:
 		clean = clean_header(args.snp)
 		if clean in flag_colnames: 
@@ -554,7 +572,7 @@ if __name__ == '__main__':
 			'NA': 0,
 			'P': 0,
 			'INFO': 0,
-			'FRQ': 0
+			'FRQ': 0,
 			}
 		for block_num,dat in enumerate(dat_gen):
 			dat.columns = map(lambda x: convert_colname(x, pre=flag_colnames), dat.columns)
@@ -573,8 +591,8 @@ if __name__ == '__main__':
 			msg = 'Removed {N} SNPs with duplicated rs numbers.\n'.format(N=drops['RS'])
 			msg += 'Removed {N} SNPs with missing values.\n'.format(N=drops['NA'])
 			msg += 'Removed {N} SNPs with out-of-bounds p-values.\n'.format(N=drops['P'])
-			msg += 'Removed {N} SNPs with INFO <= 0.9\n'.format(N=drops['INFO'])
-			msg += 'Removed {N} SNPs with MAF <= 0.01\n'.format(N=drops['FRQ'])
+			msg += 'Removed {N} SNPs with INFO <= {I}\n'.format(N=drops['INFO'], I=args.info_min)
+			msg += 'Removed {N} SNPs with MAF <= {M}\n'.format(N=drops['FRQ'], M=args.maf_min)
 			msg += 'At this point, {N} SNPs remain.'.format(N=len(dat))	
 			log.log(msg)
 		else:
@@ -599,6 +617,20 @@ if __name__ == '__main__':
 				raise ValueError('No SNPs remain.')
 				
 		dat, drops = filter_snps(dat, args, log)
+	
+	# drop low NSTUDY (NB can't do this inside of bigmem, because max NSTUDY may differ f
+	# from chunk to chunk (though this is not likely)
+	if 'NSTUDY' in dat.columns:
+		if args.nstudy_min:
+			nstudy_thresh = args.nstudy_min
+		else:
+			nstudy_thresh = dat.NSTUDY.max()
+
+		ii = dat.NSTUDY < nstudy_thresh
+		old_len = len(dat); new_len = ii.sum()		
+		log.log(filter_verbose(old_len, new_len, 'NSTUDY <= {C}'.format(C=nstudy_thresh)))
+		dat.drop('NSTUDY', inplace=True, axis=1)
+	
 	# infer # cases and # controls from daner* column headers
 	if args.daner:
 		log.log('Note that the --daner flag takes precedence over all other sample size and frequency flags and columns.')
