@@ -161,9 +161,7 @@ def filter_verbose(old_len, new_len, phrase):
 	
 	return msg
 
-
-def filter_snps(dat, args, log, block_num=None, drops=None, verbose=True):
-
+def filter_na(dat, args, log, drops=None, verbose=True):
 	# check uniqueness of rs numbers & remove SNPs w/ rs == '.'
 	old_len = len(dat); dat = dat.drop_duplicates('SNP'); new_len = len(dat)
 	if verbose:
@@ -173,11 +171,16 @@ def filter_snps(dat, args, log, block_num=None, drops=None, verbose=True):
 			
 	# remove NA's
 	subset = filter(lambda x: x != 'INFO', dat.columns)
-	old_len = len(dat); dat.dropna(axis=0, how="any", subset=subset, inplace=True); new_len = len(dat)
+	old_len = len(dat); dat = dat.dropna(axis=0, how="any", subset=subset); new_len = len(dat)
 	if verbose:
 		log.log(filter_verbose(old_len, new_len, 'with missing values in columns other than INFO'))
 	if drops is not None:
 		drops['NA'] += old_len-new_len
+	
+	return (dat, drops)
+
+
+def filter_snps(dat, args, log, drops=None, verbose=True):
 
 	if dat.P.dtype != 'float':
 		dat.P = dat.P.astype('float')		
@@ -579,11 +582,12 @@ if __name__ == '__main__':
 			}
 		for block_num,dat in enumerate(dat_gen):
 			dat.columns = map(lambda x: convert_colname(x, pre=flag_colnames), dat.columns)
+			dat, drops = filter_na(dat, args, log, drops, verbose=False)
 			if args.merge_alleles:
 				dat = dat[dat.SNP.isin(merge_alleles.SNP)].reset_index(drop=True)
 			
 			if not args.filter_finally:
-				dat, drops = filter_snps(dat, args, log, block_num, drops, verbose=False)
+				dat, drops = filter_snps(dat, args, log, drops, verbose=False)
 			
 			dat_list.append(dat)
 			sys.stdout.write('.')
@@ -610,6 +614,7 @@ if __name__ == '__main__':
 			usecols=usecols, na_values='.')
 		log.log( "Read summary statistics for {M} SNPs from {F}.".format(M=len(dat), F=args.sumstats))
 		dat.columns = map(lambda x: convert_colname(x, pre=flag_colnames), dat.columns)
+		dat, drops = filter_na(dat, args, log)
 		if args.merge_alleles:
 			old_len = len(dat)
 			dat = dat[dat.SNP.isin(merge_alleles.SNP)].reset_index(drop=True)
