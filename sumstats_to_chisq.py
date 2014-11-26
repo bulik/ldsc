@@ -487,11 +487,11 @@ if __name__ == '__main__':
 		log.log( "WARNING: mean chi^2 may be too small.")
 
 	# lambda GC 
-	lambda_gc = np.median(dat.CHISQ) / 0.4549
+	lambda_gc = dat.CHISQ.median() / 0.4549
 	log.log( 'Lambda GC = ' + str(round(lambda_gc,3)))
 
 	# min p-value
-	log.log('Max chi^2 = ' + str(np.matrix(np.max(dat.CHISQ))).replace('[[','').replace(']]','').replace('  ',' '))
+	log.log('Max chi^2 = ' + str(np.matrix(dat.CHISQ.max())).replace('[[','').replace(']]','').replace('  ',' '))
 
 	# most significant SNPs
 	ii = dat.CHISQ > 29
