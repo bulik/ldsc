@@ -275,7 +275,7 @@ if __name__ == '__main__':
 		help='Minimum N (sample size). Default is (90th percentile N) / 2.')
 	parser.add_argument('--chunksize', default=5e6, type=int,
 		help='Chunksize for use with --bigmem.')
-	parser.add_argument('--bigmem', default=False, action='store_true',
+	parser.add_argument('--bigmem', default=True, action='store_false',
 		help='Don\'t read the whole file into memory -- read one chunk at a time. '
 		'This can be somewhat slower, but reduces memory substantially if the --sumstats '
 		'file contains a lot of SNPs that will eventually be filtered out.')
@@ -544,7 +544,7 @@ if __name__ == '__main__':
 			compression=compression, usecols=usecols, na_values='.', iterator=True, 
 			chunksize=args.chunksize) # default 1m
 			
-		msg = 'Since the --bigmem flag is on, reading sumstats from {F} into memory {N} SNPs at a time.'
+		msg = 'Reading sumstats from {F} into memory {N} SNPs at a time.'
 		log.log(msg.format(F=args.sumstats, N=args.chunksize))
 		dat_list = []
 		drops = { # of SNPs dropped for each reason
