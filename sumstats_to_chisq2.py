@@ -17,6 +17,24 @@ from ldsc import MASTHEAD
 import time
 
 
+def convert_colname(cname, pre=None):
+	cname = clean_header(cname)
+	if pre is not None and cname in pre:
+		cname = pre[cname]
+	
+	return COLNAMES_CONVERSION[cname]
+
+
+def clean_header(header):
+	'''
+	For cleaning file headers.
+	- convert to uppercase
+	- replace dashes '-' with underscores '_'
+	- replace dots '.' (as in R) with underscores '_'
+	'''
+	return header.upper().replace('-','_').replace('.','_')
+
+
 def get_compression(fh):
 	if fh.endswith('gz'):
 		compression='gzip'
@@ -31,7 +49,7 @@ def get_compression(fh):
 	return (openfunc, compression)
 
 
-col_to_english = {
+COL_TO_ENGLISH = {
 	'SNP': 'Variant ID (e.g., rs number)',
 	'P': 'p-Value',
 	'A1': 'Allele 1',
@@ -44,11 +62,12 @@ col_to_english = {
 	'BETA': '[linear/logistic] regression coefficient (0 --> no effect; above 0 --> trait/risk increasing)',
 	'LOG_ODDS': 'Log odds ratio (0 --> no effect; above 0 --> trait/risk increasing)',
 	'INFO': 'INFO score (imputation quality; assumed between 0 and 1, with 1 indicating perfect impuation)',
-	'FRQ': 'Allele frequency'	
+	'FRQ': 'Allele frequency',
+	'SIGNED_SUMSTAT': 'Directional summary statistic as specified by --signed-sumstats.'
 }
 
 
-colnames_conversion = {
+COLNAMES_CONVERSION = {
 	# RS NUMBER
 	'SNP': 'SNP',
 	'MARKERNAME': 'SNP',
@@ -56,9 +75,7 @@ colnames_conversion = {
 	'RS' : 'SNP',
 	'RSID': 'SNP',
 	'RS_NUMBER': 'SNP',
-#	'RS-NUMBER': 'SNP',
 	'RS_NUMBERS': 'SNP',
-#	'RS-NUMBERS': 'SNP',
 	
 	# P-VALUE
 	'P': 'P',
@@ -72,7 +89,6 @@ colnames_conversion = {
 	'A1': 'A1',
 	'ALLELE1': 'A1',
 	'ALLELE_1': 'A1',
-#	'ALLELE-1': 'A1',
 	'EFFECT_ALLELE': 'A1',
 	'RISK_ALLELE': 'A1',
 	'REFERENCE_ALLELE': 'A1',
@@ -83,13 +99,10 @@ colnames_conversion = {
 	'A2' : 'A2',
 	'ALLELE2': 'A2',
 	'ALLELE_2': 'A2',
-#	'ALLELE-2': 'A2',
 	'OTHER_ALLELE' : 'A2',
 	'NON_EFFECT_ALLELE' : 'A2',
 	'DEC_ALLELE': 'A2',
 	'NEA': 'A2',
-#	'REF_ALLELE': 'A2',
-#	'REFERENCE_ALLELE': 'A2',
 
 	# N
 	'N': 'N',
@@ -109,10 +122,10 @@ colnames_conversion = {
 	'Z': 'Z',
 	'OR': 'OR',
 	'BETA': 'BETA',
-#	'LOG-ODDS': 'LOG_ODDS',
 	'LOG_ODDS': 'LOG_ODDS',
 	'EFFECT': 'BETA',
 	'EFFECTS': 'BETA',
+	'SIGNED_SUMSTAT': 'SIGNED_SUMSTAT',
 	
 	# INFO
 	'INFO': 'INFO',
@@ -181,10 +194,10 @@ def filter_snps(dat, args, log, block_num=None, drops=None, verbose=True):
 			msg = 'WARNING: {N} SNPs had INFO outside of [0,1.5]. The INFO column may be mislabeled.'
 			log.log(msg.format(N=bad_info))
 
-		ii = ii & (dat.INFO > args.info)
+		ii = ii & (dat.INFO > args.info_min)
 		old_len = new_len; new_len = ii.sum()
 		if verbose:
-			log.log(filter_verbose(old_len, new_len, 'INFO <= {C}'.format(C=args.info)))
+			log.log(filter_verbose(old_len, new_len, 'INFO <= {C}'.format(C=args.info_min)))
 		if drops is not None:
 			drops['INFO'] += old_len-new_len
 
@@ -199,11 +212,11 @@ def filter_snps(dat, args, log, block_num=None, drops=None, verbose=True):
 			log.log(msg.format(N=bad_frq))
 			
 		dat.FRQ = np.minimum(dat.FRQ, 1-dat.FRQ)
-		ii = ii & (dat.FRQ > args.maf)
+		ii = ii & (dat.FRQ > args.maf_min)
 		old_len = new_len; new_len = ii.sum()		
 		
 		if verbose:
-			log.log(filter_verbose(old_len, new_len, 'MAF <= {C}'.format(C=args.maf)))
+			log.log(filter_verbose(old_len, new_len, 'MAF <= {C}'.format(C=args.maf_min)))
 		if drops is not None:
 			drops['FRQ'] += old_len-new_len
 
@@ -231,9 +244,9 @@ if __name__ == '__main__':
 		"column, and this flag is set, the argument to this flag has priority.")
 	parser.add_argument('--out', default=None, type=str,
 		help="Output filename prefix.")
-	parser.add_argument('--info', default=0.9, type=float,
+	parser.add_argument('--info-min', default=0.9, type=float,
 		help="Minimum INFO score.")
-	parser.add_argument('--maf', default=0.01, type=float,
+	parser.add_argument('--maf-min', default=0.01, type=float,
 		help="Minimum MAF.")
 	parser.add_argument('--daner', default=False, action='store_true',
 		help="Use this flag to parse Step	han Ripke's daner* file format.")
@@ -253,7 +266,7 @@ if __name__ == '__main__':
 		help='Don\'t filter SNPs with low N.')
 	parser.add_argument('--n-min', default=None, type=float,
 		help='Minimum N (sample size). Default is (90th percentile N) / 2.')
-	parser.add_argument('--chunksize', default=5e6, type=float,
+	parser.add_argument('--chunksize', default=5e6, type=int,
 		help='Chunksize for use with --bigmem.')
 	parser.add_argument('--bigmem', default=False, action='store_true',
 		help='Don\'t read the whole file into memory -- read one chunk at a time. '
@@ -263,6 +276,28 @@ if __name__ == '__main__':
 		help='For use with --bigmem and --merge-alleles. Can save time if --merge-alleles '
 		'represents only a small subset of the SNPs in --sumstats.')
 	
+	# optional args to specify column names
+	parser.add_argument('--snp', default=None, type=str,
+		help='Name of SNP column (if not a name that ldsc understands). NB: case insensitive.')
+	parser.add_argument('--N-col', default=None, type=str,
+		help='Name of N column (if not a name that ldsc understands). NB: case insensitive.')
+	parser.add_argument('--N-cas-col', default=None, type=str,
+		help='Name of N column (if not a name that ldsc understands). NB: case insensitive.')
+	parser.add_argument('--N-con-col', default=None, type=str,
+		help='Name of N column (if not a name that ldsc understands). NB: case insensitive.')
+	parser.add_argument('--a1', default=None, type=str,
+		help='Name of A1 column (if not a name that ldsc understands). NB: case insensitive.')
+	parser.add_argument('--a2', default=None, type=str,
+		help='Name of A2 column (if not a name that ldsc understands). NB: case insensitive.')
+	parser.add_argument('--p', default=None, type=str,
+		help='Name of p-value column (if not a name that ldsc understands). NB: case insensitive.')
+	parser.add_argument('--frq', default=None, type=str,
+		help='Name of FRQ or MAF column (if not a name that ldsc understands). NB: case insensitive.')
+	parser.add_argument('--signed-sumstats', default=None, type=str,
+		help='Name of signed sumstat column, comma null value (e.g., Z,0 or OR,1). NB: case insensitive.')
+	parser.add_argument('--info', default=None, type=str,
+		help='Name of INFO column (if not a name that ldsc understands). NB: case insensitive.')
+		
 	args = parser.parse_args()
 	log = sumstats.Logger(args.out + '.log')
 	if not (args.sumstats and args.out):
@@ -285,6 +320,106 @@ if __name__ == '__main__':
 	if args.merge and args.merge_alleles:
 		raise ValueError('--merge and --merge-alleles are not compatible.')
 
+	flag_colnames = dict()
+	if args.snp:
+		clean = clean_header(args.snp)
+		if clean in flag_colnames: 
+			raise ValueError('The --snp flag has overloaded a column name set by another flag.')
+		if clean in COLNAMES_CONVERSION and COLNAMES_CONVERSION[clean] != 'SNP':
+			msg = 'The --snp flag conflicts with a protected column name, usually taken to mean {F}'
+			raise ValueError(msg.format(F=COLNAMES_CONVERSION[clean]))
+		flag_colnames[clean] = 'SNP'
+
+	if args.N_col:
+		clean = clean_header(args.N_col)
+		if clean in flag_colnames: 
+			raise ValueError('The --N-col flag has overloaded a column name set by another flag.')
+		if clean in COLNAMES_CONVERSION and COLNAMES_CONVERSION[clean] != 'N':
+			msg = 'The --N-col flag conflicts with a protected column name, usually taken to mean {F}'
+			raise ValueError(msg.format(F=COLNAMES_CONVERSION[clean]))
+		flag_colnames[clean_header(args.N_col)] = 'N'
+
+	if args.N_cas_col:
+		clean = clean_header(args.N_cas_col)
+		if clean in flag_colnames: 
+			raise ValueError('The --N-cas-col flag has overloaded a column name set by another flag.')
+		if clean in COLNAMES_CONVERSION and COLNAMES_CONVERSION[clean] != 'N_CAS':
+			msg = 'The --N-cas-col flag conflicts with a protected column name, usually taken to mean {F}'
+			raise ValueError(msg.format(F=COLNAMES_CONVERSION[clean]))
+		flag_colnames[clean_header(args.N_cas_col)] = 'N_CAS'
+
+	if args.N_con_col:
+		clean = clean_header(args.N_con_col)
+		if clean in flag_colnames: 
+			raise ValueError('The --N-con-col flag has overloaded a column name set by another flag.')
+		if clean in COLNAMES_CONVERSION and COLNAMES_CONVERSION[clean] != 'N_CON':
+			msg = 'The --N-col flag conflicts with a protected column name, usually taken to mean {F}'
+			raise ValueError(msg.format(F=COLNAMES_CONVERSION[clean]))
+		flag_colnames[clean_header(args.N_con_col)] = 'N_CON'
+
+	if args.a1:
+		clean = clean_header(args.a1)
+		if clean in flag_colnames: 
+			raise ValueError('The --a1 flag has overloaded a column name set by another flag.')
+		if clean in COLNAMES_CONVERSION and COLNAMES_CONVERSION[clean] != 'A1':
+			msg = 'The --a1 flag conflicts with a protected column name, usually taken to mean {F}'
+			raise ValueError(msg.format(F=COLNAMES_CONVERSION[clean]))
+		flag_colnames[clean_header(args.a1)] = 'A1'
+
+	if args.a2:
+		clean = clean_header(args.a2)
+		if clean in flag_colnames: 
+			raise ValueError('The --a2 flag has overloaded a column name set by another flag.')
+		if clean in COLNAMES_CONVERSION and COLNAMES_CONVERSION[clean] != 'A2':
+			msg = 'The --a2 flag conflicts with a protected column name, usually taken to mean {F}'
+			raise ValueError(msg.format(F=COLNAMES_CONVERSION[clean]))
+		flag_colnames[clean_header(args.a2)] = 'A2'
+	
+	if args.p:
+		clean = clean_header(args.p)
+		if clean in flag_colnames: 
+			raise ValueError('The --p flag has overloaded a column name set by another flag.')
+		if clean in COLNAMES_CONVERSION and COLNAMES_CONVERSION[clean] != 'P':
+			msg = 'The --p flag conflicts with a protected column name, usually taken to mean {F}'
+			raise ValueError(msg.format(F=COLNAMES_CONVERSION[clean]))
+		flag_colnames[clean_header(args.p)] = 'P'
+
+	if args.frq:
+		clean = clean_header(args.frq)
+		if clean in flag_colnames: 
+			raise ValueError('The --frq flag has overloaded a column name set by another flag.')
+		if clean in COLNAMES_CONVERSION and COLNAMES_CONVERSION[clean] != 'FRQ':
+			msg = 'The --frq flag conflicts with a protected column name, usually taken to mean {F}'
+			raise ValueError(msg.format(F=COLNAMES_CONVERSION[clean]))
+		flag_colnames[clean_header(args.frq)] = 'FRQ'
+
+	if args.info:	
+		clean = clean_header(args.p)
+		if clean in flag_colnames: 
+			raise ValueError('The --info flag has overloaded a column name set by another flag.')
+		if clean in COLNAMES_CONVERSION and COLNAMES_CONVERSION[clean] != 'INFO':
+			msg = 'The --info flag conflicts with a protected column name, usually taken to mean {F}'
+			raise ValueError(msg.format(F=COLNAMES_CONVERSION[clean]))
+		flag_colnames[clean_header(args.info)] = 'INFO'
+
+	if args.signed_sumstats:
+		try:	
+			(SIGNED_SUMSTAT_CNAME, SIGNED_SUMSTAT_NULL_VALUE) = args.signed_sumstats.split(',')
+			clean = clean_header(SIGNED_SUMSTAT_CNAME)
+			if clean in flag_colnames: 
+				raise ValueError('The --signed-sumstats flag has overloaded a column name set by another flag.')
+			if clean in COLNAMES_CONVERSION and COLNAMES_CONVERSION[clean]\
+				not in ['BETA','Z','OR','SIGNED_SUMSTAT','LOG_ODDS']:
+				msg = 'The --signed-sumstats flag conflicts with a protected column name, usually taken to mean {F}'
+				raise ValueError(msg.format(F=COLNAMES_CONVERSION[clean]))
+		
+			flag_colnames[clean_header(SIGNED_SUMSTAT_CNAME)] = 'SIGNED_SUMSTAT'
+			SIGNED_SUMSTAT_NULL_VALUE = float(SIGNED_SUMSTAT_NULL_VALUE)
+		except ValueError:
+			log.log('The argument to --signed-sumstats should be formatted as column header comma number.')
+			raise
+		
+	
 	(openfunc, compression) = get_compression(args.sumstats)
 	out_chisq = args.out+'.chisq'
 	colnames = openfunc(args.sumstats).readline().split()
@@ -292,33 +427,70 @@ if __name__ == '__main__':
 	# also read FRQ_U_* and FRQ_A_* columns from Stephan Ripke's daner* files
 	if args.daner:
 		frq = filter(lambda x: x.startswith('FRQ_U_'), colnames)[0]
-		colnames_conversion[frq] = 'FRQ'
+		COLNAMES_CONVERSION[frq] = 'FRQ'
 	
 	log.log('Interpreting column names as follows:\n')
-	usecols = [x for x in colnames if x.upper().replace('-','_') in colnames_conversion.keys()]
-	x = [c +': '+colnames_conversion[c.upper().replace('-','_')]+' --> '+col_to_english[colnames_conversion[c.upper().replace('-','_')]]
-		for c in usecols ]
-	log.log('\n'.join(x))
+	# first add the columns specified via flags
+	usecols = [x for x in colnames if clean_header(x) in flag_colnames.keys()]
+	clean_usecols = map(clean_header, usecols)
+	# if any of the columns specified by flags are not in the header, throw an error
+	for cname in flag_colnames.keys():
+		if cname not in clean_usecols:
+			msg = 'Could not find a column labeled {M} (case-insensitive).'
+			raise ValueError(msg.format(M=cname))
+
+	# next add the columns from the main dict, so long as they aren't overriden by flags
+	usecols += [x for x in colnames if clean_header(x) in COLNAMES_CONVERSION.keys() and
+		x not in usecols and
+		COLNAMES_CONVERSION[clean_header(x)] not in flag_colnames.values()]
+	clean_usecols = [convert_colname(x, pre=flag_colnames) for x in usecols]
+	# resolve conflicts with multiple signed summary statistic columns
+	if args.signed_sumstats is None:
+		Z = 'Z' in clean_usecols
+		OR = 'OR' in clean_usecols
+		LOR = 'LOG_ODDS' in clean_usecols
+		BETA = 'BETA' in clean_usecols
+		if sum([Z,OR,LOR,BETA]) > 1:
+			msg = 'Multiple signed summary stats found: priority is OR, Z, BETA, LOG_ODDS. '
+			msg += 'This can be adjusted with the --signed-sumstats flag.'
+			log.log(msg)
+			drop_cnames = [x for x in ['Z','LOR','BETA'] if x not in flag_colnames.keys()]
+			if OR:
+				usecols = filter(lambda x: x not in cnames, usecols)
+			elif Z:
+				usecols = filter(lambda x: x not in cnames[1:3], usecols)
+			elif BETA:
+				usecols = filter(lambda x: x not in cnames[2:3], usecols)
+		
+	else:
+		# Drop all the signed sumstat colnames that aren't the --signed-sumstats colname
+		drop_cnames = [x for x in ['OR' 'Z','LOR','BETA'] if x not in flag_colnames.keys()]
+		usecols = filter(lambda x: x not in drop_cnames, usecols)
+
+	clean_usecols = [convert_colname(x, pre=flag_colnames) for x in usecols]
+	msg = [c+': '+convert_colname(c, pre=flag_colnames)+' --> '+\
+		COL_TO_ENGLISH[convert_colname(c, pre=flag_colnames)] for c in usecols]		
+		
+	log.log('\n'.join(msg))
 	log.log('')
-	
-	x = [colnames_conversion[c.upper().replace('-','_')] for c in usecols]
-	if ('N' not in x) and (args.N is None) and ((args.N_cas is None) or
-	(args.N_con is None)) and (('N_cas' not in x) or ('N_con' not in x)) and (not args.daner):
+	if ('N' not in clean_usecols) and (args.N is None) and ((args.N_cas is None) or
+	(args.N_con is None)) and (('N_cas' not in clean_usecols) or ('N_con' not in clean_usecols)) and (not args.daner):
 		raise ValueError('Could not find an N / N_cas / N_con column and --N / --N-cas / --N-con are not set.')
-	if 'P' not in x:
+	if 'P' not in clean_usecols:
 		raise ValueError('Could not find a p-value column.')
-	if ('Z' not in x) and ('BETA' not in x) and ('OR' not in x) and ('LOG_ODDS' not in x):
+	if ('Z' not in clean_usecols) and ('BETA' not in clean_usecols)\
+		and ('OR' not in clean_usecols) and ('LOG_ODDS' not in clean_usecols)\
+		and (args.signed_sumstats is None):
 		raise ValueError('Could not find a signed summary statistic column (Z, BETA, OR, LOG_ODDS).')
-	if 'SNP' not in x:
+	if 'SNP' not in clean_usecols:
 		raise ValueError('Could not find a SNP column.')
-	if ('A1' not in x) or ('A2' not in x):
+	if ('A1' not in clean_usecols) or ('A2' not in clean_usecols):
 		raise ValueError('Could not find allele columns.')
-	
-	if 'INFO' not in x:
+	if 'INFO' not in clean_usecols:
 		msg = 'WARNING: Could not find an INFO column. Note that imputation quality is '
 		msg += 'a confounder for LD Score regression, and we recommend filtering on INFO > 0.9'
 		log.log(msg)
-	if 'FRQ' not in x:
+	if 'FRQ' not in clean_usecols:
 		log.log('Could not find a FRQ column. Note that we recommend filtering on MAF > 0.01')
 
 	if args.merge_alleles:
@@ -357,9 +529,7 @@ if __name__ == '__main__':
 			'FRQ': 0
 			}
 		for block_num,dat in enumerate(dat_gen):
-			dat.columns = map(str.upper, dat.columns)
-			dat.columns = map(lambda x: x.replace('-','_'), dat.columns)
-			dat.rename(columns=colnames_conversion, inplace=True)
+			dat.columns = map(lambda x: convert_colname(x, pre=flag_colnames), dat.columns)
 
 			if args.merge_alleles:
 				dat = dat[dat.SNP.isin(merge_alleles.SNP)].reset_index(drop=True)
@@ -391,9 +561,7 @@ if __name__ == '__main__':
 		dat = pd.read_csv(args.sumstats, delim_whitespace=True, header=0, compression=compression,	
 			usecols=usecols, na_values='.')
 		log.log( "Read summary statistics for {M} SNPs from {F}.".format(M=len(dat), F=args.sumstats))
-		dat.columns = map(str.upper, dat.columns)
-		dat.columns = map(lambda x: x.replace('-','_'), dat.columns)
-		dat.rename(columns=colnames_conversion, inplace=True)
+		dat.columns = map(lambda x: convert_colname(x, pre=flag_colnames), dat.columns)
 		if args.merge_alleles:
 			old_len = len(dat)
 			dat = dat[dat.SNP.isin(merge_alleles.SNP)].reset_index(drop=True)
@@ -407,6 +575,7 @@ if __name__ == '__main__':
 		
 	# infer # cases and # controls from daner* column headers
 	if args.daner:
+		log.log('Note that the --daner flag takes precedence over all other sample size and frequency flags and columns.')
 		N_con = int(filter(lambda x: x.startswith('FRQ_U_'), colnames)[0].lstrip('FRQ_U_'))
 		N_cas = int(filter(lambda x: x.startswith('FRQ_A_'), colnames)[0].lstrip('FRQ_A_'))
 		dat['N'] = N_cas + N_con
@@ -472,8 +641,8 @@ if __name__ == '__main__':
 		if new_len == 0:
 			raise ValueError('Every SNP was not coded A/C/T/G. Something is wrong.')
 		else:
-			msg = 'Removed {M} variants not coded A/C/T/G ({N} SNPs remain)'
-			log.log( msg.format(C=args.info,	N=new_len, M=old_len-new_len))
+			msg = 'Removed {M} variants not coded A/C/T/G ({N} SNPs remain).'
+			log.log( msg.format(N=new_len, M=old_len-new_len))
 
 		dat = dat[ii]
 	
@@ -485,11 +654,22 @@ if __name__ == '__main__':
 		if new_len == 0:
 			raise ValueError('All remaining SNPs are strand ambiguous')
 		else:
-			msg = 'Removed {M} strand ambiguous SNPs ({N} SNPs remain)'
-			log.log( msg.format(C=args.info,	N=new_len, M=old_len-new_len))
+			msg = 'Removed {M} strand ambiguous SNPs ({N} SNPs remain).'
+			log.log( msg.format(N=new_len, M=old_len-new_len))
 		
 		# signed summary stat and alleles
-		if 'OR' in dat.columns:
+		if args.signed_sumstats is not None:
+			log.log('Using argument of --signed-sumstats as the directional summary statistic.')
+			check = np.median(dat.SIGNED_SUMSTAT)
+			if np.abs(check-SIGNED_SUMSTAT_NULL_VALUE) > 0.1:
+				msg = 'WARNING: median value of --signed-sumstats column is {M} (should be close to {V}). This column may be mislabeled.'
+				log.log( msg.format(M=round(check,2), V=SIGNED_SUMSTAT_NULL_VALUE))
+
+			dat.SIGNED_SUMSTAT = dat.SIGNED_SUMSTAT.convert_objects(convert_numeric=True)
+			flip = dat.SIGNED_SUMSTAT < SIGNED_SUMSTAT_NULL_VALUE
+			dat.drop('SIGNED_SUMSTAT', inplace=True, axis=1)
+		
+		elif 'OR' in dat.columns:
 			log.log('Using OR (odds ratio) as the directional summary statistic.')
 			check = np.median(dat.OR)
 			if np.abs(check-1) > 0.1:
