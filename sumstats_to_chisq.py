@@ -32,7 +32,7 @@ def get_compression(fh):
 
 
 col_to_english = {
-	'SNP': 'Varian ID (e.g., rs number)',
+	'SNP': 'Variant ID (e.g., rs number)',
 	'P': 'p-Value',
 	'A1': 'Allele 1',
 	'A2': 'Allele 2',
@@ -56,24 +56,23 @@ colnames_conversion = {
 	'RS' : 'SNP',
 	'RSID': 'SNP',
 	'RS_NUMBER': 'SNP',
-	'RS-NUMBER': 'SNP',
+#	'RS-NUMBER': 'SNP',
 	'RS_NUMBERS': 'SNP',
-	'RS-NUMBERS': 'SNP',
+#	'RS-NUMBERS': 'SNP',
 	
 	# P-VALUE
 	'P': 'P',
 	'PVALUE': 'P',
 	'P_VALUE': 	'P',
 	'PVAL' : 'P',
-	'P-VAL' : 'P',
-	'P-VALUE':	'P',
+	'P_VAL' : 'P',
 	'GC.PVALUE': 'P',
 
 	# ALLELE 1
 	'A1': 'A1',
 	'ALLELE1': 'A1',
 	'ALLELE_1': 'A1',
-	'ALLELE-1': 'A1',
+#	'ALLELE-1': 'A1',
 	'EFFECT_ALLELE': 'A1',
 	'RISK_ALLELE': 'A1',
 	'REFERENCE_ALLELE': 'A1',
@@ -84,7 +83,7 @@ colnames_conversion = {
 	'A2' : 'A2',
 	'ALLELE2': 'A2',
 	'ALLELE_2': 'A2',
-	'ALLELE-2': 'A2',
+#	'ALLELE-2': 'A2',
 	'OTHER_ALLELE' : 'A2',
 	'NON_EFFECT_ALLELE' : 'A2',
 	'DEC_ALLELE': 'A2',
@@ -110,7 +109,7 @@ colnames_conversion = {
 	'Z': 'Z',
 	'OR': 'OR',
 	'BETA': 'BETA',
-	'LOG-ODDS': 'LOG_ODDS',
+#	'LOG-ODDS': 'LOG_ODDS',
 	'LOG_ODDS': 'LOG_ODDS',
 	'EFFECT': 'BETA',
 	'EFFECTS': 'BETA',
@@ -164,6 +163,10 @@ if __name__ == '__main__':
 	parser.add_argument('--merge-alleles', default=None, type=str,
 		help="Same as --merge, except the file should have three columns: SNP, A1, A2, " 
 		"and all alleles will be matched to the --merge-alleles file alleles.")
+	parser.add_argument('--no-filter-n', default=False, action='store_true',
+		help='Don\'t filter SNPs with low N.')
+	parser.add_argument('--n-min', default=None, type=float,
+		help='Minimum N (sample size). Default is (90th percentile N) / 2.')
 
 	args = parser.parse_args()
 	
@@ -201,8 +204,8 @@ if __name__ == '__main__':
 	
 	log.log('Interpreting column names as follows:\n')
 	
-	usecols = [x for x in colnames if x.upper() in colnames_conversion.keys()]
-	x = [c +': '+colnames_conversion[c.upper()]+' --> '+col_to_english[colnames_conversion[c.upper()]]
+	usecols = [x for x in colnames if x.upper().replace('-','_') in colnames_conversion.keys()]
+	x = [c +': '+colnames_conversion[c.upper().replace('-','_')]+' --> '+col_to_english[colnames_conversion[c.upper().replace('-','_')]]
 		for c in usecols ]
 	log.log('\n'.join(x))
 	log.log('')
@@ -213,6 +216,7 @@ if __name__ == '__main__':
 		
 	# convert colnames
 	dat.columns = map(str.upper, dat.columns)
+	dat.columns = map(lambda x: x.replace('-','_'), dat.columns)
 	dat.rename(columns=colnames_conversion, inplace=True)
 	
  	if args.merge:
@@ -306,23 +310,35 @@ if __name__ == '__main__':
 
 	else:
 		raise ValueError('No N specified.')
-		
+	
 	# filter p-vals
-	old_len = len(dat)
-	ii = (dat.P > 0) 
+	ii = (dat.P > 0) # bool index of SNPs to keep
 	jj = (dat.P <= 1)
 	bad_p = (~jj).sum()
 	if bad_p > 0:
 		ii = ii & jj
 		msg = 'WARNING: {N} SNPs had P > 1. The P column may be mislabeled.'
 		log.log(msg.format(N=bad_p))
-			
+	
+	old_len = len(dat)		
 	new_len = ii.sum()
 	msg = 'Removed {M} SNPs with p-values outside of (0,1] ({N} SNPs remain).'
 	log.log(msg.format(M=old_len-new_len, N=new_len))
 	if new_len == 0:
 		raise ValueError('No SNPs remain.')
-
+	
+	# filter out low N
+	if (not args.no_filter_n) and (args.N is None) and (args.N_cas is None):
+		if args.n_min:
+			N_thresh = args.min_n
+		else:
+			N_thresh = dat.N.quantile(0.9) / 2
+		old_len = new_len
+		ii = ii & (dat.N > N_thresh)
+		new_len = ii.sum()
+		msg = 'Removed {M} SNPs with N below {T} ({N} SNPs remain).'
+		log.log(msg.format(N=new_len, M=old_len-new_len, T=round(N_thresh, 0)))
+	
 	# filter on INFO
 	if 'INFO' in dat.columns:
 		jj = (dat.INFO > 1.5) | (dat.INFO < 0)
@@ -393,7 +409,7 @@ if __name__ == '__main__':
 		if new_len == 0:
 			raise ValueError('All remaining SNPs are strand ambiguous')
 		else:
-			msg = 'Removed {M} strand ambiguous SNP ({N} SNPs remain)'
+			msg = 'Removed {M} strand ambiguous SNPs ({N} SNPs remain)'
 			log.log( msg.format(C=args.info,	N=new_len, M=old_len-new_len))
 		
 		# signed summary stat and alleles
@@ -488,8 +504,8 @@ if __name__ == '__main__':
 			dat.DEC_ALLELE[~jj] = float('nan')
 			old_len = new_len
 			new_len = jj.sum()
- 			if len(dat) == 0:
- 				raise ValueError('All SNPs have alleles that are discordant between --sumstats and --merge-alleles.')
+ 			if new_len == 0:
+ 				raise ValueError('All remaining SNPs have alleles that are discordant between --sumstats and --merge-alleles.')
  			else:
  				msg = 'Removed {M} SNPs whose alleles did not match --merge-alleles ({N} SNPs remain).'
 				log.log( msg.format(N=new_len, M=old_len-new_len))
