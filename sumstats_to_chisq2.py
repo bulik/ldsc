@@ -95,7 +95,7 @@ COLNAMES_CONVERSION = {
 	# ALLELE 1
 	'A1': 'A1',
 	'ALLELE1': 'A1',
-	'ALLELE_1': 'A1',
+	'ALLELE_1': 'A1',	
 	'EFFECT_ALLELE': 'A1',
 	'RISK_ALLELE': 'A1',
 	'REFERENCE_ALLELE': 'A1',
@@ -504,11 +504,11 @@ if __name__ == '__main__':
 			log.log(msg)
 			drop_cnames = [x for x in ['Z','LOR','BETA'] if x not in flag_colnames.keys()]
 			if OR:
-				usecols = filter(lambda x: x not in cnames, usecols)
+				usecols = filter(lambda x: x not in drop_cnames, usecols)
 			elif Z:
-				usecols = filter(lambda x: x not in cnames[1:3], usecols)
+				usecols = filter(lambda x: x not in drop_cnames[1:3], usecols)
 			elif BETA:
-				usecols = filter(lambda x: x not in cnames[2:3], usecols)
+				usecols = filter(lambda x: x not in drop_cnames[2:3], usecols)
 		
 	else:
 		# Drop all the signed sumstat colnames that aren't the --signed-sumstats colname
