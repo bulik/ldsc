@@ -501,7 +501,7 @@ if __name__ == '__main__':
 	log.log('\n'.join(msg))
 	log.log('')
 	if ('N' not in clean_usecols) and (args.N is None) and ((args.N_cas is None) or
-	(args.N_con is None)) and (('N_cas' not in clean_usecols) or ('N_con' not in clean_usecols)) and (not args.daner):
+	(args.N_con is None)) and (('N_CAS' not in clean_usecols) or ('N_CON' not in clean_usecols)) and (not args.daner):
 		raise ValueError('Could not find an N / N_cas / N_con column and --N / --N-cas / --N-con are not set.')
 	if 'P' not in clean_usecols:
 		raise ValueError('Could not find a p-value column.')
