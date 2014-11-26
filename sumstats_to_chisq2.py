@@ -253,7 +253,7 @@ if __name__ == '__main__':
 		help='Don\'t filter SNPs with low N.')
 	parser.add_argument('--n-min', default=None, type=float,
 		help='Minimum N (sample size). Default is (90th percentile N) / 2.')
-	parser.add_argument('--chunksize', default=1e6, type=float,
+	parser.add_argument('--chunksize', default=5e6, type=float,
 		help='Chunksize for use with --bigmem.')
 	parser.add_argument('--bigmem', default=False, action='store_true',
 		help='Don\'t read the whole file into memory -- read one chunk at a time. '
