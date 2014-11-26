@@ -139,7 +139,7 @@ def filter_verbose(old_len, new_len, phrase):
 	return msg
 
 
-def filter(dat, args, log, block_num=None, drops=None, verbose=True):
+def filter_snps(dat, args, log, block_num=None, drops=None, verbose=True):
 
 	# check uniqueness of rs numbers & remove SNPs w/ rs == '.'
 	old_len = len(dat); dat = dat.drop_duplicates('SNP'); new_len = len(dat)
@@ -365,11 +365,12 @@ if __name__ == '__main__':
 				dat = dat[dat.SNP.isin(merge_alleles.SNP)].reset_index(drop=True)
 			
 			if not args.filter_finally:
-				dat, drops = filter(dat, args, log, block_num, drops, verbose=False)
+				dat, drops = filter_snps(dat, args, log, block_num, drops, verbose=False)
 			
 			dat_list.append(dat)
 			sys.stdout.write('.')
-		
+			
+		sys.stdout.write('\n')
 		dat = pd.concat(dat_list, axis=0)
 		if not args.filter_finally:
 			msg = 'Removed {N} SNPs with duplicated rs numbers.\n'.format(N=drops['RS'])
@@ -380,7 +381,7 @@ if __name__ == '__main__':
 			msg += 'At this point, {N} SNPs remain.'.format(N=len(dat))	
 			log.log(msg)
 		else:
-			dat, drops = filter(dat, args, log)
+			dat, drops = filter_snps(dat, args, log)
 			
 		if len(dat) == 0:
 			raise ValueError('No SNPs remain.')
@@ -402,7 +403,7 @@ if __name__ == '__main__':
 			if new_len == 0:
 				raise ValueError('No SNPs remain.')
 				
-		dat, drops = filter(dat, args, log)
+		dat, drops = filter_snps(dat, args, log)
 		
 	# infer # cases and # controls from daner* column headers
 	if args.daner:
