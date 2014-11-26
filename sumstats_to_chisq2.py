@@ -620,14 +620,14 @@ if __name__ == '__main__':
 	elif 'N_CAS' in dat.columns and 'N_CON' in dat.columns:
 		log.log( 'Reading sample size from the N_cas and N_con columns.')
 		msg = 'Median N_cas = {N1}; Median N_con = {N2}'
-		log.log(msg.format(N1=round(np.median(dat.N_cas), 0), N2=round(np.median(dat.N_con),0)))
+		log.log(msg.format(N1=round(np.median(dat.N_CAS), 0), N2=round(np.median(dat.N_CON),0)))
 		N = dat.N_CAS + dat.N_CON
 		P = dat.N_CAS / N
 		ii = N == N.max()
 		P_max = P[ii].mean()
 		log.log( "Using max sample prevalence = {P}.".format(P=round(P_max,2)))
 		dat['N'] = N * P /	 P_max
-		dat.drop(['N_cas', 'N_con'], inplace=True, axis=1)
+		dat.drop(['N_CAS', 'N_CON'], inplace=True, axis=1)
 	
 	elif 'N' in dat.columns:
 		log.log( 'Reading sample size from the N column. Median N = {N}'.format(N=round(np.median(dat.N), 0)))
