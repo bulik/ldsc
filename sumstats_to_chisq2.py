@@ -412,7 +412,7 @@ if __name__ == '__main__':
 		dat['N'] = N_cas + N_con
 		log.log( 'Inferred that N_cas = {N} from the FRQ_A column.'.format(N=N_cas))
 		log.log( 'Inferred that N_con = {N} from the FRQ_U column.'.format(N=N_con))
-
+	
 	# N
 	if args.N:
 		dat['N'] = args.N
@@ -435,7 +435,7 @@ if __name__ == '__main__':
 		dat['N'] = N * P /	 P_max
 		dat.drop(['N_cas', 'N_con'], inplace=True, axis=1)
 	
-	elif 'N' in dat.columns and not args.daner:
+	elif 'N' in dat.columns:
 		log.log( 'Reading sample size from the N column. Median N = {N}'.format(N=round(np.median(dat.N), 0)))
 
 	else:
