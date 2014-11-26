@@ -83,7 +83,7 @@ COLNAMES_CONVERSION = {
 	'P_VALUE': 	'P',
 	'PVAL' : 'P',
 	'P_VAL' : 'P',
-	'GC.PVALUE': 'P',
+	'GC_PVALUE': 'P',
 
 	# ALLELE 1
 	'A1': 'A1',
@@ -119,7 +119,8 @@ COLNAMES_CONVERSION = {
 	
 	# SIGNED STATISTICS
 	'ZSCORE': 'Z',
-	'GC.ZSCORE' : 'Z',
+	'Z-SCORE': 'Z',
+	'GC_ZSCORE' : 'Z',
 	'Z': 'Z',
 	'OR': 'OR',
 	'BETA': 'BETA',
