@@ -162,9 +162,10 @@ def filter_snps(dat, args, log, block_num=None, drops=None, verbose=True):
 		drops['RS'] += old_len-new_len
 			
 	# remove NA's
-	old_len = len(dat); dat.dropna(axis=0, how="any", inplace=True); new_len = len(dat)
+	subset = filter(lambda x: x != 'INFO', dat.columns)
+	old_len = len(dat); dat.dropna(axis=0, how="any", subset=subset, inplace=True); new_len = len(dat)
 	if verbose:
-		log.log(filter_verbose(old_len, new_len, 'with missing values'))
+		log.log(filter_verbose(old_len, new_len, 'with missing values in columns other than INFO'))
 	if drops is not None:
 		drops['NA'] += old_len-new_len
 
@@ -186,15 +187,21 @@ def filter_snps(dat, args, log, block_num=None, drops=None, verbose=True):
 	if drops is not None:
 		drops['P'] += old_len-new_len
 	
-	# filter on INFO
+	# filter on INFO	
 	if 'INFO' in dat.columns:
-		jj = (dat.INFO > 1.5) | (dat.INFO < 0)
+		# why does this have to be so awkward?
+		if type(dat.INFO) is pd.Series: # one INFO column
+			jj = ((dat.INFO > 1.5) | (dat.INFO < 0)) & dat.INFO.notnull()
+			ii = ii & (dat.INFO > args.info_min)
+		elif type(dat.INFO) is pd.DataFrame: # several INFO columns
+			jj = (((dat.INFO > 1.5) & dat.INFO.notnull()).any(axis=1) | ((dat.INFO < 0) & dat.INFO.notnull()).any(axis=1)) 
+			ii = ii & (dat.INFO.sum(axis=1) > args.info_min*(len(dat.INFO.columns)	) )
+		
 		bad_info = jj.sum()
 		if bad_info > 0:
 			msg = 'WARNING: {N} SNPs had INFO outside of [0,1.5]. The INFO column may be mislabeled.'
 			log.log(msg.format(N=bad_info))
 
-		ii = ii & (dat.INFO > args.info_min)
 		old_len = new_len; new_len = ii.sum()
 		if verbose:
 			log.log(filter_verbose(old_len, new_len, 'INFO <= {C}'.format(C=args.info_min)))
@@ -297,6 +304,8 @@ if __name__ == '__main__':
 		help='Name of signed sumstat column, comma null value (e.g., Z,0 or OR,1). NB: case insensitive.')
 	parser.add_argument('--info', default=None, type=str,
 		help='Name of INFO column (if not a name that ldsc understands). NB: case insensitive.')
+	parser.add_argument('--info-list', default=None, type=str,
+		help='Comma-separated list of INFO columns. Will filter on the mean. NB: case insensitive.')
 		
 	args = parser.parse_args()
 	log = sumstats.Logger(args.out + '.log')
@@ -394,7 +403,7 @@ if __name__ == '__main__':
 		flag_colnames[clean_header(args.frq)] = 'FRQ'
 
 	if args.info:	
-		clean = clean_header(args.p)
+		clean = clean_header(args.info)
 		if clean in flag_colnames: 
 			raise ValueError('The --info flag has overloaded a column name set by another flag.')
 		if clean in COLNAMES_CONVERSION and COLNAMES_CONVERSION[clean] != 'INFO':
@@ -402,22 +411,39 @@ if __name__ == '__main__':
 			raise ValueError(msg.format(F=COLNAMES_CONVERSION[clean]))
 		flag_colnames[clean_header(args.info)] = 'INFO'
 
+	if args.info_list:
+		try:
+			info_list = map(clean_header, args.info_list.split(','))
+		except ValueError:
+			log.log('The argument to --info-list should be a comma-separated list of column names.')
+			raise
+			
+		for clean in info_list:
+			if clean in flag_colnames: 
+				raise ValueError('The --info-list flag has overloaded a column name set by another flag.')
+			if clean in COLNAMES_CONVERSION and COLNAMES_CONVERSION[clean] != 'INFO':
+				msg = 'The --info-list flag conflicts with a protected column name, usually taken to mean {F}'
+				raise ValueError(msg.format(F=COLNAMES_CONVERSION[clean]))
+			flag_colnames[clean] = 'INFO'
+		
+	
 	if args.signed_sumstats:
 		try:	
 			(SIGNED_SUMSTAT_CNAME, SIGNED_SUMSTAT_NULL_VALUE) = args.signed_sumstats.split(',')
 			clean = clean_header(SIGNED_SUMSTAT_CNAME)
-			if clean in flag_colnames: 
-				raise ValueError('The --signed-sumstats flag has overloaded a column name set by another flag.')
-			if clean in COLNAMES_CONVERSION and COLNAMES_CONVERSION[clean]\
-				not in ['BETA','Z','OR','SIGNED_SUMSTAT','LOG_ODDS']:
-				msg = 'The --signed-sumstats flag conflicts with a protected column name, usually taken to mean {F}'
-				raise ValueError(msg.format(F=COLNAMES_CONVERSION[clean]))
-		
-			flag_colnames[clean_header(SIGNED_SUMSTAT_CNAME)] = 'SIGNED_SUMSTAT'
-			SIGNED_SUMSTAT_NULL_VALUE = float(SIGNED_SUMSTAT_NULL_VALUE)
 		except ValueError:
 			log.log('The argument to --signed-sumstats should be formatted as column header comma number.')
 			raise
+
+		if clean in flag_colnames: 
+			raise ValueError('The --signed-sumstats flag has overloaded a column name set by another flag.')
+		if clean in COLNAMES_CONVERSION and COLNAMES_CONVERSION[clean]\
+			not in ['BETA','Z','OR','SIGNED_SUMSTAT','LOG_ODDS']:
+			msg = 'The --signed-sumstats flag conflicts with a protected column name, usually taken to mean {F}'
+			raise ValueError(msg.format(F=COLNAMES_CONVERSION[clean]))
+		
+		flag_colnames[clean_header(SIGNED_SUMSTAT_CNAME)] = 'SIGNED_SUMSTAT'
+		SIGNED_SUMSTAT_NULL_VALUE = float(SIGNED_SUMSTAT_NULL_VALUE)
 		
 	
 	(openfunc, compression) = get_compression(args.sumstats)
@@ -530,7 +556,6 @@ if __name__ == '__main__':
 			}
 		for block_num,dat in enumerate(dat_gen):
 			dat.columns = map(lambda x: convert_colname(x, pre=flag_colnames), dat.columns)
-
 			if args.merge_alleles:
 				dat = dat[dat.SNP.isin(merge_alleles.SNP)].reset_index(drop=True)
 			
@@ -572,7 +597,7 @@ if __name__ == '__main__':
 				raise ValueError('No SNPs remain.')
 				
 		dat, drops = filter_snps(dat, args, log)
-		
+	print dat.head()
 	# infer # cases and # controls from daner* column headers
 	if args.daner:
 		log.log('Note that the --daner flag takes precedence over all other sample size and frequency flags and columns.')
@@ -816,5 +841,5 @@ if __name__ == '__main__':
 		log.log( "{N} Genome-wide significant SNPs:\n".format(N=ngwsig))
 		log.log( dat[ii])
 	else:
-		log.log('No genome-wide significant SNPs')
+		log.log('No genome-wide significant SNPs')	
 		log.log('NB some gwsig SNPs may have been removed after various filtering steps.')
