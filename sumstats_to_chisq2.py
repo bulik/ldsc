@@ -132,8 +132,7 @@ COLNAMES_CONVERSION = {
 	'OR': 'OR',
 	'BETA': 'BETA',
 	'LOG_ODDS': 'LOG_ODDS',
-	'EFFECT': 'BETA',
-	'EFFECTS': 'BETA',
+		'EFFECTS': 'BETA',
 	'SIGNED_SUMSTAT': 'SIGNED_SUMSTAT',
 	
 	# INFO
@@ -398,7 +397,8 @@ if __name__ == '__main__':
 		clean = clean_header(args.a1)
 		if clean in flag_colnames: 
 			raise ValueError('The --a1 flag has overloaded a column name set by another flag.')
-		if clean in COLNAMES_CONVERSION and COLNAMES_CONVERSION[clean] != 'A1':
+		if clean in COLNAMES_CONVERSION and COLNAMES_CONVERSION[clean] not in ['A1','A2']
+			and clean != 'EFFECT':
 			msg = 'The --a1 flag conflicts with a protected column name, usually taken to mean {F}'
 			raise ValueError(msg.format(F=COLNAMES_CONVERSION[clean]))
 		flag_colnames[clean_header(args.a1)] = 'A1'
@@ -407,7 +407,7 @@ if __name__ == '__main__':
 		clean = clean_header(args.a2)
 		if clean in flag_colnames: 
 			raise ValueError('The --a2 flag has overloaded a column name set by another flag.')
-		if clean in COLNAMES_CONVERSION and COLNAMES_CONVERSION[clean] != 'A2':
+		if clean in COLNAMES_CONVERSION and COLNAMES_CONVERSION[clean] not in ['A1','A2']:
 			msg = 'The --a2 flag conflicts with a protected column name, usually taken to mean {F}'
 			raise ValueError(msg.format(F=COLNAMES_CONVERSION[clean]))
 		flag_colnames[clean_header(args.a2)] = 'A2'
