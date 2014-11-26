@@ -332,7 +332,8 @@ if __name__ == '__main__':
 		log.log('Read {N} SNPs for allele merge.'.format(N=len(merge_alleles)))
 		merge_alleles.A1 = merge_alleles.A1.apply(lambda y: y.upper())
 		merge_alleles.A2 = merge_alleles.A2.apply(lambda y: y.upper())
-
+	
+	(openfunc, compression) = get_compression(args.sumstats)
 	if args.bigmem:
 		'''
 		Reduce memory footprint by filtering on MAF / INFO / etc on-disk rather than 
