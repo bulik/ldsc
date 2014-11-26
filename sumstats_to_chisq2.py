@@ -597,7 +597,6 @@ if __name__ == '__main__':
 				raise ValueError('No SNPs remain.')
 				
 		dat, drops = filter_snps(dat, args, log)
-	print dat.head()
 	# infer # cases and # controls from daner* column headers
 	if args.daner:
 		log.log('Note that the --daner flag takes precedence over all other sample size and frequency flags and columns.')
