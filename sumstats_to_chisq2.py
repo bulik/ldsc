@@ -397,7 +397,7 @@ if __name__ == '__main__':
 		clean = clean_header(args.a1)
 		if clean in flag_colnames: 
 			raise ValueError('The --a1 flag has overloaded a column name set by another flag.')
-		if clean in COLNAMES_CONVERSION and COLNAMES_CONVERSION[clean] not in ['A1','A2']
+		if clean in COLNAMES_CONVERSION and COLNAMES_CONVERSION[clean] not in ['A1','A2']\
 			and clean != 'EFFECT':
 			msg = 'The --a1 flag conflicts with a protected column name, usually taken to mean {F}'
 			raise ValueError(msg.format(F=COLNAMES_CONVERSION[clean]))
