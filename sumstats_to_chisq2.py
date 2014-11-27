@@ -97,7 +97,7 @@ COLNAMES_CONVERSION = {
 	'ALLELE1': 'A1',
 	'ALLELE_1': 'A1',	
 	'EFFECT_ALLELE': 'A1',
-	'RISK_ALLELE': 'A1',
+#		'RISK_ALLELE': 'A1',
 	'REFERENCE_ALLELE': 'A1',
 	'INC_ALLELE': 'A1',
 	'EA': 'A1',
@@ -536,7 +536,7 @@ if __name__ == '__main__':
 		raise ValueError('Could not find a p-value column.')
 	if ('Z' not in clean_usecols) and ('BETA' not in clean_usecols)\
 		and ('OR' not in clean_usecols) and ('LOG_ODDS' not in clean_usecols)\
-		and (args.signed_sumstats is None) and args.a1_inc is None:
+		and (args.signed_sumstats is None) and args.a1_inc is False:
 		raise ValueError('Could not find a signed summary statistic column (Z, BETA, OR, LOG_ODDS).')
 	if 'SNP' not in clean_usecols:
 		raise ValueError('Could not find a SNP column.')
@@ -784,7 +784,7 @@ if __name__ == '__main__':
 			dat.drop('LOG_ODDS', inplace=True, axis=1)
 			
 		else: # assume A1 is trait increasing allele and print a warning
-			log.log( 'Warning: no signed summary stat found. Assuming A1 is risk/increasing allele.')
+			log.log( 'WARNING: no signed summary stat found. Assuming A1 is risk/increasing allele.')
 			flip = pd.Series(False)
 	
 		# convert A1 and A2 to INC_ALLELE and DEC_ALLELE
