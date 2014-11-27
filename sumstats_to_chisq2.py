@@ -25,7 +25,7 @@ def convert_colname(cname, pre=None):
 	return COLNAMES_CONVERSION[cname]
 
 
-def clean_header(header):
+def clean_header(header):	
 	'''
 	For cleaning file headers.
 	- convert to uppercase
@@ -685,12 +685,13 @@ if __name__ == '__main__':
 		if args.n_min:
 			N_thresh = args.min_n
 		else:
-			N_thresh = dat.N.quantile(0.9) / 2
+			N_thresh = dat.N.quantile(0.9) / 1.5
 		old_len = len(dat)
 		ii = (dat.N > N_thresh)
 		new_len = ii.sum()
 		msg = 'Removed {M} SNPs with N below {T} ({N} SNPs remain).'
 		log.log(msg.format(N=new_len, M=old_len-new_len, T=round(N_thresh, 0)))
+		dat = dat[ii]
 
 	# convert p-values to chi^2
 	dat.P = chi2.isf(dat.P, 1)
