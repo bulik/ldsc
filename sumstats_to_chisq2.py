@@ -760,7 +760,7 @@ if __name__ == '__main__':
 			check = np.median(dat.Z)
 			if np.abs(check) > 0.1:
 				msg = 'WARNING: median Z is {M} (should be close to 0). This column may be mislabeled.'
-				log.log( msg.format(M=round(check,2))
+				log.log( msg.format(M=round(check,2)) )
 			else:
 				log.log('Median value of Z was {C}, which seems sensible.'.format(C=check))
 
