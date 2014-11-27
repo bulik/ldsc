@@ -132,7 +132,7 @@ COLNAMES_CONVERSION = {
 	'OR': 'OR',
 	'BETA': 'BETA',
 	'LOG_ODDS': 'LOG_ODDS',
-		'EFFECTS': 'BETA',
+	'EFFECTS': 'BETA',
 	'SIGNED_SUMSTAT': 'SIGNED_SUMSTAT',
 	
 	# INFO
@@ -324,7 +324,9 @@ if __name__ == '__main__':
 		help='Minimum # of studies. Default is to remove everything below the max, unless there is an N column, in which case do nothing.')
 	parser.add_argument('--ignore', default=None, type=str,
 		help='Comma-separated list of column names to ignore.')
-	
+	parser.add_argument('--a1-inc', default=False, action='store_true',
+		help='A1 is the increasing allele.')
+
 	args = parser.parse_args()
 	log = sumstats.Logger(args.out + '.log')
 	if not (args.sumstats and args.out):
@@ -534,7 +536,7 @@ if __name__ == '__main__':
 		raise ValueError('Could not find a p-value column.')
 	if ('Z' not in clean_usecols) and ('BETA' not in clean_usecols)\
 		and ('OR' not in clean_usecols) and ('LOG_ODDS' not in clean_usecols)\
-		and (args.signed_sumstats is None):
+		and (args.signed_sumstats is None) and args.a1_inc is None:
 		raise ValueError('Could not find a signed summary statistic column (Z, BETA, OR, LOG_ODDS).')
 	if 'SNP' not in clean_usecols:
 		raise ValueError('Could not find a SNP column.')
