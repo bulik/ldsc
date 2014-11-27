@@ -734,6 +734,9 @@ if __name__ == '__main__':
 			if np.abs(check-SIGNED_SUMSTAT_NULL_VALUE) > 0.1:
 				msg = 'WARNING: median value of --signed-sumstats column is {M} (should be close to {V}). This column may be mislabeled.'
 				log.log( msg.format(M=round(check,2), V=SIGNED_SUMSTAT_NULL_VALUE))
+			else:
+				log.log('Median value of --signed-sumstats column was {C}, which seems sensible.'.format(C=check))
+
 
 			dat.SIGNED_SUMSTAT = dat.SIGNED_SUMSTAT.convert_objects(convert_numeric=True)
 			flip = dat.SIGNED_SUMSTAT < SIGNED_SUMSTAT_NULL_VALUE
@@ -745,6 +748,8 @@ if __name__ == '__main__':
 			if np.abs(check-1) > 0.1:
 				msg = 'WARNING: median OR is {M} (should be close to 1). This column may be mislabeled.'
 				log.log( msg.format(M=round(check,2)))
+			else:
+				log.log('Median value of OR was {C}, which seems sensible.'.format(C=check))
 
 			dat.OR = dat.OR.convert_objects(convert_numeric=True)
 			flip = dat.OR < 1
@@ -755,7 +760,9 @@ if __name__ == '__main__':
 			check = np.median(dat.Z)
 			if np.abs(check) > 0.1:
 				msg = 'WARNING: median Z is {M} (should be close to 0). This column may be mislabeled.'
-				log.log( msg.format(M=round(check,2)))
+				log.log( msg.format(M=round(check,2))
+			else:
+				log.log('Median value of Z was {C}, which seems sensible.'.format(C=check))
 
 			dat.Z = dat.Z.convert_objects(convert_numeric=True)
 			flip = dat.Z < 0
@@ -767,7 +774,9 @@ if __name__ == '__main__':
 			if np.abs(check) > 0.1:
 				msg = 'WARNING: median BETA is {M} (should be close to 0). This column may be mislabeled.'
 				log.log( msg.format(M=round(check,2)))
-
+			else:
+				log.log('Median value of BETA was {C}, which seems sensible.'.format(C=check))
+			
 			dat.BETA = dat.BETA.convert_objects(convert_numeric=True)
 			flip = dat.BETA < 0
 			dat.drop('BETA', inplace=True, axis=1)
@@ -778,14 +787,19 @@ if __name__ == '__main__':
 			if np.abs(check) > 0.1:
 				msg = 'WARNING: median Log odds is {M} (should be close to 0). This column may be mislabeled.'
 				log.log( msg.format(M=round(check,2)))
-
+			else:
+				log.log('Median value of LOG_ODDS was {C}, which seems sensible.'.format(C=check))
+				
 			dat.LOG_ODDS = dat.LOG_ODDS.convert_objects(convert_numeric=True)
 			flip = dat.LOG_ODDS < 0
 			dat.drop('LOG_ODDS', inplace=True, axis=1)
 			
 		else: # assume A1 is trait increasing allele and print a warning
-			log.log( 'WARNING: no signed summary stat found. Assuming A1 is risk/increasing allele.')
-			flip = pd.Series(False)
+			if args.a1_inc:
+				flip = pd.Series(False)
+			else:
+				log.log( 'WARNING: no signed summary stat found. Assuming A1 is risk/increasing allele.')
+				raise ValueError('WARNING: no signed summary stat found. Assuming A1 is risk/increasing allele.')
 	
 		# convert A1 and A2 to INC_ALLELE and DEC_ALLELE
 		INC_ALLELE = dat.A1
