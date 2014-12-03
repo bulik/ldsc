@@ -620,7 +620,7 @@ VcfSNPFile = __ID_List_Factory__(['CHR','BP','SNP','CM'],2,'.snp',usecols=[0,1,2
 PlinkFAMFile = __ID_List_Factory__(['IID'],0,'.fam',usecols=[1])
 VcfINDFile = __ID_List_Factory__(['IID'],0,'.ind',usecols=[0])
 FilterFile = __ID_List_Factory__(['ID'],0,None,usecols=[0])
-AnnotFile = __ID_List_Factory__(None,2,'.annot',header=0,usecols=None)
+AnnotFile = __ID_List_Factory__(None,2,None,header=0,usecols=None)
 
 
 
