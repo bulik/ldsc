@@ -899,7 +899,7 @@ if __name__ == '__main__':
 	ngwsig = ii.sum()
  	if ngwsig > 0:
 		log.log( "{N} Genome-wide significant SNPs:\n".format(N=ngwsig))
-		log.log( dat[ii])
+		#log.log( dat[ii])
 	else:
 		log.log('No genome-wide significant SNPs')	
 		log.log('NB some gwsig SNPs may have been removed after various filtering steps.')
