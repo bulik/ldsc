@@ -583,7 +583,7 @@ if __name__ == '__main__':
 	parser.add_argument('--bfile', default=None, type=str, 
 		help='Prefix for Plink .bed/.bim/.fam file')
 	parser.add_argument('--annot', default=None, type=str, 
-		help='Filename prefix for annotation file for partitioned LD Score estimation')
+		help='Filename for annotation file for partitioned LD Score estimation')
 	parser.add_argument('--cts-bin', default=None, type=str, 
 		help='Filenames for multiplicative cts binned LD Score estimation')
 	parser.add_argument('--cts-bin-add', default=None, type=str, 
