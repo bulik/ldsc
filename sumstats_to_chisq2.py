@@ -57,10 +57,10 @@ COL_TO_ENGLISH = {
 	'N': 'Sample size',
 	'N_CAS': 'Number of cases',
 	'N_CON': 'Number of controls',
-	'Z': 'Z-score (0 --> no effect; above 0 --> trait/risk increasing)',
-	'OR': 'Odds ratio (1 --> no effect; above 1 --> trait/risk increasing)',
-	'BETA': '[linear/logistic] regression coefficient (0 --> no effect; above 0 --> trait/risk increasing)',
-	'LOG_ODDS': 'Log odds ratio (0 --> no effect; above 0 --> trait/risk increasing)',
+	'Z': 'Z-score (0 --> no effect; above 0 --> A1 is trait/risk increasing)',
+	'OR': 'Odds ratio (1 --> no effect; above 1 --> A1 is risk increasing)',
+	'BETA': '[linear/logistic] regression coefficient (0 --> no effect; above 0 --> A1 is trait/risk increasing)',
+	'LOG_ODDS': 'Log odds ratio (0 --> no effect; above 0 --> A1 is risk increasing)',
 	'INFO': 'INFO score (imputation quality; assumed between 0 and 1, with 1 indicating perfect impuation)',
 	'FRQ': 'Allele frequency',
 	'SIGNED_SUMSTAT': 'Directional summary statistic as specified by --signed-sumstats.',
@@ -291,9 +291,9 @@ if __name__ == '__main__':
 		help='Don\'t read the whole file into memory -- read one chunk at a time. '
 		'This can be somewhat slower, but reduces memory substantially if the --sumstats '
 		'file contains a lot of SNPs that will eventually be filtered out.')
-	parser.add_argument('--filter-finally', default=False, action='store_true',
-		help='For use with --bigmem and --merge-alleles. Can save time if --merge-alleles '
-		'represents only a small subset of the SNPs in --sumstats.')
+#	parser.add_argument('--filter-finally', default=False, action='store_true',
+#		help='For use with --bigmem and --merge-alleles. Can save time if --merge-alleles '
+#		'represents only a small subset of the SNPs in --sumstats.')
 	
 	# optional args to specify column names
 	parser.add_argument('--snp', default=None, type=str,
@@ -562,6 +562,8 @@ if __name__ == '__main__':
 		merge_alleles.A2 = merge_alleles.A2.apply(lambda y: y.upper())
 	
 	(openfunc, compression) = get_compression(args.sumstats)
+	tot_snps = 0
+	merge_drops = 0
 	if args.bigmem:
 		'''
 		Reduce memory footprint by filtering on MAF / INFO / etc on-disk rather than 
@@ -585,29 +587,30 @@ if __name__ == '__main__':
 			'FRQ': 0,
 			}
 		for block_num,dat in enumerate(dat_gen):
+			tot_snps += len(dat)
 			dat.columns = map(lambda x: convert_colname(x, pre=flag_colnames), dat.columns)
 			dat, drops = filter_na(dat, args, log, drops, verbose=False)
 			if args.merge_alleles:
-				dat = dat[dat.SNP.isin(merge_alleles.SNP)].reset_index(drop=True)
-			
-			if not args.filter_finally:
-				dat, drops = filter_snps(dat, args, log, drops, verbose=False)
-			
+				ii = dat.SNP.isin(merge_alleles.SNP)
+				merge_drops += len(dat) - ii.sum()
+				dat = dat[ii].reset_index(drop=True)
+						
 			dat_list.append(dat)
 			sys.stdout.write('.')
 			
 		sys.stdout.write('\n')
 		dat = pd.concat(dat_list, axis=0)
-		if not args.filter_finally:
-			msg = 'Removed {N} SNPs with duplicated rs numbers.\n'.format(N=drops['RS'])
-			msg += 'Removed {N} SNPs with missing values.\n'.format(N=drops['NA'])
-			msg += 'Removed {N} SNPs with out-of-bounds p-values.\n'.format(N=drops['P'])
-			msg += 'Removed {N} SNPs with INFO <= {I}\n'.format(N=drops['INFO'], I=args.info_min)
-			msg += 'Removed {N} SNPs with MAF <= {M}\n'.format(N=drops['FRQ'], M=args.maf_min)
-			msg += 'At this point, {N} SNPs remain.'.format(N=len(dat))	
-			log.log(msg)
-		else:
-			dat, drops = filter_snps(dat, args, log)
+		msg = 'Read {N} SNPs from --sumstats file.\n'.format(N=tot_snps)
+		if args.merge_alleles:
+			msg += 'Removed {N} SNPs not in --merge-alleles.\n'.format(N=merge_drops)
+			
+		msg += 'Removed {N} SNPs with duplicated rs numbers.\n'.format(N=drops['RS'])
+		msg += 'Removed {N} SNPs with missing values.\n'.format(N=drops['NA'])
+		msg += 'Removed {N} SNPs with out-of-bounds p-values.\n'.format(N=drops['P'])
+		msg += 'Removed {N} SNPs with INFO <= {I}\n'.format(N=drops['INFO'], I=args.info_min)
+		msg += 'Removed {N} SNPs with MAF <= {M}\n'.format(N=drops['FRQ'], M=args.maf_min)
+		msg += 'At this point, {N} SNPs remain.'.format(N=len(dat))	
+		log.log(msg)
 			
 		if len(dat) == 0:
 			raise ValueError('No SNPs remain.')
