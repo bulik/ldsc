@@ -392,7 +392,7 @@ class _sumstats(object):
 		if not args.human_only and n_annot > 1:
 			if not ofh: ofh = args.out+'.hsq_cov'
 			log.log('Printing covariance matrix of the estimates to {F}'.format(F=ofh))
-			np.savetxt(ofh, hsqhat.hsq_cov)
+			np.savetxt(ofh, hsqhat.cat_hsq_cov)
 
 	def _print_gencov_cov(self, args, log, gencovhat, n_annot, ofh=None):
 		'''Prints covariance matrix of slopes'''
