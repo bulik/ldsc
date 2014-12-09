@@ -370,14 +370,6 @@ class Hsq(object):
 		self.prop_hsq_se = self.prop_hsq_j.jknife_se
 		self.prop_hsq_cov = self.prop_hsq_j.jknife_cov
 
-		numer_delete_vals = np.multiply(self.M,self._jknife.delete_values[:,0:self.n_annot])
-		denom_delete_vals = np.sum(numer_delete_vals,axis=1)*np.ones(self.n_annot)
-		prop_hsq_est = self.cat_hsq/self.tot_hsq
-		self.prop_hsq_j = RatioJackknife(prop_hsq_est,numer_delete_vals,denom_delete_vals)
-		self.prop_hsq = self.prop_hsq_j.jknife_est
-		self.prop_hsq_se = self.prop_hsq_j.jknife_se
-		self.prop_hsq_cov = self.prop_hsq_j.jknife_cov
-
 		if intercept is None:
 			self.intercept = self._jknife.est[0,self.n_annot] + 1
 			self.intercept_se = self._jknife.jknife_se[0,self.n_annot]
