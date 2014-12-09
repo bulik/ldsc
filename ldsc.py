@@ -14,13 +14,14 @@ from __future__ import division
 import ldscore.ldscore as ld
 import ldscore.parse as ps
 import ldscore.jackknife as jk
+import ldscore.sumstats as sumstats
 import argparse
 import numpy as np
 import pandas as pd
 from subprocess import call
 from itertools import product
 
-__version__ = '0.0.1 (alpha)'
+__version__ = '0.0.2 (alpha)'
 
 MASTHEAD = "*********************************************************************\n"
 MASTHEAD += "* LD Score Regression (LDSC)\n"
@@ -44,6 +45,7 @@ def _remove_dtype(x):
 	x = x.replace('\ndtype: int64','')
 	x = x.replace('\ndtype: float64','')
 	return x
+	
 
 class logger(object):
 	'''
@@ -52,6 +54,7 @@ class logger(object):
 	TODO: replace with logging module
 	
 	'''
+	
 	def __init__(self, fh):
 		self.log_fh = open(fh, 'wb')
 		
@@ -62,7 +65,7 @@ class logger(object):
 		'''
 		print >>self.log_fh, msg
 		print msg
-	
+			
 
 def __filter__(fname, noun, verb, merge_obj):
 	merged_list = None
@@ -82,29 +85,6 @@ def __filter__(fname, noun, verb, merge_obj):
 
 		return merged_list
 		
-
-def _print_cov(hsqhat, ofh, log):
-	'''Prints covariance matrix of slopes'''
-	log.log('Printing covariance matrix of the estimates to {F}'.format(F=ofh))
-	np.savetxt(ofh, hsqhat.hsq_cov)
-
-
-def _print_gencov_cov(hsqhat, ofh, log):
-	'''Prints covariance matrix of slopes'''
-	log.log('Printing covariance matrix of the estimates to {F}'.format(F=ofh))
-	np.savetxt(ofh, hsqhat.gencov_cov)
-
-
-def _print_delete_k(hsqhat, ofh, log):
-	'''Prints block jackknife delete-k values'''
-	log.log('Printing block jackknife delete-k values to {F}'.format(F=ofh))
-	out_mat = hsqhat._jknife.delete_values
-	if hsqhat.constrain_intercept is None:
-		ncol = out_mat.shape[1]
-		out_mat = out_mat[:,0:ncol-1]
-		
-	np.savetxt(ofh, out_mat)
-
 	
 def annot_sort_key(s):
 	'''For use with --cts-bin. Fixes weird pandas crosstab column order.'''
@@ -517,8 +497,9 @@ def ldscore(args, header=None):
 	elif args.pickle:
 		l2_suffix = '.pickle'
 		log.log("Writing LD Scores for {N} SNPs to {f}.pickle".format(f=out_fname, N=len(df)))
+		df.set_index('SNP')
 		out_fname_pickle = out_fname+l2_suffix
-		df.to_pickle(out_fname_pickle)
+		df.reset_index(drop=True).to_pickle(out_fname_pickle)
 		
 	# print .M
 	if annot_matrix is not None:
@@ -552,7 +533,7 @@ def ldscore(args, header=None):
 			call(['gzip', '-f', out_fname_annot])
 		else:
 			out_fname_annot_pickle = out_fname_annot + '.pickle'
-			annot_df.to_pickle(out_fname_annot_pickle)
+			annot_df.reset_index(drop=True).to_pickle(out_fname_annot_pickle)
 			
 	# print LD Score summary	
 	pd.set_option('display.max_rows', 200)
@@ -591,428 +572,6 @@ def ldscore(args, header=None):
 		log.log(_remove_dtype(row_sums))
 
 
-def sumstats(args, header=None):
-	'''
-	Wrapper function for estmating
-		1. h2 / partitioned h2
-		2. genetic covariance / correlation
-		3. LD Score regression intercept
-	
-	from reference panel LD and GWAS summary statistics.
-	
-	'''
-	
-	# open output files
-	log = logger(args.out + ".log")
-	if header:
-		log.log(header)
-	
-	# read .chisq or betaprod
-	try:
-		if args.h2:
-			chisq = args.h2+'.chisq.gz'
-			log.log('Reading summary statistics from {S}.'.format(S=chisq))
-			sumstats = ps.chisq(chisq)
-		elif args.intercept:
-			chisq = args.intercept+'.chisq.gz'
-			log.log('Reading summary statistics from {S}.'.format(S=chisq))
-			sumstats = ps.chisq(chisq)
-		elif args.rg:
-			try:
-				(p1, p2) = args.rg.split(',')
-			except ValueError as e:
-				log.log('Error: argument to --rg must be two .chisq/.allele fileset prefixes separated by a comma.')
-				raise e
-				
-			chisq1 = p1 + '.chisq.gz'
-			chisq2 = p2 + '.chisq.gz'
-			allele1 = p1 + '.allele.gz'
-			allele2 = p2 + '.allele.gz'
-			sumstats = ps.betaprod_fromchisq(chisq1, chisq2, allele1, allele2)
-	except ValueError as e:
-		log.log('Error parsing summary statistics.')
-		raise e
-	
-	log_msg = 'Read summary statistics for {N} SNPs.'
-	log.log(log_msg.format(N=len(sumstats)))
-	
-	log.log('Reading LD Scores...')
-	# read reference panel LD Scores
-	try:
-		if args.ref_ld:
-			ref_ldscores = ps.ldscore(args.ref_ld)
-		elif args.ref_ld_chr:
-			ref_ldscores = ps.ldscore(args.ref_ld_chr, 22)
-		elif args.ref_ld_file:
-			ref_ldscores = ps.ldscore_fromfile(args.ref_ld_file)
-		elif args.ref_ld_file_chr:
-			ref_ldscores = ps.ldscore_fromfile(args.ref_ld_file_chr, 22)	
-		elif args.ref_ld_list:
-			flist = args.ref_ld_list.split(',')
-			ref_ldscores = ps.ldscore_fromlist(flist)
-		elif args.ref_ld_list_chr:
-			flist = args.ref_ld_list_chr.split(',')
-			ref_ldscores = ps.ldscore_fromlist(flist, 22)
-		
-	except ValueError as e:
-		log.log('Error parsing reference LD.')
-		raise e
-				
-	# read --M
-	if args.M:
-		try:
-			M_annot = [float(x) for x in args.M.split(',')]
-		except TypeError as e:
-			raise TypeError('Count not case --M to float: ' + str(e.args))
-		
-		if len(M_annot) != len(ref_ldscores.columns) - 1:
-			msg = 'Number of comma-separated terms in --M must match the number of partitioned'
-			msg += 'LD Scores in --ref-ld'
-			raise ValueError(msg)
-		
-	# read .M or --M-file			
-	else:
-		if args.M_file:
-			if args.ref_ld or args.ref_ld_file or args.ref_ld_list:
-				M_annot = ps.M(args.M_file)	
-			elif args.ref_ld_chr or args.ref_ld_file_chr or args.ref_ld_list_chr:
-				M_annot = ps.M(args.M_file, 22)
-		elif args.not_M_5_50:
-			if args.ref_ld:
-				M_annot = ps.M(args.ref_ld)	
-			elif args.ref_ld_chr:
-				M_annot = ps.M(args.ref_ld_chr, 22)
-			elif args.ref_ld_file:
-				M_annot = ps.M_fromfile(args.ref_ld_file)
-			elif args.ref_ld_file_chr:
-				M_annot = ps.M_fromfile(args.ref_ld_file_chr, 22)
-			elif args.ref_ld_list:
-				flist = args.ref_ld_list.split(',')
-				M_annot = ps.M_fromlist(flist)
-			elif args.ref_ld_list_chr:
-				flist = args.ref_ld_list_chr.split(',')
-				M_annot = ps.M_fromlist(flist, 22)
-		else:
-			if args.ref_ld:
-				M_annot = ps.M(args.ref_ld, common=True)	
-			elif args.ref_ld_chr:
-				M_annot = ps.M(args.ref_ld_chr, 22, common=True)
-			elif args.ref_ld_file:
-				M_annot = ps.M_fromfile(args.ref_ld_file, common=True)
-			elif args.ref_ld_file_chr:
-				M_annot = ps.M_fromfile(args.ref_ld_file_chr, 22, common=True)
-			elif args.ref_ld_list:
-				flist = args.ref_ld_list.split(',')
-				M_annot = ps.M_fromlist(flist, common=True)
-			elif args.ref_ld_list_chr:
-				flist = args.ref_ld_list_chr.split(',')
-				M_annot = ps.M_fromlist(flist, 22, common=True)
-				
-		# filter ref LD down to those columns specified by --keep-ld
-		if args.keep_ld is not None:
-			try:
-				keep_M_indices = [int(x) for x in args.keep_ld.split(',')]
-				keep_ld_colnums = [int(x)+1 for x in args.keep_ld.split(',')]
-			except ValueError as e:
-				raise ValueError('--keep-ld must be a comma-separated list of column numbers: '\
-					+str(e.args))
-	
-			if len(keep_ld_colnums) == 0:
-				raise ValueError('No reference LD columns retained by --keep-ld')
-	
-			keep_ld_colnums = [0] + keep_ld_colnums
-			try:
-				M_annot = [M_annot[i] for i in keep_M_indices]
-				ref_ldscores = ref_ldscores.ix[:,keep_ld_colnums]
-			except IndexError as e:
-				raise IndexError('--keep-ld column numbers are out of bounds: '+str(e.args))
-		
-	log.log('Using M = '+str(np.array(M_annot)).replace('[','').replace(']','') ) # convert to np to use np printoptions
-	ii = np.squeeze(np.array(ref_ldscores.iloc[:,1:len(ref_ldscores.columns)].var(axis=0) == 0))
-	if np.any(ii):
-		log.log('Removing partitioned LD Scores with zero variance')
-		ii = np.insert(ii, 0, False) # keep the SNP column		
-		ref_ldscores = ref_ldscores.ix[:,np.logical_not(ii)]
-		M_annot = [M_annot[i] for i in xrange(1,len(ii)) if not ii[i]]
-		n_annot = len(M_annot)
-			
-	log_msg = 'Read reference panel LD Scores for {N} SNPs.'
-	log.log(log_msg.format(N=len(ref_ldscores)))
-
-	# read regression SNP LD Scores
-	try:
-		if args.w_ld:
-			w_ldscores = ps.ldscore(args.w_ld)
-		elif args.w_ld_chr:
-			w_ldscores = ps.ldscore(args.w_ld_chr, 22)
-
-	except ValueError as e:
-		log.log('Error parsing regression SNP LD')
-		raise e
-	
-	if len(w_ldscores.columns) != 2:
-		raise ValueError('--w-ld must point to a file with a single (non-partitioned) LD Score.')
-	
-	# to keep the column names from being the same
-	w_ldscores.columns = ['SNP','LD_weights'] 
-
-	log_msg = 'Read LD Scores for {N} SNPs to be retained for regression.'
-	log.log(log_msg.format(N=len(w_ldscores)))
-	
-	# merge with reference panel LD Scores 
-	sumstats = pd.merge(ref_ldscores, sumstats, how="inner", on="SNP")
-	if len(sumstats) == 0:
-		raise ValueError('No SNPs remain after merging with reference panel LD')
-	else:
-		log_msg = 'After merging with reference panel LD, {N} SNPs remain.'
-		log.log(log_msg.format(N=len(sumstats)))
-
-	# merge with regression SNP LD Scores
-	sumstats = pd.merge(sumstats, w_ldscores, how="inner", on="SNP")
-	if len(sumstats) <= 1:
-		raise ValueError('No SNPs remain after merging with regression SNP LD')
-	else:
-		log_msg = 'After merging with regression SNP LD, {N} SNPs remain.'
-		log.log(log_msg.format(N=len(sumstats)))
-	
-	ref_ld_colnames = ref_ldscores.columns[1:len(ref_ldscores.columns)]	
-	w_ld_colname = sumstats.columns[-1]
-	del(ref_ldscores); del(w_ldscores)
-	
-	err_msg = 'No SNPs retained for analysis after filtering on {C} {P} {F}.'
-	log_msg = 'After filtering on {C} {P} {F}, {N} SNPs remain.'
-	loop = ['1','2'] if args.rg else ['']
-	var_to_arg = {'infomax': args.info_max, 'infomin': args.info_min, 'maf': args.maf}
-	var_to_cname  = {'infomax': 'INFO', 'infomin': 'INFO', 'maf': 'MAF'}
-	var_to_pred = {'infomax': lambda x: x < args.info_max, 
-		'infomin': lambda x: x > args.info_min, 
-		'maf': lambda x: x > args.maf}
-	var_to_predstr = {'infomax': '<', 'infomin': '>', 'maf': '>'}
-	for v in var_to_arg.keys():
-		arg = var_to_arg[v]; pred = var_to_pred[v]; pred_str = var_to_predstr[v]
-		for p in loop:
-			cname = var_to_cname[v] + p; 
-			if arg is not None:
-				sumstats = ps.filter_df(sumstats, cname, pred)
-				snp_count = len(sumstats)
-				if snp_count == 0:
-					raise ValueError(err_msg.format(C=cname, F=arg, P=pred_str))
-				else:
-					log.log(log_msg.format(C=cname, F=arg, N=snp_count, P=pred_str))
-
-	# check condition number of LD Score Matrix
-	if len(M_annot) > 1:
-		cond_num = np.linalg.cond(sumstats[ref_ld_colnames])
-		if cond_num > 100000:
-			if args.invert_anyway:
-				warn = "WARNING: LD Score matrix condition number is {C}. "
-				warn += "Inverting anyway because the --invert-anyway flag is set."
-				log.log(warn)
-			else:
-				warn = "WARNING: LD Score matrix condition number is {C}. "
-				warn += "Remove collinear LD Scores or force inversion with "
-				warn += "the --invert-anyway flag."
-				log.log(warn.format(C=cond_num))
-				raise ValueError(warn.format(C=cond_num))
-
-	if len(sumstats) < 200000:
-		log.log('WARNING: number of SNPs less than 200k; this is almost always bad.')
-
-	# LD Score regression intercept
-	if args.intercept:
-		log.log('Estimating LD Score regression intercept.')
-		# filter out large-effect loci
-		max_N = np.max(sumstats['N'])
-		if not args.no_filter_chisq:
-			max_chisq = max(0.001*max_N, 20)
-			sumstats = sumstats[sumstats['CHISQ'] < max_chisq]
-			log_msg = 'After filtering on chi^2 < {C}, {N} SNPs remain.'
-			log.log(log_msg.format(C=max_chisq, N=len(sumstats)))
-	
-			snp_count = len(sumstats)
-			if snp_count == 0:
-				raise ValueError(log_msg.format(C=max_chisq, N='no'))
-			else:
-				log.log(log_msg.format(C=max_chisq, N=len(sumstats)))
-
-		snp_count = len(sumstats); n_annot = len(ref_ld_colnames)
-		if snp_count < args.num_blocks:
-			args.num_blocks = snp_count
-
-		log.log('Estimating standard errors using a block jackknife with {N} blocks.'.format(N=args.num_blocks))
-
-		ref_ld = np.matrix(sumstats[ref_ld_colnames]).reshape((snp_count, n_annot))
-		w_ld = np.matrix(sumstats[w_ld_colname]).reshape((snp_count, 1))
-		M_annot = np.matrix(M_annot).reshape((1, n_annot))
-		chisq = np.matrix(sumstats.CHISQ).reshape((snp_count, 1))
-		N = np.matrix(sumstats.N).reshape((snp_count,1))
-		del sumstats
-		hsqhat = jk.Hsq(chisq, ref_ld, w_ld, N, M_annot, args.num_blocks)				
-		log.log(hsqhat.summary_intercept())
-		return hsqhat
-		
-	# LD Score regression to estimate h2
-	elif args.h2:
-	
-		log.log('Estimating heritability.')
-		max_N = np.max(sumstats['N'])
-		if not args.no_filter_chisq:
-			max_chisq = max(0.001*max_N, 80)
-			sumstats = sumstats[sumstats['CHISQ'] < max_chisq]
-			log_msg = 'After filtering on chi^2 < {C}, {N} SNPs remain.'
-			log.log(log_msg.format(C=max_chisq, N=len(sumstats)))
-			
-		snp_count = len(sumstats); n_annot = len(ref_ld_colnames)
-		if snp_count < args.num_blocks:
-			args.num_blocks = snp_count
-
-		log.log('Estimating standard errors using a block jackknife with {N} blocks.'.format(N=args.num_blocks))
-		ref_ld = np.matrix(sumstats[ref_ld_colnames]).reshape((snp_count, n_annot))
-		w_ld = np.matrix(sumstats[w_ld_colname]).reshape((snp_count, 1))
-		M_annot = np.matrix(M_annot).reshape((1,n_annot))
-		chisq = np.matrix(sumstats.CHISQ).reshape((snp_count, 1))
-		N = np.matrix(sumstats.N).reshape((snp_count,1))
-		del sumstats
-
-		if args.no_intercept:
-			args.constrain_intercept = 1
-
-		if args.constrain_intercept:
-			try:
-				intercept = float(args.constrain_intercept)
-			except Exception as e:
-				err_type = type(e).__name__
-				e = ' '.join([str(x) for x in e.args])
-				e = err_type+': '+e
-				msg = 'Could not coerce argument to --constrain-intercept to floats.\n '+e
-				raise ValueError(msg)
-				
-			log.log('Constraining LD Score regression intercept = {C}.'.format(C=intercept))
-			hsqhat = jk.Hsq(chisq, ref_ld, w_ld, N, M_annot, args.num_blocks,
-				args.non_negative, intercept)
-					
-		elif args.aggregate:
-			if args.annot:
-				annot = ps.AnnotFile(args.annot)
-				num_annots,ma = len(annot.df.columns) - 4, len(annot.df)
-				log.log("Read {A} annotations for {M} SNPs from {f}.".format(f=args.annot,
-					A=num_annots,	M=ma))
-				annot_matrix = np.matrix(annot.df.iloc[:,4:])
-			else:
-				raise ValueError("No annot file specified.")
-
-			hsqhat = jk.Hsq_aggregate(chisq, ref_ld, w_ld, N, M_annot, annot_matrix, args.num_blocks)
-		else:
-			hsqhat = jk.Hsq(chisq, ref_ld, w_ld, N, M_annot, args.num_blocks, args.non_negative)
-		
-		if not args.human_only and n_annot > 1:
-			hsq_cov_ofh = args.out+'.hsq.cov'
-			_print_cov(hsqhat, hsq_cov_ofh, log)
-					
-		if args.print_delete_vals:
-			hsq_delete_ofh = args.out+'.delete_k'
-			_print_delete_k(hsqhat, hsq_delete_ofh, log)
-	
-		log.log(hsqhat.summary(ref_ld_colnames, args.overlap_annot))
-		return [M_annot,hsqhat]
-
-
-	# LD Score regression to estimate genetic correlation
-	elif args.rg or args.rg or args.rg:
-		log.log('Estimating genetic correlation.')
-
-		max_N1 = np.max(sumstats['N1'])
-		max_N2 = np.max(sumstats['N2'])
-		if not args.no_filter_chisq:
-			max_chisq1 = max(0.001*max_N1, 80)
-			max_chisq2 = max(0.001*max_N2, 80)
-			chisq1 = sumstats.BETAHAT1**2 * sumstats.N1
-			chisq2 = sumstats.BETAHAT2**2 * sumstats.N2
-			ii = np.logical_and(chisq1 < max_chisq1, chisq2 < max_chisq2)
-			sumstats = sumstats[ii]
-			log_msg = 'After filtering on chi^2 < ({C},{D}), {N} SNPs remain.'
-			log.log(log_msg.format(C=max_chisq1, D=max_chisq2, N=np.sum(ii)))
-
-		snp_count = len(sumstats); n_annot = len(ref_ld_colnames)
-		if snp_count < args.num_blocks:
-			args.num_blocks = snp_count
-
-		log.log('Estimating standard errors using a block jackknife with {N} blocks.'.format(N=args.num_blocks))
-		ref_ld = np.matrix(sumstats[ref_ld_colnames]).reshape((snp_count, n_annot))
-		w_ld = np.matrix(sumstats[w_ld_colname]).reshape((snp_count, 1))
-		M_annot = np.matrix(M_annot).reshape((1, n_annot))
-		betahat1 = np.matrix(sumstats.BETAHAT1).reshape((snp_count, 1))
-		betahat2 = np.matrix(sumstats.BETAHAT2).reshape((snp_count, 1))
-		N1 = np.matrix(sumstats.N1).reshape((snp_count,1))
-		N2 = np.matrix(sumstats.N2).reshape((snp_count,1))
-		del sumstats
-		
-		if args.no_intercept:
-			args.constrain_intercept = "1,1,0"
-		
-		if args.constrain_intercept:
-			intercepts = args.constrain_intercept.split(',')
-			if len(intercepts) != 3:
-				msg = 'If using --constrain-intercept with --sumstats-gencor, must specify a ' 
-				msg += 'comma-separated list of three intercepts. '
-				msg += 'The first two for the h2 estimates; the third for the gencov estimate.'
-				raise ValueError(msg)
-	
-			try:
-				intercepts = [float(x) for x in intercepts]
-			except Exception as e:
-				err_type = type(e).__name__
-				e = ' '.join([str(x) for x in e.args])
-				e = err_type+': '+e
-				msg = 'Could not coerce arguments to --constrain-intercept to floats.\n '+e
-				raise ValueError(msg)
-			
-			log.log('Constraining intercept for first h2 estimate to {I}'.format(I=str(intercepts[0])))
-			log.log('Constraining intercept for second h2 estimate to {I}'.format(I=str(intercepts[1])))
-			log.log('Constraining intercept for gencov estimate to {I}'.format(I=str(intercepts[2])))
-
-		else:
-			intercepts = [None, None, None]
-		
-		rghat = jk.Gencor(betahat1, betahat2, ref_ld, w_ld, N1, N2, M_annot, intercepts,
-			args.overlap,	args.rho, args.num_blocks, return_silly_things=args.return_silly_things)
-
-		if not args.human_only and n_annot > 1:
-			gencov_jknife_ofh = args.out+'.gencov.cov'
-			hsq1_jknife_ofh = args.out+'.hsq1.cov'
-			hsq2_jknife_ofh = args.out+'.hsq2.cov'	
-			_print_cov(rghat.hsq1, hsq1_jknife_ofh, log)
-			_print_cov(rghat.hsq2, hsq2_jknife_ofh, log)
-			_print_gencov_cov(rghat.gencov, gencov_jknife_ofh, log)
-		
-		if args.print_delete_vals:
-			hsq1_delete_ofh = args.out+'.hsq1.delete_k'
-			_print_delete_k(rghat.hsq1, hsq1_delete_ofh, log)
-			hsq2_delete_ofh = args.out+'.hsq2.delete_k'
-			_print_delete_k(rghat.hsq2, hsq2_delete_ofh, log)
-			gencov_delete_ofh = args.out+'.gencov.delete_k'
-			_print_delete_k(rghat.gencov, gencov_delete_ofh, log)
-
-		log.log( '\n' )
-		log.log( 'Heritability of first phenotype' )
-		log.log( '-------------------------------' )
-		log.log(rghat.hsq1.summary(ref_ld_colnames, args.overlap_annot))
-		log.log( '\n' )
-		log.log( 'Heritability of second phenotype' )
-		log.log( '--------------------------------' )
-		log.log(rghat.hsq2.summary(ref_ld_colnames, args.overlap_annot))
-		log.log( '\n' )
-		log.log( 'Genetic Covariance' )
-		log.log( '------------------' )
-		log.log(rghat.gencov.summary(ref_ld_colnames, args.overlap_annot))
-		log.log( '\n' )
-		log.log( 'Genetic Correlation' )
-		log.log( '-------------------' )
-		log.log(rghat.summary() )
-		
-		return [M_annot,rghat]
-
-
 if __name__ == '__main__':
 	parser = argparse.ArgumentParser()
 		
@@ -1022,13 +581,19 @@ if __name__ == '__main__':
 		
 	# Basic LD Score Estimation Flags'
 	parser.add_argument('--bfile', default=None, type=str, 
-		help='Filename prefix for plink .bed/.bim/.fam file. '
-		'The syntax is the same as with plink.  '
-		'LDSC will automatically append .bed/.bim/.fam.')
-	parser.add_argument('--l2', default=False, action='store_true',
-		help='This flag tells LDSC to estimate LD Score. '
-		'In order to estimate LD Score, you must also set the --bfile flag and '
-		'one of the --ld-wind-* flags.')
+		help='Prefix for Plink .bed/.bim/.fam file')
+	parser.add_argument('--annot', default=None, type=str, 
+		help='Filename for annotation file for partitioned LD Score estimation')
+	parser.add_argument('--cts-bin', default=None, type=str, 
+		help='Filenames for multiplicative cts binned LD Score estimation')
+	parser.add_argument('--cts-bin-add', default=None, type=str, 
+		help='Filenames for additive cts binned LD Score estimation')
+	parser.add_argument('--cts-breaks', default=None, type=str, 
+		help='Comma separated list of breaks for --cts-bin. Specify negative numbers with an N instead of a -')
+	parser.add_argument('--cts-names', default=None, type=str, 
+		help='Comma separated list of column names for --cts-bin.')
+
+	# Filtering / Data Management for LD Score
 	parser.add_argument('--extract', default=None, type=str, 
 		help='File with SNPs to include in LD Score estimation. '
 		'The file should contain one SNP ID per row.')
@@ -1106,11 +671,9 @@ if __name__ == '__main__':
 		'LDSC will automatically append .chisq or .chisq.gz to the filename prefix.'
 		'--h2 requires at minimum also setting the --ref-ld and --w-ld flags.')
 	parser.add_argument('--rg', default=None, type=str,
-		help='Comma-separated list of two filename prefixes for .chisq/.allele filesets for '
-		' two-phenotype LD Score regression. '
-		'LDSC will automatically append .chisq/.allele or .chisq.gz/.allele.gz '
-		' to the filename prefixes.'
-		'--rg requires at minimum also setting the --ref-ld and --w-ld flags.')
+		help='Comma-separated list of prefixes of .chisq filed for genetic correlation estimation.')
+	parser.add_argument('--rg-list', default=None, type=str,
+		help='File containing a list of prefixes of .chisq files (one per line) for genetic correlation estimation.')
 	parser.add_argument('--ref-ld', default=None, type=str,
 		help='Use --ref-ld to tell LDSC which LD Scores to use as the predictors in the LD '
 		'Score regression. '
@@ -1145,7 +708,10 @@ if __name__ == '__main__':
 		'and prevents LDSC from displaying output that is meaningless with overlapping categories.')
 
 	parser.add_argument('--no-filter-chisq', default=False, action='store_true',
-		help='Setting this flag prevents LDSC from removing huge-effect SNPs from the regression.')
+		help='Don\'t remove SNPs with large chi-square.')
+	parser.add_argument('--max-chisq', default=None, type=float,
+		help='Max chi^2 for SNPs in the regression.')
+
 	parser.add_argument('--no-intercept', action='store_true',
 		help = 'If used with --h2, this constrains the LD Score regression intercept to equal '
 		'1. If used with --rg, this constrains the LD Score regression intercepts for the h2 '
@@ -1212,28 +778,26 @@ if __name__ == '__main__':
 		help='This flag tells LDSC to use the .l2.M file instead of the .l2.M_5_50 file.')
 	parser.add_argument('--return-silly-things', default=False, action='store_true',
 		help='Force ldsc to return silly genetic correlation estimates.')
-	parser.add_argument('--keep-ld', default=None, type=str,
-		help='Zero-indexed column numbers of LD Scores to keep for LD Score regression.')
-	parser.add_argument('--M', default=None, type=str,	
-		help='This flag allows one to enter a value of M at the command line as a comma-'
-		'separated list of numbers.')
-	parser.add_argument('--M-file', default=None, type=str,
-		help='Alternate .M file (e.g., if you want to use .M_5_50). LDSC will automatically '
-		'append .l2.M.')
+	parser.add_argument('--no-check', default=True, action='store_false',
+		help='Don\'t check the contents of chisq files. These checks can be slow, and are '
+		'redundant for chisq files generated using sumstats_to_chisq.py.')
+	parser.add_argument('--no-check-alleles', default=False, action='store_true',
+		help='For rg estimation, skip checking whether the alleles match. This check is '
+		'redundant for pairs of chisq files generated using sumstats_to_chisq.py with the '
+		'--merge-alleles flag.')
+	parser.add_argument('--slow', default=False, action='store_true',
+		help='Use a slow (but possibly more numerically stable) jackknife algorithm.')
+	parser.add_argument('--print-coefficients',default=False,action='store_true',
+		help='when categories are overlapping, print coefficients as well as heritabilities.')
+	parser.add_argument('--frqfile', type=str, 
+		help='For use with --overlap-annot. Provides allele frequencies to prune to common '
+		'snps if --not-M-5-50 is not set.')
 
-	# Out of commission flags	
-	#parser.add_argument('--l1', default=False, action='store_true',
-	#	help='Estimate l1 w.r.t. sample minor allele.')
-	#parser.add_argument('--l1sq', default=False, action='store_true',
-	#	help='Estimate l1 ^ 2 w.r.t. sample minor allele.')
-	#parser.add_argument('--bin', default=None, type=str, 
-	#	help='Prefix for binary VCF file')
-	#parser.add_argument('--l4', default=False, action='store_true',
-	#	help='Estimate l4. Only compatible with jackknife.')
-	#parser.add_argument('--se', action='store_true', 
-	#	help='Block jackknife SE? (Warning: somewhat slower)')
-	#parser.add_argument('--freq', default=False, action='store_true',
-	#	help='Compute reference allele frequencies (useful for .bin files).')
+
+	args = parser.parse_args()
+	
+	if args.no_check_alleles:
+		args.no_check = False
 
 	args = parser.parse_args()
 	defaults = vars(parser.parse_args(''))
@@ -1245,6 +809,14 @@ if __name__ == '__main__':
 	options = ['--'+x.replace('_','-')+' '+str(opts[x]) for x in non_defaults]
 	header += '\n'.join(options).replace('True','').replace('False','')
 	header += '\n'
+	
+	if args.constrain_intercept:
+		args.constrain_intercept = args.constrain_intercept.replace('N','-')
+	
+	if args.w_ld:
+		args.w_ld = args.w_ld
+	elif args.w_ld_chr:
+		args.w_ld_chr = args.w_ld_chr
 	
 	if args.num_blocks <= 1:
 		raise ValueError('--num-blocks must be an integer > 1.')
@@ -1284,13 +856,13 @@ if __name__ == '__main__':
 	elif (args.h2 or 
 		args.rg or 
 		args.intercept or 
-		args.rg) and\
+		args.rg_list) and\
 		(args.ref_ld or args.ref_ld_chr or args.ref_ld_file or args.ref_ld_file_chr\
 		 or args.ref_ld_list or args.ref_ld_list_chr) and\
 		(args.w_ld or args.w_ld_chr):
 		
-		if np.sum(np.array((args.intercept, args.h2, args.rg)).astype(bool)) > 1:	
-			raise ValueError('Cannot specify more than one of --h2, --rg, --intercept.')
+		if np.sum(np.array((args.intercept, args.h2, args.rg or args.rg_list)).astype(bool)) > 1:	
+			raise ValueError('Cannot specify more than one of --h2, --rg, --intercept, --rg-list.')
 		if args.ref_ld and args.ref_ld_chr:
 			raise ValueError('Cannot specify both --ref-ld and --ref-ld-chr.')
 		if args.ref_ld_list and args.ref_ld_list_chr:
@@ -1300,16 +872,80 @@ if __name__ == '__main__':
 		if args.w_ld and args.w_ld_chr:
 			raise ValueError('Cannot specify both --w-ld and --w-ld-chr.')
 		if args.rho or args.overlap:
-			if not args.rg:
+			if not args.rg or args.rg_list:
 				raise ValueError('--rho and --overlap can only be used with --rg.')
 			if not (args.rho and args.overlap):
 				raise ValueError('Must specify either both or neither of --rho and --overlap.')
-					
-		sumstats(args, header)
 		
+		if args.rg or args.rg_list:
+			sumstats.Rg(args, header)
+		elif args.h2:
+			sumstats.H2(args, header)
+		elif args.intercept:
+			sumstats.Intercept(args, header)		
 		
 	# bad flags
 	else:
 		print header
 		print 'Error: no analysis selected.'
 		print 'ldsc.py --help describes all options.'
+
+
+# def freq(args):
+# 	'''
+# 	Computes and prints reference allele frequencies. Identical to plink --freq. In fact,
+# 	use plink --freq instead with .bed files; it's faster. This is useful for .bin files,
+# 	which are a custom LDSC format.
+# 	
+# 	TODO: the MAF computation is inefficient, because it also filters the genotype matrix
+# 	on MAF. It isn't so slow that it really matters, but fix this eventually. 
+# 	
+# 	'''
+# 	log = logger(args.out+'.log')
+# 	if header:
+# 		log.log(header)
+# 		
+# 	if args.bin:
+# 		snp_file, snp_obj = args.bin+'.bim', ps.PlinkBIMFile
+# 		ind_file, ind_obj = args.bin+'.ind', ps.VcfINDFile
+# 		array_file, array_obj = args.bin+'.bin', ld.VcfBINFile
+# 	elif args.bfile:
+# 		snp_file, snp_obj = args.bfile+'.bim', ps.PlinkBIMFile
+# 		ind_file, ind_obj = args.bfile+'.fam', ps.PlinkFAMFile
+# 		array_file, array_obj = args.bfile+'.bed', ld.PlinkBEDFile
+# 
+# 	# read bim/snp
+# 	array_snps = snp_obj(snp_file)
+# 	m = len(array_snps.IDList)
+# 	log.log('Read list of {m} SNPs from {f}'.format(m=m, f=snp_file))
+# 	
+# 	# read fam/ind
+# 	array_indivs = ind_obj(ind_file)
+# 	n = len(array_indivs.IDList)	 
+# 	log.log('Read list of {n} individuals from {f}'.format(n=n, f=ind_file))
+# 	
+# 	# read --extract
+# 	if args.extract is not None:
+# 		keep_snps = __filter__(args.extract, 'SNPs', 'include', array_snps)
+# 	else:
+# 		keep_snps = None
+# 	
+# 	# read keep_indivs
+# 	if args.keep:
+# 		keep_indivs = __filter__(args.keep, 'individuals', 'include', array_indivs)
+# 	else:
+# 		keep_indivs = None
+# 	
+# 	# read genotype array
+# 	log.log('Reading genotypes from {fname}'.format(fname=array_file))
+# 	geno_array = array_obj(array_file, n, array_snps, keep_snps=keep_snps,
+# 		keep_indivs=keep_indivs)
+# 	
+# 	frq_df = array_snps.df.ix[:,['CHR', 'SNP', 'A1', 'A2']]
+# 	frq_array = np.zeros(len(frq_df))
+# 	frq_array[geno_array.kept_snps] = geno_array.freq
+# 	frq_df['FRQ'] = frq_array
+# 	out_fname = args.out + '.frq'
+# 	log.log('Writing reference allele frequencies to {O}.gz'.format(O=out_fname))
+# 	frq_df.to_csv(out_fname, sep="\t", header=True, index=False)	
+# 	call(['gzip', '-f', out_fname])

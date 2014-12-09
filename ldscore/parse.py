@@ -1,8 +1,15 @@
+'''
+(c) 2014 Brendan Bulik-Sullivan and Hilary Finucane
+
+This module contains functions for parsing various ldsc-defined file formats
+
+'''
+
 from __future__ import division
 import numpy as np
 import pandas as pd
 from scipy.special import chdtri
-import gzip
+import gzip, bz2
 import os
 
 
@@ -12,6 +19,8 @@ def get_compression(fh):
 		compression='gzip'
 	elif fh.endswith('bz2'):
 		compression='bz2'
+	elif fh.endswith('pickle'):
+		compression='pickle'
 	else:
 		compression=None
 	return compression
@@ -24,16 +33,16 @@ def filter_df(df, colname, pred):
 	Parameters
 	----------
 	df : pd.DataFrame
-		Data frame to filter.
+			Data frame to filter.
 	colname : string
-		Name of a column in df.
+			Name of a column in df.
 	pred : function
-		Function that takes one argument (the data type of colname) and returns True or False.
-		
+			Function that takes one argument (the data type of colname) and returns True or False.
+			
 	Returns
 	-------
 	df2 : pd.DataFrame
-		Filtered version of df. 
+			Filtered version of df. 
 	
 	'''
 	if colname in df.columns:
@@ -65,13 +74,13 @@ def check_rsid(rsids):
 	'''
 	# check for rsid = .
 	#if np.any(rsids == '.'):
-	#	raise ValueError('Some SNP identifiers are set to . (a dot).')
+	#		raise ValueError('Some SNP identifiers are set to . (a dot).')
 	
 	# check for duplicate rsids
 	#if np.any(rsids.duplicated('SNP')):
-	#	raise ValueError('Duplicated SNP identifiers.')
+	#		raise ValueError('Duplicated SNP identifiers.')
 
-	
+		
 def check_pvalue(P):
 	'''
 	Checks that P values are sensible. Nonsense values should have been caught already by 
@@ -119,8 +128,8 @@ def check_maf(maf):
 		raise ValueError('MAF >= 1.')
 	if np.min(maf) <= 0:
 		raise ValueError('MAF <= 0.')
-	
-	
+		
+		
 def check_N(N):
 	'''
 	Checks that sample sizes are sensible. Nonsense values should have been caught already 
@@ -144,13 +153,13 @@ def cut_cts(vec, breaks):
 	if np.all(cut_breaks <= max_cts):
 		name_breaks.append(max_cts)
 		cut_breaks.append(max_cts+1)
-		
-	if np.all(cut_breaks >= min_cts):	
+			
+	if np.all(cut_breaks >= min_cts):		
 		name_breaks.append(min_cts)
 		cut_breaks.append(min_cts-1)
 
 	name_breaks.sort()
-	cut_breaks.sort()		
+	cut_breaks.sort()				
 	n_breaks = len(cut_breaks)
 	# so that col names are consistent across chromosomes with different max vals
 	name_breaks[0] = 'min'
@@ -178,7 +187,8 @@ def read_cts(fh, match_snps):
 	return cts.ANNOT.values
 
 
-def chisq(fh):
+def chisq(fh, require_alleles=False, keep_na=False, check=True):
+
 	'''
 	Parses .chisq files. See docs/file_formats_sumstats.txt
 	
@@ -193,183 +203,97 @@ def chisq(fh):
 		'N': float,
 		'MAF': float,
 		'INFO': float,
+		'INC_ALLELE': str,
+		'DEC_ALLELE': str
 	}
-	if fh.endswith('gz'):
-		openfunc = gzip.open
-		compression='gzip'
-	else:
-		openfunc = open
-		compression=None
+	
+	compression = get_compression(fh)
+	if compression != 'pickle':
+		if compression == 'gzip':
+			openfunc = gzip.open
+		elif compression == 'bz2':
+			raise NotImplementedError('bzipped chisq files not currently supported.')
+		else:
+			openfunc = open
 		
-	colnames = openfunc(fh,'rb').readline().split()
-	usecols = ['SNP','P','CHISQ','N','MAF','INFO']	
-	usecols = [x for x in usecols if x in colnames]
-	try:
-		x = pd.read_csv(fh, header=0, delim_whitespace=True, usecols=usecols, 
-			dtype=dtype_dict, compression=compression)
-	except AttributeError as e:
-		raise AttributeError('Improperly formatted chisq file: '+str(e.args))
-
-	try:
-		check_N(x['N'])	
-	except KeyError as e:
-		raise KeyError('No column named N in .betaprod: '+str(e.args))
-
-	x['N'] = x['N'].astype(float)
-	
-	try:
-		check_rsid(x['SNP'])
-	except KeyError as e:
-		raise KeyError('No column named SNP in .betaprod: '+str(e.args))
-	
-	if 'MAF' in x.columns:
-		check_maf(x['MAF'])
-		x['MAF'] = np.fmin(x['MAF'], 1-x['MAF'])
+		colnames = openfunc(fh,'rb').readline().split()
+		if require_alleles:
+			usecols = ['SNP','P','CHISQ','N','MAF','INFO','INC_ALLELE','DEC_ALLELE']	
+		else:
+			usecols = ['SNP','P','CHISQ','N','MAF','INFO']	
+		
+		usecols = [x for x in usecols if x in colnames]
+		try:
+			x = pd.read_csv(fh, header=0, delim_whitespace=True, usecols=usecols, 
+				dtype=dtype_dict, compression=compression)
+		except AttributeError as e:
+			raise AttributeError('Improperly formatted chisq file: '+str(e.args))
+			
+	else: 
+		x = pd.read_pickle(fh).reset_index(drop=True)
 	
 	if 'P' in x.columns:
-		check_pvalue(x['P'])
-		x['P'] = chdtri(1, x['P']); 
+		ii = x.P.notnull()
+		check_pvalue(x.loc[ii,'P'])
+		x.loc[ii,'P'] = chdtri(1, x.loc[ii,'P'])
 		x.rename(columns={'P': 'CHISQ'}, inplace=True)
-	elif 'CHISQ' in x.columns:
-		check_chisq(x['CHISQ'])
-	else:
-		raise ValueError('.chisq file must have a column labeled either P or CHISQ.')
-
-	return x
-
-	
-def betaprod_fromchisq(chisq1, chisq2, allele1, allele2):
-	''' 
-	Makes a betaprod data frame from two chisq files and two trait-increasing-allele files.
-	The allele files have a SNP column and an INC_ALLELE, and INC_ALLELE.
-	'''
-
-	df_chisq1 = chisq(chisq1)
-	df_chisq1['BETAHAT1'] = np.sqrt(df_chisq1['CHISQ'])/np.sqrt(df_chisq1['N'])
-	df_chisq1.rename(columns={'N':'N1'},inplace=True)
-	del df_chisq1['CHISQ']
-
-	df_chisq2 = chisq(chisq2)
-	df_chisq2['BETAHAT2'] = np.sqrt(df_chisq2['CHISQ'])/np.sqrt(df_chisq2['N'])
-	df_chisq2.rename(columns={'N':'N2'},inplace=True)
-	del df_chisq2['CHISQ']
-	df_merged = pd.merge(df_chisq1,df_chisq2, how='inner', on='SNP')
-	
-	df_allele1 = allele(allele1)
-	df_allele1.rename(columns={'INC_ALLELE':'INC_ALLELE1'},inplace=True)
-	df_merged = pd.merge(df_merged,df_allele1,how='inner', on='SNP')
-
-	df_allele2 = allele(allele2	)
-	df_allele2.rename(columns={'INC_ALLELE':'INC_ALLELE2'},inplace=True)
-	df_merged = pd.merge(df_merged,df_allele2,how='inner', on='SNP')
-
-	df_merged['BETAHAT2'] *= (-1)**(df_merged.INC_ALLELE1 != df_merged.INC_ALLELE2)
-	if 'MAF_x' in df_merged.columns and 'MAF_y' in df_merged.columns:
-		df_merged['MAF'] = np.minimum(df_merged['MAF_x'], df_merged['MAF_y'])
-		
-	return df_merged
-
-
-def allele(fh):
-	'''
-	Parses .allele or .allele.gz files. See docs/file_formats_sumstats.txt
-	
-	'''
-	dtype_dict = {
-		'SNP' : str,
-		'INC_ALLELE': str
-	}	
-	
-	comp = get_compression(fh)
-	try:
-		dat = pd.read_csv(fh, delim_whitespace=True, compression=comp, header=0)
-	except AttributeError as e:
-		raise AttributeError('Improperly formatted allele file: '+str(e.args))
-	
-	try:
-		check_rsid(dat['SNP'])
-	except KeyError as e:
-		raise KeyError('No column named SNP in .betaprod: '+str(e.args))
-	
-	return dat
-
-
-def betaprod(fh):
-	'''
-	Parses .betaprod files. See docs/file_formats_sumstats.txt
-	
-	'''
-	dtype_dict = {
-#		'CHR': str,
-		'SNP': str,
-#		'CM': float,
-#		'BP': int,
-		'P1': float,
-		'CHISQ1': float,
-		'DIR1': float,
-		'N1': int, # cast to int for typechecking, then switch to float later for division
-		'P2': float,
-		'CHISQ2': float,
-		'DIR2': float,
-		'N2': int,
-		'INFO1': float,
-		'INFO2': float,
-		'MAF1': float,
-		'MAF2': float
-	}
-	if fh.endswith('gz'):
-		openfunc = gzip.open
-		compression='gzip'
-	else:
-		openfunc = open
-		compression=None
-
-	colnames = openfunc(fh,'rb').readline().split()
-	usecols = [x+str(i) for i in xrange(1,3) for x in ['DIR','P','CHISQ','N','MAF','INFO']]
-	usecols.append('SNP')
-	usecols = [x for x in usecols if x in colnames]
-	try:
-		x = pd.read_csv(fh, header=0, delim_whitespace=True, usecols=usecols, 
-			dtype=dtype_dict, compression=compression)
-	except AttributeError as e:
-		raise AttributeError('Improperly formatted betaprod file: '+str(e.args))
-		
-	try:
-		check_rsid(x['SNP'])
-	except KeyError as e:
-		raise KeyError('No column named SNP in .betaprod: '+str(e.args))
-	
-	for i in ['1','2']:
-		N='N'+i; P='P'+i; CHISQ='CHISQ'+i; DIR='DIR'+i; MAF='MAF'+i; INFO='INFO'+i
-		BETAHAT='BETAHAT'+i
+			
+	if check:
+		'''
+		Check that all the columns make sense. These checks are somewhat slow, and are 
+		completely redundant for chisq files generated using sumstats_to_chisq.py.
+		'''
 		try:
-			check_N(x[N])
+			check_N(x['N']) 
 		except KeyError as e:
-			raise KeyError('No column named {N} in .betaprod: '.format(N=N)+str(e.args))
-		x[N] = x[N].astype(float)	
-		try:
-			check_dir(x[DIR])
-		except KeyError as e:
-			raise KeyError('No column named {D} in .betaprod: '.format(D=DIR)+str(e.args))
+			raise KeyError('No column named N in .chisq: '+str(e.args))
+
+		x['N'] = x['N'].astype(float)
 	
-		if CHISQ in x.columns:
-			check_chisq(x[CHISQ])
-			betahat = np.sqrt(x[CHISQ]/x[N]) * x[DIR]
-			x[CHISQ] = betahat
-			x.rename(columns={CHISQ: BETAHAT}, inplace=True)
-		elif P in x.columns:
-			check_pvalue(x[P])
-			betahat = np.sqrt(chdtri(1, x[P])/x[N])	* x[DIR]
-			x[P] = betahat
-			x.rename(columns={P: BETAHAT}, inplace=True)
+		try:
+			check_rsid(x.SNP)
+		except KeyError as e:
+			raise KeyError('No column named SNP in .chisq: '+str(e.args))
+	
+		ii = x.N.notnull()
+		if 'MAF' in x.columns:
+			maf = x.loc[ii, 'MAF']
+			check_maf(maf)
+			x.loc[ii,'MAF'] = np.fmin(maf, 1-maf)	
+		elif 'CHISQ' in x.columns:
+			check_chisq(x.loc[ii,'CHISQ'])
 		else:
-			raise ValueError('No column named P{i} or CHISQ{i} in betaprod.'.format(i=i))
-
-		del x[DIR]
-		if MAF in x.columns:
-			check_maf(x[MAF])
-			x[MAF]  = np.minimum(x[MAF], 1-x[MAF])
+			raise ValueError('.chisq file must have a column labeled either P or CHISQ.')
 		
+		if require_alleles:
+			'''
+			Checks that only matter for rg estimation, where the alleles need to be aligned to
+			the same ref allele. These checks are redundant for chisq files generated using
+			sumstats_to_chisq.py and --merge-alleles.
+					
+			'''
+			if not ('INC_ALLELE' in x.columns and 'DEC_ALLELE' in x.columns):
+				msg = '.chisq file must have an INC_ALLELE and DEC_ALLELE column for rg estimation.'
+				raise ValueError(msg)
+
+			x.INC_ALLELE[ii] = x.INC_ALLELE[ii].apply(lambda y: y.upper())
+			y = x.INC_ALLELE[ii].unique()
+			p = ( (y == 'A') | (y == 'C') | (y == 'T') | (y == 'G')).all()
+			if not p:
+				raise ValueError('INC_ALLELE column must contain only A/C/T/G. Do you have indels?')
+
+			x.DEC_ALLELE[ii] = x.DEC_ALLELE[ii].apply(lambda y: y.upper())
+			y = x.DEC_ALLELE[ii].unique()
+			p = ( (y == 'A') | (y == 'C') | (y == 'T') | (y == 'G')).all()
+			if not p:
+				raise ValueError('DEC_ALLELE column must contain only A/C/T/G. Do you have indels?')
+
+			if np.any(x.INC_ALLELE[ii] == x.DEC_ALLELE[ii]):
+				raise ValueError('INC_ALLELE cannot equal DEC_ALLELE.')
+	
+	if not keep_na:
+		x = x[ii]
+
 	return x
 
 
@@ -380,10 +304,17 @@ def ldscore_fromfile(fh, num=None):
 	return ldscore_fromlist(lines, num)
 
 
+def annot_fromfile(fh, num=None, frqfile=None):
+	'''Sideways concatenation of a list of annot matrices from a file.'''
+	f = open(fh,'r')
+	lines = [x.rstrip('\n') for x in f.readlines()]
+	return annot(lines, num, frqfile)
+
+
 def ldscore_fromlist(flist, num=None):
 	'''Sideways concatenation of a list of LD Score files.'''
 	ldscore_array = []
-	for i,fh in enumerate(flist):			
+	for i,fh in enumerate(flist):						
 		fh = fh.rstrip('\n')
 		y = ldscore(fh, num)
 		if i > 0:
@@ -391,14 +322,14 @@ def ldscore_fromlist(flist, num=None):
 				msg = 'All files in --ref-ld-list or --ref-ld-file must contain the same SNPs '
 				msg += 'in the same order.'
 				raise ValueError(msg)
-				
+					
 			y = y.ix[:,1:len(y.columns)] # remove SNP column
 		
 		# force unique column names
 		new_col_dict = {c: c+'_'+str(i) for c in y.columns if c != 'SNP'}
 		y.rename(columns=new_col_dict, inplace=True)
 		ldscore_array.append(y) 
-		
+			
 	x = pd.concat(ldscore_array, axis=1) 
 	return x
 
@@ -420,21 +351,49 @@ def which_compression(fh):
 	else:
 		msg = 'Could not open {F}[.pickle/gz/bz2]'
 		raise IOError(msg.format(F=fh))
-		
-
+			
 	return [suffix, compression]
 
 
 def l2_parser(fh, compression):
 	'''For parsing LD Score files'''
 	if compression == "gzip" or compression == 'bz2' or compression == None:
-		x = pd.read_csv(fh, header=0, delim_whitespace=True,	compression=compression)
+		x = pd.read_csv(fh, header=0, delim_whitespace=True, compression=compression)
+	elif compression == 'pickle':
+		x = pd.read_pickle(fh).reset_index(drop=True)
+					
+	return x.drop(['MAF','CM'], axis=1)
+
+
+def annot_parser(fh, compression, frqfile_full=None, compression_frq=None):
+	'''For parsing LD Score files'''
+	if compression == "gzip" or compression == 'bz2' or compression == None:
+		x = pd.read_csv(fh, header=0, delim_whitespace=True, compression=compression)
 	elif compression == 'pickle':
 		x = pd.read_pickle(fh)
-		
-	return x.drop(['CHR','BP','CM','MAF'], axis=1)
-		
-		
+	df_annot = x.drop(['CHR','BP','CM'], axis=1)
+
+	for name in df_annot.columns[1:]:
+		df_annot[name] = df_annot[name].astype(float)
+	
+	if frqfile_full is not None:
+		df_frq = frq_parser(frqfile_full, compression_frq) 
+		frq = np.array(df_frq['FRQ'])
+		df_annot = df_annot[frq > 0.05]
+		df_annot = df_annot[frq < 0.95]
+
+	return df_annot
+
+
+def frq_parser(fh, compression):
+	'''For parsing frequency files'''
+	if compression == "gzip" or compression == 'bz2' or compression == None:
+		x = pd.read_csv(fh, header=0, delim_whitespace=True,		compression=compression)
+	elif compression == 'pickle':
+		x = pd.read_pickle(fh)
+	return x
+				
+				
 def ldscore(fh, num=None):
 	'''
 	Parses .l2.ldscore files. See docs/file_formats_ld.txt
@@ -443,10 +402,7 @@ def ldscore(fh, num=None):
 	output of parallelizing ldsc.py --l2 across chromosomes).
 
 	'''
-						
-	parsefunc = lambda y, compression : pd.read_csv(y, header=0, delim_whitespace=True,
-		compression=compression).drop(['CHR','BP','CM','MAF'], axis=1)
-	
+											
 	if num is not None:
 		'''22 files, one for each chromosome'''
 		suffix = '.l2.ldscore'
@@ -456,13 +412,15 @@ def ldscore(fh, num=None):
 			first_fh = fh+'1'+suffix
 		
 		[s, compression] = which_compression(first_fh)
-		suffix += s		
+		suffix += s			
 		if '@' in fh:
 			chr_ld = [l2_parser(fh.replace('@',str(i))+suffix, compression) for i in xrange(1,num+1)]
 		else:
 			chr_ld = [l2_parser(fh + str(i) + suffix, compression) for i in xrange(1,num+1)]
-
+		
+		# automatically sorted by chromosome
 		x = pd.concat(chr_ld)
+ 		x = x.drop(['CHR','BP'], axis=1)
 	
 	else:
 		'''Just one file'''
@@ -470,20 +428,112 @@ def ldscore(fh, num=None):
 		[s, compression] = which_compression(fh+suffix)
 		suffix += s
 		x = l2_parser(fh+suffix, compression)
+ 		# may need to sort
+ 		x = x.sort(['CHR','BP'])
+ 		x = x.drop(['CHR','BP'], axis=1)
+ 		
+	x = x.drop_duplicates(subset='SNP')
+	x = x[x.SNP != '.']			
+	#check_rsid(x.index) 
+	#for col in x.columns[1:]:
+	#		 x[col] = x[col].astype(float)
 	
-	ii = x['SNP'] != '.'
-	x = x[ii]	
-	check_rsid(x['SNP']) 
-	for col in x.columns[1:]:
-		x[col] = x[col].astype(float)
+	return x		
+				
+def annot(fh_list, num=None, frqfile=None):
+
+	'''
+	Parses .annot files and returns an overlap matrix. See docs/file_formats_ld.txt
+
+	If num is not None, parses .annot files split across [num] chromosomes (e.g., the 
+	output of parallelizing ldsc.py --l2 across chromosomes).
+
+	'''
+		
+	if num is not None:
+		'''22 files, one for each chromosome'''
+		annot_suffix = ['.annot' for fh in fh_list]
+		annot_compression = []
+		for (i,fh) in enumerate(fh_list):
+			if '@' in fh:
+					first_fh = fh.replace('@', '1')+annot_suffix[i]
+			else:
+					first_fh = fh+'1'+annot_suffix[i]
+			[annot_s,annot_comp_single] = which_compression(first_fh)
+			annot_suffix[i] += annot_s 
+			annot_compression.append(annot_comp_single)
+
+		if frqfile is not None:
+			frq_suffix = '.frq'
+			if '@' in frqfile:
+				first_frqfile = frqfile.replace('@', '1')+frq_suffix
+			else:
+				first_frqfile = frqfile+'1'+frq_suffix
+			[frq_s, frq_compression] = which_compression(first_frqfile)
+			frq_suffix += frq_s			
+		
+		y = []
+		M_tot = 0
+		for chr in xrange(1,num+1):
+
+			if '@' in fh_list[0]:
+				if frqfile is not None:
+					df_annot_chr_list = [annot_parser(fh.replace('@',str(chr))+annot_suffix[i], annot_compression[i],
+						frqfile.replace('@',str(chr))+frq_suffix,frq_compression) for (i,fh) in enumerate(fh_list)]
+				else:
+					df_annot_chr_list = [annot_parser(fh.replace('@',str(chr))+annot_suffix[i], annot_compression[i])
+						for (i,fh) in enumerate(fh_list)]
+			else:
+				if frqfile is not None:
+					df_annot_chr_list = [annot_parser(fh + str(chr) + annot_suffix[i], annot_compression[i], 
+						frqfile+str(chr)+frq_suffix, frq_compression) for (i,fh) in enumerate(fh_list)]
+				else:
+					df_annot_chr_list = [annot_parser(fh + str(chr) + annot_suffix[i], annot_compression[i])
+						for (i,fh) in enumerate(fh_list)]
+			annot_matrix_chr_list = [np.matrix(df_annot_chr.ix[:,1:]) for df_annot_chr in df_annot_chr_list]
+			annot_matrix_chr = np.hstack(annot_matrix_chr_list)
+			y.append(np.dot(annot_matrix_chr.T, annot_matrix_chr))
+			M_tot += len(df_annot_chr_list[0])
+			del df_annot_chr
+			del annot_matrix_chr
+
+		x = sum(y)
 	
-	return x
+	else:
+
+		'''Just one file'''
+		annot_suffix = ['.annot' for fh in fh_list]
+		annot_compression = []
+		for (i,fh) in enumerate(fh_list):
+			[annot_s,annot_comp_single] = which_compression(fh+annot_suffix[i])
+			annot_suffix[i] += annot_s 
+			annot_compression.append(annot_comp_single)
+
+		if frqfile is not None:
+			frq_suffix = '.frq'
+			[frq_s, frq_compression] = which_compression(frqfile+frq_suffix)
+			frq_suffix += frq_s 
+
+			df_annot_list = [annot_parser(fh + annot_suffix[i], annot_compression[i], 
+										frqfile+frq_suffix, frq_compression) for (i,fh) in enumerate(fh_list)]
 	
-	
+		else:
+			df_annot_list = [annot_parser(fh + annot_suffix[i], annot_compression[i]) 
+				for (i,fh) in enumerate(fh_list)]
+
+		annot_matrix_list = [np.matrix(y.ix[:,1:]) for y in df_annot_list]
+		annot_matrix = np.hstack(annot_matrix_list)
+
+		x = np.dot(annot_matrix.T,annot_matrix)
+		M_tot = len(df_annot_list[0])
+
+	return [x, M_tot]
+		
+		
 def M(fh, num=None, N=2, common=None):
 	'''
 	Parses .l{N}.M files. See docs/file_formats_ld.txt.
-	
+
 	If num is not none, parses .l2.M files split across [num] chromosomes (e.g., the output 
 	of parallelizing ldsc.py --l2 across chromosomes).
 
@@ -500,25 +550,25 @@ def M(fh, num=None, N=2, common=None):
 			x = np.sum([parsefunc(fh+str(i)+suffix) for i in xrange(1,num+1)], axis=0)
 	else:
 		x = parsefunc(fh + suffix)
-		
+	
 	return x
 
 
-def M_fromfile(flist, num=None):
+def M_fromfile(flist, num=None, N=2, common = None):
 	f = open(flist,'r')
 	flist = [x.rstrip('\n') for x in f.readlines()]
-	return M_fromlist	(flist, num)
-	
+	return M_fromlist		(flist, num, N, common)
+		
 
-def M_fromlist(flist, num=None):
-	M_annot = np.hstack([M(fh.rstrip('\n'), num) for fh in flist])
+def M_fromlist(flist, num=None, N=2, common = None):
+	M_annot = np.hstack([M(fh.rstrip('\n'), num, N, common) for fh in flist])
 	return M_annot
 
 
 def __ID_List_Factory__(colnames, keepcol, fname_end, header=None, usecols=None):
-	
-	class IDContainer(object):
 		
+	class IDContainer(object):
+			
 		def __init__(self, fname):
 			self.__usecols__ = usecols
 			self.__colnames__ = colnames
@@ -529,8 +579,8 @@ def __ID_List_Factory__(colnames, keepcol, fname_end, header=None, usecols=None)
 
 			if self.__colnames__:
 				if 'SNP' in self.__colnames__:
-					check_rsid(self.df['SNP'])
-				
+						check_rsid(self.df['SNP'])
+					
 			self.n = len(self.IDList)
 
 		def __read__(self, fname):
@@ -540,9 +590,9 @@ def __ID_List_Factory__(colnames, keepcol, fname_end, header=None, usecols=None)
 			
 			comp = get_compression(fname)
 			self.df = pd.read_csv(fname, header=self.__header__, usecols=self.__usecols__, 
-				delim_whitespace=True, compression=comp)
+					delim_whitespace=True, compression=comp)
 			#if np.any(self.df.duplicated(self.df.columns[self.__keepcol__])):
-			#	raise ValueError('Duplicate Entries in Filter File')
+			#		raise ValueError('Duplicate Entries in Filter File')
 
 			if self.__colnames__: 
 				self.df.columns = self.__colnames__
@@ -570,68 +620,68 @@ VcfSNPFile = __ID_List_Factory__(['CHR','BP','SNP','CM'],2,'.snp',usecols=[0,1,2
 PlinkFAMFile = __ID_List_Factory__(['IID'],0,'.fam',usecols=[1])
 VcfINDFile = __ID_List_Factory__(['IID'],0,'.ind',usecols=[0])
 FilterFile = __ID_List_Factory__(['ID'],0,None,usecols=[0])
-AnnotFile = __ID_List_Factory__(None,2,'.annot',header=0,usecols=None)
+AnnotFile = __ID_List_Factory__(None,2,None,header=0,usecols=None)
 
 
 
 # def l1(fh, num=None):
-# 	'''
-# 	Parses .l1.ldscore files. See docs/file_formats_ld.txt
+#		'''
+#		Parses .l1.ldscore files. See docs/file_formats_ld.txt
 # 
-# 	If num is not None, parses .l1.ldscore files split across [num] chromosomes (e.g., the 
-# 	output of parallelizing ldsc.py --l1 across chromosomes).
+#		If num is not None, parses .l1.ldscore files split across [num] chromosomes (e.g., the 
+#		output of parallelizing ldsc.py --l1 across chromosomes).
 # 
-# 	'''
-# 						
-# 	parsefunc = lambda y, compression : pd.read_csv(y, header=0, delim_whitespace=True,
-# 		compression=compression).drop(['CHR','BP','CM','MAF'], axis=1)
-# 	
-# 	if num is not None:
-# 		try:
-# 			suffix = '.l1.ldscore.gz'
-# 			if '@' in fh:
-# 				full_fh = fh.replace('@', '1') + suffix
-# 			else:
-# 				full_fh = fh + '1' + suffix
-# 	
-# 			x = open(full_fh, 'rb')
-# 			x.close()
-# 			compression = 'gzip'
-# 		except IOError:
-# 			suffix = '.l1.ldscore'
+#		'''
+#												
+#		parsefunc = lambda y, compression : pd.read_csv(y, header=0, delim_whitespace=True,
+#				compression=compression).drop(['CHR','BP','CM','MAF'], axis=1)
+#		
+#		if num is not None:
+#				try:
+#						suffix = '.l1.ldscore.gz'
+#						if '@' in fh:
+#								full_fh = fh.replace('@', '1') + suffix
+#						else:
+#								full_fh = fh + '1' + suffix
+#		
+#						x = open(full_fh, 'rb')
+#						x.close()
+#						compression = 'gzip'
+#				except IOError:
+#						suffix = '.l1.ldscore'
 # 
-# 			if '@' in fh:
-# 				full_fh = fh.replace('@', '1') + suffix
-# 			else:
-# 				full_fh = fh + '1' + suffix
-# 			x = open(full_fh, 'rb')
-# 			x.close()
-# 			compression = None			
-# 		
-# 		if '@' in fh:
-# 			chr_ld = [parsefunc(fh.replace('@',str(i))+suffix, compression) for i in xrange(1,num+1)]
-# 		else:
-# 			chr_ld = [parsefunc(fh + str(i) + suffix, compression) for i in xrange(1,num+1)]
+#						if '@' in fh:
+#								full_fh = fh.replace('@', '1') + suffix
+#						else:
+#								full_fh = fh + '1' + suffix
+#						x = open(full_fh, 'rb')
+#						x.close()
+#						compression = None					
+#				
+#				if '@' in fh:
+#						chr_ld = [parsefunc(fh.replace('@',str(i))+suffix, compression) for i in xrange(1,num+1)]
+#				else:
+#						chr_ld = [parsefunc(fh + str(i) + suffix, compression) for i in xrange(1,num+1)]
 # 
-# 		x = pd.concat(chr_ld)
-# 	
-# 	else:
-# 		try:
-# 			full_fh = fh + '.l1.ldscore.gz'
-# 			open(full_fh, 'rb')
-# 			compression = 'gzip'
-# 		except IOError:
-# 			full_fh = fh + '.l1.ldscore'
-# 			open(full_fh, 'rb')
-# 			compression = None			
-# 		
-# 		x = parsefunc(full_fh, compression)
-# 	
-# 	ii = x['SNP'] != '.'
-# 	x = x[ii]	
-# 	check_rsid(x['SNP']) 
-# 	for col in x.columns[1:]:
-# 		x[col] = x[col].astype(float)
-# 	
-# 	return x
+#				x = pd.concat(chr_ld)
+#		
+#		else:
+#				try:
+#						full_fh = fh + '.l1.ldscore.gz'
+#						open(full_fh, 'rb')
+#						compression = 'gzip'
+#				except IOError:
+#						full_fh = fh + '.l1.ldscore'
+#						open(full_fh, 'rb')
+#						compression = None					
+#				
+#				x = parsefunc(full_fh, compression)
+#		
+#		ii = x['SNP'] != '.'
+#		x = x[ii]		
+#		check_rsid(x['SNP']) 
+#		for col in x.columns[1:]:
+#				x[col] = x[col].astype(float)
+#		
+#		return x
 

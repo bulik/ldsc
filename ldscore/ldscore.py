@@ -34,6 +34,7 @@ def getBlockLefts(coords, max_dist):
 
 	return block_left
 	
+	
 def block_left_to_right(block_left):
 	'''
 	Converts block lefts to block rights.
