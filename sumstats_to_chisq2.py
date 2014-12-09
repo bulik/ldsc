@@ -329,7 +329,13 @@ if __name__ == '__main__':
 		help='A1 is the increasing allele.')
 
 	args = parser.parse_args()
+	if args.out is None:
+		raise ValueError('The --out flag is required.')	
+
 	log = sumstats.Logger(args.out + '.log')
+	if args.sumstats is None:
+		raise ValueError('The --sumstats flag is required.')
+
 	try:
 		if not (args.sumstats and args.out):
 			raise ValueError('--sumstats and --out are required.')
@@ -651,8 +657,8 @@ if __name__ == '__main__':
 		# infer # cases and # controls from daner* column headers
 		if args.daner:
 			log.log('Note that the --daner flag takes precedence over all other sample size and frequency flags and columns.')
-			N_con = int(filter(lambda x: x.startswith('FRQ_U_'), colnames)[0].lstrip('FRQ_U_'))
-			N_cas = int(filter(lambda x: x.startswith('FRQ_A_'), colnames)[0].lstrip('FRQ_A_'))
+			N_con = int(filter(lambda x: x.startswith('FRQ_U_'), colnames)[0][6:])
+			N_cas = int(filter(lambda x: x.startswith('FRQ_A_'), colnames)[0][6:])
 			dat['N'] = N_cas + N_con
 			log.log( 'Inferred that N_cas = {N} from the FRQ_A column.'.format(N=N_cas))
 			log.log( 'Inferred that N_con = {N} from the FRQ_U column.'.format(N=N_con))
