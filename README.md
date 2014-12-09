@@ -40,6 +40,6 @@ Requirements
 2. argparse 1.2.1
 3. bitarray 0.8.1
 4. numpy 1.8.0
-5. pandas 0.13.1
+5. pandas 0.15.0
 6. scipy 0.10.1
 
