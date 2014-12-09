@@ -582,16 +582,6 @@ if __name__ == '__main__':
 	# Basic LD Score Estimation Flags'
 	parser.add_argument('--bfile', default=None, type=str, 
 		help='Prefix for Plink .bed/.bim/.fam file')
-	parser.add_argument('--annot', default=None, type=str, 
-		help='Filename for annotation file for partitioned LD Score estimation')
-	parser.add_argument('--cts-bin', default=None, type=str, 
-		help='Filenames for multiplicative cts binned LD Score estimation')
-	parser.add_argument('--cts-bin-add', default=None, type=str, 
-		help='Filenames for additive cts binned LD Score estimation')
-	parser.add_argument('--cts-breaks', default=None, type=str, 
-		help='Comma separated list of breaks for --cts-bin. Specify negative numbers with an N instead of a -')
-	parser.add_argument('--cts-names', default=None, type=str, 
-		help='Comma separated list of column names for --cts-bin.')
 
 	# Filtering / Data Management for LD Score
 	parser.add_argument('--extract', default=None, type=str, 
@@ -614,6 +604,18 @@ if __name__ == '__main__':
 		'(one ID per row) in PRINT_SNPS. The sum r^2 will still include SNPs not in '
 		'PRINT_SNPs. This is useful for reducing the number of LD Scores that have to be '
 		'read into memory when estimating h2 or rg.' )
+	
+	# Output for LD Score
+	#parser.add_argument('--l1', default=False, action='store_true',
+	#	help='Estimate l1 w.r.t. sample minor allele.')
+	#parser.add_argument('--l1sq', default=False, action='store_true',
+	#	help='Estimate l1 ^ 2 w.r.t. sample minor allele.')
+	parser.add_argument('--l2', default=False, action='store_true',
+		help='Estimate l2. Compatible with both jackknife and non-jackknife.')
+	#parser.add_argument('--l4', default=False, action='store_true',
+	#	help='Estimate l4. Only compatible with jackknife.')
+	#parser.add_argument('--se', action='store_true', 
+	#	help='Block jackknife SE? (Warning: somewhat slower)')
 	
 	# Fancy LD Score Estimation Flags
 	parser.add_argument('--annot', default=None, type=str, 
@@ -727,8 +729,11 @@ if __name__ == '__main__':
 		help = 'Setting this flag causes LDSC to constrain all of the regression coefficients '
 		'to be non-negative (i.e., to minimize the sum of squared errors subject to the '
 		'constraint that all of the coefficients be positive. Note that the run-time is somewhat higher.')
-	
-		
+	parser.add_argument('--M', default=None, type=str,
+		help='# of SNPs (if you don\'t want to use the .l2.M files that came with your .l2.ldscore.gz files)')
+	parser.add_argument('--M-file', default=None, type=str,
+		help='Alternate .M file (e.g., if you want to use .M_5_50).')
+			
 	# Filtering for sumstats
 	parser.add_argument('--info-min', default=None, type=float,
 		help='Minimum INFO score for SNPs included in the regression. If your .chisq files '
@@ -737,7 +742,8 @@ if __name__ == '__main__':
 	parser.add_argument('--info-max', default=None, type=float,
 		help='Maximum INFO score for SNPs included in the regression. If your .chisq files '
 		'do not include an INFO colum, setting this flag will result in an error.')
-		
+	parser.add_argument('--keep-ld', default=None, type=str,
+		help='Zero-indexed column numbers of LD Scores to keep for LD Score regression.')
 	# Optional flags for genetic correlation
 	parser.add_argument('--overlap', default=0, type=int,
 		help='By defualt LDSC weights the genetic covariance regression in --rg assuming that '
