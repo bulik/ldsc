@@ -27,7 +27,7 @@ Citations
 For now, please cite
 
 Bulik-Sullivan, et al. LD Score Regression Distinguishes Confounding from Polygenicity in Genome-Wide Association Studies.
-doi: http://dx.doi.org/10.1101/002931
+In Press at Nature Genetics.
 
 (preprint: http://biorxiv.org/content/early/2014/02/21/002931)
 

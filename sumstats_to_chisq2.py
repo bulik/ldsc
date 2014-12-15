@@ -60,7 +60,7 @@ COL_TO_ENGLISH = {
 	'N_CON': 'Number of controls',
 	'Z': 'Z-score (0 --> no effect; above 0 --> A1 is trait/risk increasing)',
 	'OR': 'Odds ratio (1 --> no effect; above 1 --> A1 is risk increasing)',
-	'BETA': '[linear/logistic] regression coefficient (0 --> no eff	ect; above 0 --> A1 is trait/risk increasing)',
+	'BETA': '[linear/logistic] regression coefficient (0 --> no effect; above 0 --> A1 is trait/risk increasing)',
 	'LOG_ODDS': 'Log odds ratio (0 --> no effect; above 0 --> A1 is risk increasing)',
 	'INFO': 'INFO score (imputation quality; assumed between 0 and 1, with 1 indicating perfect impuation)',
 	'FRQ': 'Allele frequency',
