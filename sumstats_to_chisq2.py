@@ -241,7 +241,7 @@ def filter_snps(dat, args, log, drops=None, verbose=True):
 			drops['FRQ'] += old_len-new_len
 
 		dat.drop('FRQ', inplace=True, axis=1)
-			
+	
 	dat = dat[ii]
 	return (dat, drops)
 	
@@ -602,7 +602,8 @@ if __name__ == '__main__':
 					ii = dat.SNP.isin(merge_alleles.SNP)
 					merge_drops += len(dat) - ii.sum()
 					dat = dat[ii].reset_index(drop=True)
-						
+				
+				dat, drops = filter_snps(dat, args, log, drops, verbose=False)
 				dat_list.append(dat)
 				sys.stdout.write('.')
 			
@@ -748,7 +749,6 @@ if __name__ == '__main__':
 					log.log( msg.format(M=round(check,2), V=SIGNED_SUMSTAT_NULL_VALUE))
 				else:
 					log.log('Median value of --signed-sumstats column was {C}, which seems sensible.'.format(C=check))
-
 
 				dat.SIGNED_SUMSTAT = dat.SIGNED_SUMSTAT.convert_objects(convert_numeric=True)
 				flip = dat.SIGNED_SUMSTAT < SIGNED_SUMSTAT_NULL_VALUE
