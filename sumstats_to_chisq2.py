@@ -149,13 +149,9 @@ COLNAMES_CONVERSION = {
 	#'CEU_AF': 'FRQ'
 }
 
-
-
 def filter_verbose(old_len, new_len, phrase):
-	
 	msg = 'Removed {M} SNPs with {P} ({N} SNPs remain).'
 	msg = msg.format(M=old_len-new_len, N=new_len, P=phrase)
-		
 	if new_len == 0:
 		raise ValueError('No SNPs remain.')
 	
@@ -163,7 +159,7 @@ def filter_verbose(old_len, new_len, phrase):
 
 def filter_na(dat, args, log, drops=None, verbose=True):
 	# check uniqueness of rs numbers & remove SNPs w/ rs == '.'
-	old_len = len(dat); dat = dat.drop_duplicates('SNP'); new_len = len(dat)
+	old_len = len(dat); dat = dat.drop_duplicates(subset='SNP'); new_len = len(dat)
 	if verbose:
 		log.log(filter_verbose(old_len, new_len, 'with duplicated rs numbers'))
 	if drops is not None:
