@@ -62,7 +62,7 @@ COL_TO_ENGLISH = {
 	'OR': 'Odds ratio (1 --> no effect; above 1 --> A1 is risk increasing)',
 	'BETA': '[linear/logistic] regression coefficient (0 --> no effect; above 0 --> A1 is trait/risk increasing)',
 	'LOG_ODDS': 'Log odds ratio (0 --> no effect; above 0 --> A1 is risk increasing)',
-	'INFO': 'INFO score (imputation quality; assumed between 0 and 1, with 1 indicating perfect impuation)',
+	'INFO': 'INFO score (imputation quality; higher --> better imputation)',
 	'FRQ': 'Allele frequency',
 	'SIGNED_SUMSTAT': 'Directional summary statistic as specified by --signed-sumstats.',
 	'NSTUDY': 'Number of studies in which the SNP was genotyped.'
@@ -909,7 +909,7 @@ if __name__ == '__main__':
 		ii = dat.CHISQ > 29
 		ngwsig = ii.sum()
 		if ngwsig > 0:
-			log.log( "{N} Genome-wide significant SNPs:\n".format(N=ngwsig))
+			log.log( "{N} Genome-wide significant SNPs.".format(N=ngwsig))
 			#log.log( dat[ii])
 		else:
 			log.log('No genome-wide significant SNPs')	
