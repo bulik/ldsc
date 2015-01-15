@@ -329,7 +329,7 @@ class Hsq(object):
 		self.Nbar = Nbar
 		x = np.multiply(N, ref_ld) / Nbar
 		if self.constrain_intercept is None:
-			x = _append_intercept(x)
+			x = _append_intercept(x)	
 			chisq_m_int = chisq - 1
 		else:
 			chisq_m_int = chisq - self.constrain_intercept
@@ -349,19 +349,15 @@ class Hsq(object):
 		else:
 			self._jknife = LstsqJackknifeSlow(x, y, num_blocks)
 
-		#self.autocor = self._jknife.autocor(1)
 		self.coef = self._jknife.est[0,0:self.n_annot] / Nbar
 		self.coef_cov = self._jknife.jknife_cov[0:self.n_annot,0:self.n_annot] / (Nbar**2)
 		self.coef_se = np.sqrt(np.diag(self.coef_cov))
-		
 		self.cat_hsq = np.multiply(self.M, self.coef)
 		self.cat_hsq_cov = np.multiply(np.dot(self.M.T,self.M), self.coef_cov)
-		self.cat_hsq_se = np.sqrt(np.diag(self.cat_hsq_cov))
-		
+		self.cat_hsq_se = np.sqrt(np.diag(self.cat_hsq_cov))	
 		self.tot_hsq = np.sum(self.cat_hsq)
 		self.tot_hsq_cov = np.sum(self.cat_hsq_cov)
 		self.tot_hsq_se = np.sqrt(self.tot_hsq_cov)	
-
 		numer_delete_vals = np.multiply(self.M,self._jknife.delete_values[:,0:self.n_annot]) / Nbar
 		denom_delete_vals = np.sum(numer_delete_vals,axis=1)*np.ones(self.n_annot) 
 		prop_hsq_est = self.cat_hsq/self.tot_hsq

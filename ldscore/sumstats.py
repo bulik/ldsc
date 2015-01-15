@@ -54,6 +54,7 @@ FLIP_ALLELES = {''.join(x):
 	and MATCH_ALLELES[''.join(x)]}
 	
 def sec_to_str(t):
+	'''Convert seconds to days:hours:minutes:seconds'''
 	[d, h, m, s, n] = reduce(lambda ll,b : divmod(ll[0],b) + ll[1:], [(t, 1), 60,60, 24])
 	f = ''
 	if d > 0:
@@ -100,7 +101,7 @@ class Logger(object):
 
 class _sumstats(object):
 	'''
-	Abstract base class implementing basic summary statistic functions. 
+	Base class implementing basic summary statistic functions. 
 	
 	One small compromise -- state is modified within methods only via log messages. 
 	Waiting until the end of method and returning a log message is sometimes slow; this
