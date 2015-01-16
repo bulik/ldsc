@@ -8,11 +8,10 @@ Support
 -------
 
 For statistical issues, try the following:
-1. Common issues are described in (docs/FAQ)
+1. Common issues are described in [FAQ](docs/FAQ)
 2. The methods are described in the papers (see citations below)
 
-Please report bugs on the issue tracker
-[a link](https://github.com/bulik/ldsc/issues)
+Please report bugs on the [issue tracker](https://github.com/bulik/ldsc/issues)
 
 Citation
 --------
@@ -22,7 +21,7 @@ For now, please cite
 Bulik-Sullivan, et al. LD Score Regression Distinguishes Confounding from Polygenicity in Genome-Wide Association Studies.
 In Press at Nature Genetics.
 
-(preprint: http://biorxiv.org/content/early/2014/02/21/002931)
+[preprint](http://biorxiv.org/content/early/2014/02/21/002931)
 
 We are currently preparing manuscripts describing the methods for estimating partitioned h2 and rg.
 
