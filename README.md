@@ -43,6 +43,6 @@ This project is licensed under GNU GPL v3.
 Authors
 -------
 
-Brendan Bulik-Sullivan (Broad Institute),
+Brendan Bulik-Sullivan (Broad Institute)
 
 Hilary Finucane (MIT Math)
