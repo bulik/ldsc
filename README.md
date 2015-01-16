@@ -12,7 +12,7 @@ For statistical issues, try the following:
 2. The methods are described in the papers (see citations below)
 
 Please report bugs on the issue tracker
-(https://github.com/bulik/ldsc/issues)
+[a link](https://github.com/bulik/ldsc/issues)
 
 Citation
 --------
