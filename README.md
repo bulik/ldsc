@@ -1,5 +1,8 @@
-LDSC (LD SCore) v 0.0.1 (alpha)
-==============================
+LDSC (LD SCore)
+===============
+
+v0.0001 (alpha)
+Warning: under very active development
 
 LDSC is a command line tool for estimating heritability and genetic correlation from GWAS
 summary statistics. LDSC also computes LD Scores.
