@@ -1,28 +1,21 @@
 LDSC (LD SCore) v 0.0.1 (alpha)
 ==============================
 
-Copyright (c) 2014 Brendan Bulik-Sullivan & Hilary Finucane
+LDSC is a command line tool for estimating heritability and genetic correlation from GWAS
+summary statistics. LDSC also computes LD Scores.
 
-(Warning: we're still working on it. Documented beta release coming soon. To report bugs, please either raise an issue on github or email us with LDSC in the subject line and the log file copied into the body of your message).
-
-What can I do with LDSC?
----------------------
-
-1. Estimate LD Score
-2. Quantify the inflation in GWAS test statistics from confounding bias.
-3. Estimate heritability from GWAS summary statistics.
-4. Estimate partitioned heritability from GWAS summary statistcs.
-5. Estimate genetic covariance and correlation from GWAS summary statistics.
-
-Contact
+Support
 -------
 
-Brendan Bulik-Sullivan, bulik@broadinstitute.org
+For statistical issues, try the following:
+1. Common issues are described in (docs/FAQ)
+2. The methods are described in the papers (see citations below)
 
-Hilary Finucane, hilaryf@mit.edu
+Please report bugs on the issue tracker
+(https://github.com/bulik/ldsc/issues)
 
-Citations
----------
+Citation
+--------
 
 For now, please cite
 
@@ -43,3 +36,14 @@ Requirements
 5. pandas 0.15.0
 6. scipy 0.10.1
 
+License
+-------
+
+This project is licensed under GNU GPL v3.
+
+
+Authors
+-------
+
+Brendan Bulik-Sullivan (Broad Institute)
+Hilary Finucane (MIT Math)
