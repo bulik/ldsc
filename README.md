@@ -21,7 +21,7 @@ For now, please cite
 Bulik-Sullivan, et al. LD Score Regression Distinguishes Confounding from Polygenicity in Genome-Wide Association Studies.
 In Press at Nature Genetics.
 
-[preprint](http://biorxiv.org/content/early/2014/02/21/002931)
+[bioRxiv Version](http://biorxiv.org/content/early/2014/02/21/002931)
 
 We are currently preparing manuscripts describing the methods for estimating partitioned h2 and rg.
 
