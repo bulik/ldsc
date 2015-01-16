@@ -8,6 +8,7 @@ Support
 -------
 
 For statistical issues, try the following:
+
 1. Common issues are described in [FAQ](docs/FAQ)
 2. The methods are described in the papers (see citations below)
 
