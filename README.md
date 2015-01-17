@@ -10,12 +10,13 @@ summary statistics. LDSC also computes LD Scores.
 Support
 -------
 
-For statistical issues, try the following:
+Before contacting us, please try the following:
 
 1. Common issues are described in the [FAQ](docs/FAQ)
 2. The methods are described in the papers (see citations below)
+3. Search the [issue tracker](https://github.com/bulik/ldsc/issues)
 
-Please report bugs on the [issue tracker](https://github.com/bulik/ldsc/issues)
+Please report bugs on the [issue tracker](https://github.com/bulik/ldsc/issues). Also feel free to ask about statistical issues using the issue tracker. The issue tracker is searchable, and somebody else might have the same problem as you in the future. Better to archive the answer in a searchable location than lock it away in a private email. 
 
 Citation
 --------
