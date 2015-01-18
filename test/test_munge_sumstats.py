@@ -68,27 +68,12 @@ class test_process_n(unittest.TestCase):
 		print self.dat_filtered
 		assert_frame_equal(dat, self.dat_filtered)
 				
-	def test_nstudy1(self):
+	def test_nstudy(self):
 		# should filter on NSTUDY if the --N flag is set, but N gets set to 9999
 		self.dat['NSTUDY'] = self.N
 		dat = munge.process_n(self.dat, self.args, log)
 		assert_frame_equal(dat, self.dat_filtered9999)
-	
-	def test_nstudy2(self):
-		# should not filter on NSTUDY if there is an N column
-		self.dat['N'] = self.N_const
-		self.dat['NSTUDY'] = self.N
-		dat = munge.process_n(self.dat, self.args, log)
-		assert_series_equal(dat.N, self.N_const)
-		
-	def test_nstudy3(self):
-		# should not filter on NSTUDY if there are N_cas/N_con columns
-		self.dat['N_CAS'] = 1000.0
-		self.dat['N_CON'] = 234.0
-		self.dat['NSTUDY'] = self.N
-		dat = munge.process_n(self.dat, self.args, log)
-		assert_series_equal(dat.N, self.N_const)
-		
+				
 	def test_n_cas_con_col(self):
 		self.dat['N_CAS'] = self.N
 		self.dat['N_CON'] = [0.0, 0, 0]

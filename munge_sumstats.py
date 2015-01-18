@@ -14,6 +14,7 @@ from ldsc import MASTHEAD
 import time
 
 null_values = {
+	
 	'LOG_ODDS': 0,
 	'BETA': 0,
 	'OR': 1,
@@ -21,6 +22,7 @@ null_values = {
 }
 
 default_cnames = {
+	
 	# RS NUMBER
 	'SNP': 'SNP',
 	'MARKERNAME': 'SNP',
@@ -112,6 +114,7 @@ describe_cname = {
 }
 
 def read_header(fh, sep="\t"):
+	'''Read the first line of a file and returns a list with the column names.'''
 	(openfunc, compression) = get_compression(fh)
 	return [x.rstrip('\n') for x in openfunc(fh).readline().split(sep)]
 	
@@ -134,6 +137,9 @@ def get_cname_map(flag, default, ignore):
 	return cname_map
 
 def get_compression(fh):
+	'''
+	Read filename suffixes and figure out whether it is gzipped,bzip2'ed or not compressed
+	'''
 	if fh.endswith('gz'):
 		compression='gzip'
 		openfunc = gzip.open
@@ -157,6 +163,7 @@ def clean_header(header):
 	return header.upper().replace('-','_').replace('.','_').replace('\n','')
 
 def filter_pvals(P, log, args):
+	'''Remove out-of-bounds P-values'''
 	ii = (P > 0) & (P <= 1) 
 	bad_p = (~ii).sum()
 	if bad_p > 0:
@@ -166,6 +173,7 @@ def filter_pvals(P, log, args):
 	return ii
 	
 def filter_info(info, log, args):
+	'''Remove INFO < args.info_min (default 0.9) and complain about out-of-bounds INFO.'''
 	if type(info) is pd.Series: # one INFO column
 		jj = ((info > 2.0) | (info < 0)) & info.notnull()
 		ii = info >= args.info_min
@@ -197,20 +205,28 @@ def filter_frq(frq, log, args):
 	return ii & ~jj
 	
 def filter_alleles(a):
+	'''Remove alleles that do not describe strand-unambiguous SNPs'''
 	return a.isin(sumstats.VALID_SNPS)
 
 def parse_dat(dat_gen, convert_colname, merge_alleles, log, args):
-	tot_snps = 0; merge_drops = 0; 	dat_list = []
+	'''Parse and filter a sumstats file chunk-wise'''
+	tot_snps = 0; 
+	dat_list = []
 	msg = 'Reading sumstats from {F} into memory {N} SNPs at a time.'
 	log.log(msg.format(F=args.sumstats, N=args.chunksize))
-	drops = {'NA': 0, 'P': 0, 'INFO': 0, 'FRQ': 0, 'STRAND': 0, 'SNP': 0, 'MERGE': 0}
+	drops = {'NA': 0, 'P': 0, 'INFO': 0, 'FRQ': 0, 'A': 0, 'SNP': 0, 'MERGE': 0}
 	for block_num, dat in enumerate(dat_gen):
+		sys.stdout.write('.')
 		tot_snps += len(dat)
+		old = len(dat)
 		dat = dat.dropna(axis=0, how="any", subset=filter(lambda x: x != 'INFO', dat.columns)).reset_index(drop=True)
+		drops['NA'] += old - len(dat)
 		dat.columns = map(lambda x: convert_colname[x], dat.columns)
 		ii = np.array([True for i in xrange(len(dat))])
 		if args.merge_alleles:
+			old = ii.sum()
 			ii = dat.SNP.isin(merge_alleles.SNP)
+			drops['MERGE'] += old - ii.sum()
 			if ii.sum() == 0:
 				continue
 				
@@ -218,60 +234,68 @@ def parse_dat(dat_gen, convert_colname, merge_alleles, log, args):
 			ii = np.array([True for i in xrange(len(dat))])
 	
 		if 'INFO' in dat.columns:
+			old = ii.sum()
 			ii &= filter_info(dat['INFO'], log, args)
-
+			new = ii.sum()
+			drops['INFO'] += old - new; old = new
+			
 		if 'FRQ' in dat.columns:
 			ii &= filter_frq(dat['FRQ'], log, args)
+			new = ii.sum()
+			drops['FRQ'] += old-new; old = new
 		
 		dat.drop([x for x in ['INFO','FRQ'] if x in dat.columns], inplace=True, axis=1)
 		ii &= filter_pvals(dat.P, log, args)
+		new = ii.sum()
+		drops['P'] += old-new; old = new
 		if not args.no_alleles:	
 			dat.A1 = dat.A1.apply(lambda y: y.upper())
 			dat.A2 = dat.A2.apply(lambda y: y.upper())
 			ii &= filter_alleles(dat.A1+dat.A2)
+			drops['A'] += old-new; old = new
 		
 		if ii.sum() == 0:
 			continue
 			
 		dat_list.append(dat[ii].reset_index(drop=True))
-		sys.stdout.write('.')
 	
 	sys.stdout.write(' done\n')
 	dat = pd.concat(dat_list, axis=0).reset_index(drop=True)
-	'''
 	msg = 'Read {N} SNPs from --sumstats file.\n'.format(N=tot_snps)
 	if args.merge_alleles:
-		msg += 'Removed {N} SNPs not in --merge-alleles.\n'.format(N=merge_drops)
+		msg += 'Removed {N} SNPs not in --merge-alleles.\n'.format(N=drops['MERGE'])
 	
-	msg += 'Removed {N} SNPs with duplicated rs numbers.\n'.format(N=drops['RS'])
 	msg += 'Removed {N} SNPs with missing values.\n'.format(N=drops['NA'])
+	msg += 'Removed {N} SNPs with INFO <= {I}.\n'.format(N=drops['INFO'], I=args.info_min)
+	msg += 'Removed {N} SNPs with MAF <= {M}.\n'.format(N=drops['FRQ'], M=args.maf_min)
 	msg += 'Removed {N} SNPs with out-of-bounds p-values.\n'.format(N=drops['P'])
-	msg += 'Removed {N} SNPs with INFO <= {I}\n'.format(N=drops['INFO'], I=args.info_min)
-	msg += 'Removed {N} SNPs with MAF <= {M}\n'.format(N=drops['FRQ'], M=args.maf_min)
-	msg += 'At this point, {N} SNPs remain.'.format(N=len(dat))	
+	msg += 'Removed {N} variants that were not SNPs or were strand-ambiguous.\n'.format(N=drops['A'])
+	msg += '{N} SNPs remain.'.format(N=len(dat))	
 	log.log(msg)
-	'''
 	return dat
 	
 def process_n(dat, args, log):
-	'''
-	
-	'''
+	'''Determine sample size from --N* flags or N* columns. Filter out low N SNPs.s'''
 	if all(i in dat.columns for i in ['N_CAS','N_CON']):
 		N = dat.N_CAS + dat.N_CON
 		P = dat.N_CAS / N
 		dat['N'] = N * P / P[N == N.max()].mean()
 		dat.drop(['N_CAS', 'N_CON'], inplace=True, axis=1)
+		# NB no filtering on N done here -- that is done in the next code block
 	
 	if 'N' in dat.columns:
 		n_min = args.n_min if args.n_min else dat.N.quantile(0.9) / 1.5
-		dat = dat[dat.N >= n_min]
+		old = len(dat)
+		dat = dat[dat.N >= n_min].reset_index(drop=True)
+		new = len(dat)
+		log.log('Removed {M} SNPs with N < {MIN} ({N} SNPs remain).'.format(M=old-new, N=new, MIN=n_min))
 		
-	if 'NSTUDY' in dat.columns and 'N' in dat.columns:
-		dat.drop(['NSTUDY'], inplace=True, axis=1)
 	elif 'NSTUDY' in dat.columns and 'N' not in dat.columns:
 		nstudy_min = args.nstudy_min if args.nstudy_min else dat.NSTUDY.max()
-		dat = dat[dat.NSTUDY >= nstudy_min].drop(['NSTUDY'], axis=1)
+		old = len(dat)
+		dat = dat[dat.NSTUDY >= nstudy_min].drop(['NSTUDY'], axis=1).reset_index(drop=True)
+		new = len(dat)
+		log.log('Removed {M} SNPs with NSTUDY < {MIN} ({N} SNPs remain).'.format(M=old-new, N=new, MIN=nstudy_min))
 		
 	if 'N' not in dat.columns:
 		if args.N:
@@ -285,17 +309,14 @@ def process_n(dat, args, log):
 		else:
 			raise ValueError('Cannot determine N. This message indicates a bug.\nN should have been checked earlier in the program.')
 	
-	return dat.reset_index(drop=True)
+	return dat
 	
 def p_to_beta(P, N):
-	'''
-	Convert P-value and N to standardized beta
-	
-	
-	'''
+	'''Convert P-value and N to standardized beta.'''
 	return np.sqrt(chi2.isf(P, 1)/N)
 
 def check_median(x, expected_median, tolerance, name):
+	'''Check that median(x) is within tolerance of expected_median.'''
 	m = np.median(x)
 	if np.abs(m-expected_median) > tolerance:
 		msg = 'WARNING: median value of {F} is {V} (should be close to {M}). This column may be mislabeled.'
@@ -342,16 +363,6 @@ def parse_flag_cnames(log, args):
 			raise
 
 	return [flag_cnames, null_value]
-
-def get_log_header(args, defaults, log):
-	opts = vars(args)
-	non_defaults = [x for x in opts.keys() if opts[x] != defaults[x]]
-	header = MASTHEAD
-	header += "\nOptions: \n"
-	options = ['--'+x.replace('_','-')+' '+str(opts[x]) for x in non_defaults]
-	header += '\n'.join(options).replace('True','').replace('False','')
-	header += '\n'
-	return header
 	
 def allele_merge(dat, alleles, log):
 	'''
@@ -364,6 +375,13 @@ def allele_merge(dat, alleles, log):
 	match = a1234.apply(lambda y: sumstats.MATCH_ALLELES[y]) 
 	jj = pd.Series(np.zeros(len(dat),dtype=bool))
 	jj[ii] = match
+	old = ii.sum()
+	n_mismatch = (~match).sum()
+	if n_mismatch < old:
+		log.log('Removed {M} SNPs whose alleles did not match --merge-alleles ({N} SNPs remain).'.format(M=n_mismatch,N=old-n_mismatch))
+	else:
+		raise ValueError('All SNPs have alleles that do not match --merge-alleles.')
+		
 	dat.loc[~jj, [i for i in dat.columns if i != 'SNP']] = float('nan')
 	dat.drop(['MA'], axis=1, inplace=True)
 	return dat
@@ -446,8 +464,17 @@ def munge_sumstats(args, p=True): # set p = False for testing in order to preven
 			raise ValueError('--no-alleles and --merge-alleles are not compatible.')
 		
 		if p:
-			log.log(get_log_header(args, vars(parser.parse_args('')), log))
-		START_TIME = time.time()
+			defaults = vars(parser.parse_args(''))
+			opts = vars(args)
+			non_defaults = [x for x in opts.keys() if opts[x] != defaults[x]]
+			header = MASTHEAD
+			header += "\nOptions: \n"
+			options = ['--'+x.replace('_','-')+' '+str(opts[x]) for x in non_defaults]
+			header += '\n'.join(options).replace('True','').replace('False','')
+			header += '\n'
+			log.log(header)
+			
+		START_TIME = time.time()	
 		file_cnames = [x for x in read_header(args.sumstats)] # note keys not cleaned
 		flag_cnames, signed_sumstat_null = parse_flag_cnames(log, args)
 		if args.ignore:
@@ -455,7 +482,6 @@ def munge_sumstats(args, p=True): # set p = False for testing in order to preven
 		else:
 			ignore_cnames = []
 		
-
 		if args.signed_sumstats is not None: # remove LOG_ODDS, BETA, Z, OR from the default list
 			mod_default_cnames = {x: default_cnames[x] for x in default_cnames if default_cnames[x] not in null_values}	
 		else:
@@ -495,11 +521,15 @@ def munge_sumstats(args, p=True): # set p = False for testing in order to preven
 		
 		if (not args.N) and (not (args.N_cas and args.N_con)) and (not 'N' in cname_translation.values()) and (any(x not in cname_translation.values() for x in ['N_CAS','N_CON']) ):
 			raise ValueError('Could not determine N.')
+		if ('N' in cname_translation.values() or all(x  in cname_translation.values() for x in ['N_CAS','N_CON'])) and 'NSTUDY' in cname_translation.values():
+			nstudy = [x for x in cname_translation if cname_translation[x] == 'NSTUDY']
+			for x in nstudy:
+				del cname_translation[x]
 		if not args.no_alleles and not all(x in cname_translation.values() for x in ['A1', 'A2']):
 			raise ValueError('Could not find A1/A2 columns.')
 			
 		log.log('Interpreting column names as follows:')
-		log.log('\n'.join([x +':\t'+ cname_description[x] for x in cname_description] ))
+		log.log('\n'.join([x +':\t'+ cname_description[x] for x in cname_description])+'\n')
 				
 		if args.merge_alleles:
 			log.log('Reading list of SNPs for allele merge from {F}'.format(F=args.merge_alleles))
@@ -521,8 +551,11 @@ def munge_sumstats(args, p=True): # set p = False for testing in order to preven
 		dat = parse_dat(dat_gen, cname_translation, merge_alleles, log, args)
 		if len(dat) == 0:
 			raise ValueError('After applying filters, no SNPs remain.')
-
+		
+		old = len(dat)
 		dat = dat.drop_duplicates(subset='SNP').reset_index(drop=True)
+		new = len(dat)
+		log.log('Removed {M} SNPs with duplicated rs numbers ({N} SNPs remain).'.format(M=old-new, N=new))
 		# filtering on N cannot be done chunkwise		
 		dat = process_n(dat, args, log)
 		dat.P = p_to_beta(dat.P, dat.N) 
@@ -565,5 +598,4 @@ def munge_sumstats(args, p=True): # set p = False for testing in order to preven
 		raise
 		
 if __name__ == '__main__':
-	args = parser.parse_args()
-	munge_sumstats(args, p=True)
+	munge_sumstats(parser.parse_args(), p=True)
