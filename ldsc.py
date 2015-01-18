@@ -616,7 +616,7 @@ if __name__ == '__main__':
 	#parser.add_argument('--l4', default=False, action='store_true',
 	#	help='Estimate l4. Only compatible with jackknife.')
 	#parser.add_argument('--se', action='store_true', 
-	#	help='Block jackknife SE? (Warning: somewhat slower)')
+	#	help='Block jackknif	e SE? (Warning: somewhat slower)')
 	
 	# Fancy LD Score Estimation Flags
 	parser.add_argument('--annot', default=None, type=str, 

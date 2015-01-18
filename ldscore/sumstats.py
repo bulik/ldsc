@@ -33,6 +33,11 @@ STRAND_AMBIGUOUS = {''.join(x): x[0] == COMPLEMENT[x[1]]
 	for x in it.product(BASES,BASES) 
 	if x[0] != x[1]}
 
+VALID_SNPS = {''.join(x)
+	for x in it.product(BASES,BASES) 
+	if x[0] != x[1] and not STRAND_AMBIGUOUS[''.join(x)]}
+
+
 # True iff SNP 1 has the same alleles as SNP 2 (possibly w/ strand or ref allele flip)
 MATCH_ALLELES = {''.join(x):
 	((x[0] == x[2]) and (x[1] == x[3])) or # strand and ref match

@@ -87,17 +87,6 @@ class Test_chisq(unittest.TestCase):
 		assert np.all(np.abs(x['MAF'] - [0.5, 0.01, 0.01]) < 10e-6)
 		assert np.all(x.columns == ['SNP','N','CHISQ','INFO','MAF'])
 
-class Test_betaprod(unittest.TestCase):
-
-	def test_betaprod(self):
-		x = ps.betaprod('test/parse_test/test.betaprod')
-		self.assertEqual(list(x['SNP']), ['rs1', 'rs2','rs3'])	
-		self.assertEqual(list(x['N1']), [100, 100, 100])	
-		self.assertEqual(list(x['N2']), [5, 5, 5])	
-		self.assertEqual(list(x.columns), ['SNP','N1','BETAHAT1','N2','BETAHAT2'])
-		self.assertEqual(list(x['BETAHAT1']), [-1,1,-1])
-		self.assertEqual(list(x['BETAHAT2']), [1,-1,1])
-
 
 class Test_ldscore(unittest.TestCase):
 
@@ -132,41 +121,7 @@ class Test_M_loop(unittest.TestCase):
 	def test_M_loop(self):
 		x = ps.M('test/parse_test/test', 2)
 		self.assertEqual(list(x), [3, 6])
-		
-		
-class test_snp(unittest.TestCase):
-
-	def test_snp(self):
-		snp = ps.VcfSNPFile('test/vcf_test/test.snp')
-		print snp.IDList
-		assert snp.n == 6
-		correct = np.array(['rs1','rs2','rs3','rs4','rs5','rs6'])
-		assert np.all(snp.IDList.values.reshape(6) == correct)
-
-	@nose.tools.raises(ValueError)
-	def test_bad_filename(self):
-		ind = ps.VcfSNPFile('test/plink_test/plink.asdf')
-		
-	def test_loj(self):
-		snp = ps.VcfSNPFile('test/vcf_test/test.snp')
-		df2 = pd.DataFrame(['rs1','rs4','rs6'])
-		ii = snp.loj(df2)
-		assert np.all(ii == [0,3,5])
-		
-		
-class test_ind(unittest.TestCase):
-	
-	def test_ind(self):
-		ind = ps.VcfINDFile('test/vcf_test/test.ind')
-		print ind.IDList
-		assert ind.n == 5
-		correct = np.array(['per1', 'per2', 'per3', 'per4', 'per5'])
-		assert np.all(ind.IDList.values.reshape(5) == correct)
-
-	@nose.tools.raises(ValueError)
-	def test_bad_filename(self):
-		ind = ps.VcfINDFile('test/plink_test/plink.snp')
-		
+				
 		
 class test_fam(unittest.TestCase):
 
@@ -195,13 +150,4 @@ class test_bim(unittest.TestCase):
 	def test_bad_filename(self):
 		bim = ps.PlinkBIMFile('test/plink_test/plink.fam')
 	
-		
-class test_filter_file(unittest.TestCase):
-
-	def test_filter(self):
-		filter = ps.FilterFile('test/vcf_test/test.ind')
-		print filter.IDList
-		assert filter.n == 5
-		correct = np.array(['per1', 'per2', 'per3', 'per4', 'per5'])
-		assert np.all(filter.IDList.values.reshape(5) == correct)
 	
