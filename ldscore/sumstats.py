@@ -37,7 +37,6 @@ VALID_SNPS = {''.join(x)
 	for x in it.product(BASES,BASES) 
 	if x[0] != x[1] and not STRAND_AMBIGUOUS[''.join(x)]}
 
-
 # True iff SNP 1 has the same alleles as SNP 2 (possibly w/ strand or ref allele flip)
 MATCH_ALLELES = {''.join(x):
 	((x[0] == x[2]) and (x[1] == x[3])) or # strand and ref match
@@ -364,31 +363,7 @@ class _sumstats(object):
 		ref_ld_colnames = ref_ldscores.columns[1:len(ref_ldscores.columns)]	
 
 		return(w_ld_colname, ref_ld_colnames, sumstats)
-	
-	def _filter(self, args, log, sumstats):
-		raise NotImplementedError
-		# TODO -- get this working again
-		err_msg = 'No SNPs retained for analysis after filtering on {C} {P} {F}.'
-		log_msg = 'After filtering on {C} {P} {F}, {N} SNPs remain.'
-		loop = ['1','2'] if args.rg else ['']
-		var_to_arg = {'infomax': args.info_max, 'infomin': args.info_min, 'maf': args.maf}
-		var_to_cname  = {'infomax': 'INFO', 'infomin': 'INFO', 'maf': 'MAF'}
-		var_to_pred = {'infomax': lambda x: x < args.info_max, 
-			'infomin': lambda x: x > args.info_min, 
-			'maf': lambda x: x > args.maf}
-		var_to_predstr = {'infomax': '<', 'infomin': '>', 'maf': '>'}
-		for v in var_to_arg.keys():
-			arg = var_to_arg[v]; pred = var_to_pred[v]; pred_str = var_to_predstr[v]
-			for p in loop:
-				cname = var_to_cname[v] + p; 
-				if arg is not None:
-					sumstats = ps.filter_df(sumstats, cname, pred)
-					snp_count = len(sumstats)
-					if snp_count == 0:
-						raise ValueError(err_msg.format(C=cname, F=arg, P=pred_str))
-					else:
-						log.log(log_msg.format(C=cname, F=arg, N=snp_count, P=pred_str))
-	
+		
 	def _warn_length(self, log, sumstats):
 		if len(sumstats) < 200000:
 			log.log('WARNING: number of SNPs less than 200k; this is almost always bad.')
@@ -706,11 +681,9 @@ class Rg(_sumstats):
 
 			except Exception as e:
 				'''
-				Better to print an error message then keep going if phenotype 50/100 causes an
+				Print an error message then keep going if phenotype 50/100 causes an
 				error but the other 99/100 phenotypes are OK
-				
 				'''
-				
 				msg = 'ERROR computing rg for phenotype {I}/{N}, from file {F}.'
 				self.log.log(msg.format(I=i+2, N=len(rg_file_list), F=rg_file_list[i+1]))
 				ex_type, ex, tb = sys.exc_info()

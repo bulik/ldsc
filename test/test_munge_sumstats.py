@@ -4,7 +4,6 @@ import unittest
 import numpy as np
 import pandas as pd
 import nose
-from nose_parameterized import parameterized as param
 from pandas.util.testing import assert_series_equal
 from pandas.util.testing import assert_frame_equal
 

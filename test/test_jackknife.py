@@ -3,9 +3,181 @@ import ldscore.jackknife as jk
 import unittest
 import numpy as np
 import nose
-from nose_parameterized import parameterized as param
+from numpy.testing import assert_array_equal, assert_array_almost_equal
+from nose.tools import assert_raises
+
+class Test_Jackknife(unittest.TestCase):
+	
+	def test_separators(self):
+		N = 20
+		x = np.arange(N)
+		for i in xrange(2,int(np.floor(N/2))):
+			s = jk.Jackknife.get_separators(N, i)
+			lengths = [len(x[s[j]:s[j+1]]) for j in xrange(len(s)-2)]
+		
+		self.assertTrue(max(lengths) - min(lengths) <= 1)
+
+	def test_jknife_1d(self):
+		pseudovalues = np.atleast_2d(np.arange(10)).T
+		(est, var, se, cov) = jk.Jackknife.jknife(pseudovalues)
+		nose.tools.assert_almost_equal(var, 0.91666667)
+		nose.tools.assert_almost_equal(est, 4.5)
+		nose.tools.assert_almost_equal(cov, var)
+		nose.tools.assert_almost_equal(se**2, var)
+		self.assertTrue(not np.any(np.isnan(cov)))
+		assert_array_equal(cov.shape, (1,1))
+		assert_array_equal(var.shape, (1,1))
+		assert_array_equal(est.shape, (1,1))
+		assert_array_equal(se.shape, (1,1))
+
+	def test_jknife_2d(self):
+		pseudovalues = np.vstack([np.arange(10), np.arange(10)]).T
+		(est, var, se, cov) = jk.Jackknife.jknife(pseudovalues)
+		assert_array_almost_equal(var, np.array([[0.91666667, 0.91666667]]))
+		assert_array_almost_equal(est, np.array([[4.5,4.5]]))
+		assert_array_almost_equal(cov, np.matrix([[0.91666667, 0.91666667],[0.91666667, 0.91666667]]))
+		assert_array_almost_equal(se**2, var)
+		assert_array_equal(cov.shape, (2,2))
+		assert_array_equal(var.shape, (1,2))
+		assert_array_equal(est.shape, (1,2))
+		assert_array_equal(se.shape, (1,2))
+	
+	def test_delete_to_pseudo(self):
+		for dim in [1,2]:
+			est = np.ones((1, dim))
+			delete_values = np.ones((20, dim))
+			x = jk.Jackknife.delete_values_to_pseudovalues(delete_values, est)
+			assert_array_equal(x, np.ones_like(delete_values))
+		
+		est = est.T
+		nose.tools.assert_raises(ValueError, jk.Jackknife.delete_values_to_pseudovalues, delete_values, est)
+
+		
+class Test_LstsqJackknifeSlow(unittest.TestCase):
+	
+	def test_delete_values_1d(self):
+		func = lambda x,y : np.atleast_2d(np.sum(x+y))
+		s = [0,5,10]
+		x = np.atleast_2d(np.arange(10)).T
+		y = np.atleast_2d(np.arange(10)).T
+		p = jk.LstsqJackknifeSlow.delete_values(x,y,func,s)
+		# 2 blocks, 1D data
+		assert_array_equal(p.shape, (2,1))
+		assert_array_almost_equal(p, [[70], [20]])
+		
+	def test_delete_values_2d_1(self):
+		func = lambda x,y: np.atleast_2d(np.sum(x+y, axis=0))
+		s = [0,2,4,6,8,10]
+		x = np.vstack([np.arange(10), 2*np.arange(10)]).T
+		y = np.atleast_2d(np.arange(10)).T
+		p = jk.LstsqJackknifeSlow.delete_values(x,y,func,s)
+		# 5 blocks, 2D data
+		assert_array_equal(p.shape, (5,2))
+		correct = [[ 88, 132],
+		 [ 80, 120],
+		 [ 72, 108],
+		 [ 64,  96],
+		 [ 56,  84]]
+		assert_array_almost_equal(p, correct)
+		
+	def test_delete_values_2d_2(self):
+		func = lambda x,y: np.atleast_2d(np.sum(x+y, axis=0))
+		s = [0,5,10]
+		x = np.vstack([np.arange(10), 2*np.arange(10), 3*np.arange(10)]).T
+		y = np.atleast_2d(np.arange(10)).T
+		p = jk.LstsqJackknifeSlow.delete_values(x,y,func,s)
+		# 2 blocks, 3D data
+		assert_array_equal(p.shape, (2,3))
+		correct = [[ 70, 105, 140],
+	 		[ 20,  30,  40]]
+		assert_array_almost_equal(p, correct)
+
+	def test_lstsqjackknifeslow(self):
+		x = np.arange(10)
+		y = 2*np.arange(10)
+		reg = jk.LstsqJackknifeSlow(x, y, 10)
+		regnn = jk.LstsqJackknifeSlow(x, y, 10, nn=True)
+		assert_array_almost_equal(reg.est, [[2.]])
+		assert_array_almost_equal(regnn.est, [[2.]])
+		
+		# TODO add tests for the SE etc
+		
+	def test_bad_data(self):
+		x = np.arange(10)
+		y = 2*np.arange(9)
+		assert_raises(ValueError, jk.LstsqJackknifeSlow, x, y, 10)
+
+	def test_too_many_blocks(self):
+		x = np.arange(10)
+		y = 2*np.arange(10)
+		assert_raises(ValueError, jk.LstsqJackknifeSlow, x, y, 11)
 
 
+class Test_LsqtsqJackknifeFast(unittest.TestCase):
+
+	def test_block_values_1d(self):
+		x = np.arange(6).reshape((6,1))
+		y = np.arange(6).reshape((6,1))
+		s = [0,2,4,6]
+		xty, xtx = jk.LstsqJackknifeFast.block_values(x, y, s)
+		assert_array_equal(xty.shape, (3,1))
+		assert_array_equal(xtx.shape, (3,1,1))
+		correct_xty = [[1],[13],[41]]
+		assert_array_almost_equal(xty, correct_xty)
+		correct_xtx = [ [[1]], [[13]],[[41]] ]
+		assert_array_almost_equal(xtx, correct_xtx)
+
+	def test_block_values_2d(self):
+		x = np.vstack([np.arange(6), 2*np.arange(6)]).T
+		y = np.arange(6).reshape((6,1))
+		s = [0,2,4,6]
+		xty, xtx = jk.LstsqJackknifeFast.block_values(x, y, s)
+		assert_array_equal(xty.shape, (3,2))
+		assert_array_equal(xtx.shape, (3,2,2))
+		correct_xty = [[1,2],[13,26],[41,82]]
+		assert_array_almost_equal(xty, correct_xty)
+		correct_xtx = [
+		 [[1,2],[2,4]],
+		 [[13,26],[26,52]],
+		 [[41,82],[82,164]]]
+		assert_array_almost_equal(xtx, correct_xtx)
+
+	def test_block_to_est_1d(self):
+		x = np.arange(6).reshape((6,1))
+		y = np.arange(6).reshape((6,1))
+		for s in [[0,3,6],[0,2,4,6],[0,1,5,6]]:
+			xty, xtx = jk.LstsqJackknifeFast.block_values(x, y, s)
+			est = jk.LstsqJackknifeFast.block_values_to_est(xty, xtx)
+			assert_array_equal(est.shape, (1,1))
+			assert_array_almost_equal(est, [[1.]])
+
+	def test_block_to_est_2d(self):
+		x = np.vstack([np.arange(6), [1,7,6,5,2,10]]).T
+		y = np.atleast_2d(np.sum(x, axis=1)).T
+		for s in [[0,3,6],[0,2,4,6],[0,1,5,6]]:
+			xty, xtx = jk.LstsqJackknifeFast.block_values(x, y, s)
+			est = jk.LstsqJackknifeFast.block_values_to_est(xty, xtx)
+			assert_array_equal(est.shape, (1,2))
+			assert_array_almost_equal(est, [[1,1]])
+
+		# test the dimension checking		
+		assert_raises(ValueError, jk.LstsqJackknifeFast.block_values_to_est, xty[0:2], xtx)
+		assert_raises(ValueError, jk.LstsqJackknifeFast.block_values_to_est, xty, xtx[:,:,0:1])
+		assert_raises(ValueError, jk.LstsqJackknifeFast.block_values_to_est, xty, xtx[:,:,0])
+
+	def test_block_to_delete_1d(self):
+		pass
+	
+	def test_block_to_delete_2d(self):
+		pass
+	
+			
+class Test_RatioJackknife(unittest.TestCase):
+
+	def test(self):
+		pass
+
+'''
 class TestLstsqJackknife(unittest.TestCase):
 	
 	def setUp(self):	
@@ -231,18 +403,4 @@ class Test_Hsq_Agg_2D(unittest.TestCase):
 		self.assertTrue(np.all( np.abs(x.cat_hsq_se[0,0:2] - (0,0)) < 1e-6) )
 		self.assertTrue(np.all( np.abs(x._jknife.jknife_var[0,0:2] - (0,0)) < 1e-6))
 		self.assertTrue(np.all( np.abs(x._jknife.jknife_est[0,0:2] - (1,1)) < 1e-6))
-
-'''		
-class Test_gencov_weights(unittest.TestCase):
-
-
-def test_basic(self):
-		pass
-			
-
-
-class Test_obs_to_liab(unittest.TestCase):
-	
-	pass
-	
 '''

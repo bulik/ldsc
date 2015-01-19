@@ -21,12 +21,12 @@ import pandas as pd
 from subprocess import call
 from itertools import product
 
-__version__ = '0.0.2 (alpha)'
+__version__ = '1.0'
 
 MASTHEAD = "*********************************************************************\n"
 MASTHEAD += "* LD Score Regression (LDSC)\n"
 MASTHEAD += "* Version {V}\n".format(V=__version__)
-MASTHEAD += "* (C) 2014 Brendan Bulik-Sullivan and Hilary Finucane\n"
+MASTHEAD += "* (C) 2014-20150 Brendan Bulik-Sullivan and Hilary Finucane\n"
 MASTHEAD += "* Broad Institute of MIT and Harvard / MIT Department of Mathematics\n"
 MASTHEAD += "* GNU General Public License v3\n"
 MASTHEAD += "*********************************************************************\n"
@@ -396,64 +396,6 @@ def ldscore(args, header=None):
 			annot_matrix = np.multiply(annot_matrix, mf)
 		else:
 			annot_matrix = mf
-	
-# 	if args.se: # block jackknife
-# 
-# 		# block size
-# 		if args.block_size:
-# 			jSize = args.block_size 
-# 		elif n > 50:
-# 			jSize = 10
-# 		else:
-# 			jSize = 1
-# 		
-# 		jN = int(np.ceil(n / jSize))
-# 		if args.l1:
-# 			col_prefix = "L1"; file_suffix = "l1.jknife"
-# 			raise NotImplementedError('Sorry, havent implemented L1 block jackknife yet.')
-# 			
-# 		elif args.l1sq:
-# 			col_prefix = "L1SQ"; file_suffix = "l1sq.jknife"
-# 			raise NotImplementedError('Sorry, havent implemented L1^2 block jackknife yet.')
-# 			
-# 		elif args.l2:
-# 			col_prefix = "L2"; file_suffix = "l2.jknife"
-# 			c = "Computing LD Score (L2) and block jackknife standard errors with {n} blocks."
-# 			
-# 		elif args.l4:
-# 			col_prefix = "L4"; file_suffix = "l4.jknife"
-# 			c = "Computing L4 and block jackknife standard errors with {n} blocks."
-# 			
-# 		print c.format(n=jN)
-# 		(lN_est, lN_se) = geno_array.ldScoreBlockJackknife(block_left, args.chunk_size, jN=jN,
-# 			annot=annot_matrix)
-# 		lN = np.c_[lN_est, lN_se]
-# 		if num_annots == 1:
-# 			ldscore_colnames = [col_prefix+scale_suffix, 'SE('+col_prefix+scale_suffix+')']
-# 		else:
-# 			ldscore_colnames =  [x+col_prefix+scale_suffix for x in annot_colnames]
-# 			ldscore_colnames += ['SE('+x+scale_suffix+')' for x in ldscore_colnames]
-
-# 	else: # not block jackknife
-# 		if args.l1:
-# 			log.log("Estimating L1.")
-# 			lN = geno_array.l1VarBlocks(block_left, args.chunk_size, annot=annot_matrix)
-# 			col_prefix = "L1"; file_suffix = "l1"
-# 		
-# 		elif args.l1sq:
-# 			log.log("Estimating L1 ^ 2.")
-# 			lN = geno_array.l1sqVarBlocks(block_left, args.chunk_size, annot=annot_matrix)
-# 			col_prefix = "L1SQ"; file_suffix = "l1sq"
-# 		
-# 		elif args.l2:
-# 			log.log("Estimating LD Score (L2).")
-# 			lN = geno_array.ldScoreVarBlocks(block_left, args.chunk_size, annot=annot_matrix)
-# 			col_prefix = "L2"; file_suffix = "l2"
-# 				
-# 		elif args.l4:
-# 			col_prefix = "L4"; file_suffix = "l4"
-# 			raise NotImplementedError('Sorry, havent implemented L4 yet. Try the jackknife.')
-# 			lN = geno_array.l4VarBlocks(block_left, c, annot)
 		
 	log.log("Estimating LD Score.")
 	lN = geno_array.ldScoreVarBlocks(block_left, args.chunk_size, annot=annot_matrix)
@@ -606,18 +548,6 @@ if __name__ == '__main__':
 		'PRINT_SNPs. This is useful for reducing the number of LD Scores that have to be '
 		'read into memory when estimating h2 or rg.' )
 	
-	# Output for LD Score
-	#parser.add_argument('--l1', default=False, action='store_true',
-	#	help='Estimate l1 w.r.t. sample minor allele.')
-	#parser.add_argument('--l1sq', default=False, action='store_true',
-	#	help='Estimate l1 ^ 2 w.r.t. sample minor allele.')
-	parser.add_argument('--l2', default=False, action='store_true',
-		help='Estimate l2. Compatible with both jackknife and non-jackknife.')
-	#parser.add_argument('--l4', default=False, action='store_true',
-	#	help='Estimate l4. Only compatible with jackknife.')
-	#parser.add_argument('--se', action='store_true', 
-	#	help='Block jackknif	e SE? (Warning: somewhat slower)')
-	
 	# Fancy LD Score Estimation Flags
 	parser.add_argument('--annot', default=None, type=str, 
 		help='Filename prefix for annotation file for partitioned LD Score estimation. '
@@ -736,26 +666,9 @@ if __name__ == '__main__':
 		help='Alternate .M file (e.g., if you want to use .M_5_50).')
 			
 	# Filtering for sumstats
-	parser.add_argument('--info-min', default=None, type=float,
-		help='Minimum INFO score for SNPs included in the regression. If your .chisq files '
-		'do not include an INFO colum, setting this flag will result in an error. We '
-		'recommend throwing out all low-INFO SNPs before making the .chisq file.')
-	parser.add_argument('--info-max', default=None, type=float,
-		help='Maximum INFO score for SNPs included in the regression. If your .chisq files '
-		'do not include an INFO colum, setting this flag will result in an error.')
 	parser.add_argument('--keep-ld', default=None, type=str,
 		help='Zero-indexed column numbers of LD Scores to keep for LD Score regression.')
 	# Optional flags for genetic correlation
-	parser.add_argument('--overlap', default=0, type=int,
-		help='By defualt LDSC weights the genetic covariance regression in --rg assuming that '
-		'there are no overlapping samples. If there are overlapping samples, the LD Score '
-		'regression standard error will be reduced if the weights take this into account. '
-		'Use --overlap with --rg to tell LDSC the number of overlapping samples. '
-		'--overlap must be used with --rho.  Since these numbers are only used for '
-		'regression weights, it is OK if they are not precise.')
-	parser.add_argument('--rho', default=0, type=float,
-		help='Estimate of the phenotypic correlation among overlapping samples. For use with '
-		'--overlap.')
 		
 	# Flags for both LD Score estimation and h2/gencor estimation
 	parser.add_argument('--human-only', default=False, action='store_true',
@@ -800,23 +713,19 @@ if __name__ == '__main__':
 		help='For use with --overlap-annot. Provides allele frequencies to prune to common '
 		'snps if --not-M-5-50 is not set.')
 
-
 	args = parser.parse_args()
-	
 	if args.no_check_alleles:
 		args.no_check = False
 
 	args = parser.parse_args()
 	defaults = vars(parser.parse_args(''))
 	opts = vars(args)
-	non_defaults = [x for x in opts.keys() if opts[x] != defaults[x]]
-	
+	non_defaults = [x for x in opts.keys() if opts[x] != defaults[x]]	
 	header = MASTHEAD
 	header += "\nOptions: \n"
 	options = ['--'+x.replace('_','-')+' '+str(opts[x]) for x in non_defaults]
 	header += '\n'.join(options).replace('True','').replace('False','')
 	header += '\n'
-	
 	if args.constrain_intercept:
 		args.constrain_intercept = args.constrain_intercept.replace('N','-')
 	
@@ -828,16 +737,6 @@ if __name__ == '__main__':
 	if args.num_blocks <= 1:
 		raise ValueError('--num-blocks must be an integer > 1.')
 	
-	#if args.freq:	
-	#	if (args.bfile is not None) == (args.bin is not None):
-	#		raise ValueError('Must set exactly one of --bin or --bfile for use with --freq') 
-	#
-	#	freq(args, header)
-
-	# LD Score estimation
-	#elif (args.bin is not None or args.bfile is not None) and (args.l1 or args.l1sq or args.l2 or args.l4):
-	#	if np.sum((args.l1, args.l2, args.l1sq, args.l4)) != 1:
-	#elif (args.bin is not None or args.bfile is not None):
 	if args.bfile is not None:
 		if args.l2 is None:
 			#raise ValueError('Must specify exactly one of --l1, --l1sq, --l2, --l4 for LD estimation.')
@@ -895,64 +794,4 @@ if __name__ == '__main__':
 	else:
 		print header
 		print 'Error: no analysis selected.'
-		print 'ldsc.py --help describes all options.'
-
-
-# def freq(args):
-# 	'''
-# 	Computes and prints reference allele frequencies. Identical to plink --freq. In fact,
-# 	use plink --freq instead with .bed files; it's faster. This is useful for .bin files,
-# 	which are a custom LDSC format.
-# 	
-# 	TODO: the MAF computation is inefficient, because it also filters the genotype matrix
-# 	on MAF. It isn't so slow that it really matters, but fix this eventually. 
-# 	
-# 	'''
-# 	log = logger(args.out+'.log')
-# 	if header:
-# 		log.log(header)
-# 		
-# 	if args.bin:
-# 		snp_file, snp_obj = args.bin+'.bim', ps.PlinkBIMFile
-# 		ind_file, ind_obj = args.bin+'.ind', ps.VcfINDFile
-# 		array_file, array_obj = args.bin+'.bin', ld.VcfBINFile
-# 	elif args.bfile:
-# 		snp_file, snp_obj = args.bfile+'.bim', ps.PlinkBIMFile
-# 		ind_file, ind_obj = args.bfile+'.fam', ps.PlinkFAMFile
-# 		array_file, array_obj = args.bfile+'.bed', ld.PlinkBEDFile
-# 
-# 	# read bim/snp
-# 	array_snps = snp_obj(snp_file)
-# 	m = len(array_snps.IDList)
-# 	log.log('Read list of {m} SNPs from {f}'.format(m=m, f=snp_file))
-# 	
-# 	# read fam/ind
-# 	array_indivs = ind_obj(ind_file)
-# 	n = len(array_indivs.IDList)	 
-# 	log.log('Read list of {n} individuals from {f}'.format(n=n, f=ind_file))
-# 	
-# 	# read --extract
-# 	if args.extract is not None:
-# 		keep_snps = __filter__(args.extract, 'SNPs', 'include', array_snps)
-# 	else:
-# 		keep_snps = None
-# 	
-# 	# read keep_indivs
-# 	if args.keep:
-# 		keep_indivs = __filter__(args.keep, 'individuals', 'include', array_indivs)
-# 	else:
-# 		keep_indivs = None
-# 	
-# 	# read genotype array
-# 	log.log('Reading genotypes from {fname}'.format(fname=array_file))
-# 	geno_array = array_obj(array_file, n, array_snps, keep_snps=keep_snps,
-# 		keep_indivs=keep_indivs)
-# 	
-# 	frq_df = array_snps.df.ix[:,['CHR', 'SNP', 'A1', 'A2']]
-# 	frq_array = np.zeros(len(frq_df))
-# 	frq_array[geno_array.kept_snps] = geno_array.freq
-# 	frq_df['FRQ'] = frq_array
-# 	out_fname = args.out + '.frq'
-# 	log.log('Writing reference allele frequencies to {O}.gz'.format(O=out_fname))
-# 	frq_df.to_csv(out_fname, sep="\t", header=True, index=False)	
-# 	call(['gzip', '-f', out_fname])
+		print 'ldsc.py -h describes options.'

@@ -1,7 +1,7 @@
 '''
 (c) 2014 Brendan Bulik-Sullivan and Hilary Finucane
 
-This module contains functions for parsing various ldsc-defined file formats
+This module contains functions for parsing various ldsc-defined file formats.
 
 '''
 
@@ -621,67 +621,3 @@ PlinkFAMFile = __ID_List_Factory__(['IID'],0,'.fam',usecols=[1])
 VcfINDFile = __ID_List_Factory__(['IID'],0,'.ind',usecols=[0])
 FilterFile = __ID_List_Factory__(['ID'],0,None,usecols=[0])
 AnnotFile = __ID_List_Factory__(None,2,None,header=0,usecols=None)
-
-
-
-# def l1(fh, num=None):
-#		'''
-#		Parses .l1.ldscore files. See docs/file_formats_ld.txt
-# 
-#		If num is not None, parses .l1.ldscore files split across [num] chromosomes (e.g., the 
-#		output of parallelizing ldsc.py --l1 across chromosomes).
-# 
-#		'''
-#												
-#		parsefunc = lambda y, compression : pd.read_csv(y, header=0, delim_whitespace=True,
-#				compression=compression).drop(['CHR','BP','CM','MAF'], axis=1)
-#		
-#		if num is not None:
-#				try:
-#						suffix = '.l1.ldscore.gz'
-#						if '@' in fh:
-#								full_fh = fh.replace('@', '1') + suffix
-#						else:
-#								full_fh = fh + '1' + suffix
-#		
-#						x = open(full_fh, 'rb')
-#						x.close()
-#						compression = 'gzip'
-#				except IOError:
-#						suffix = '.l1.ldscore'
-# 
-#						if '@' in fh:
-#								full_fh = fh.replace('@', '1') + suffix
-#						else:
-#								full_fh = fh + '1' + suffix
-#						x = open(full_fh, 'rb')
-#						x.close()
-#						compression = None					
-#				
-#				if '@' in fh:
-#						chr_ld = [parsefunc(fh.replace('@',str(i))+suffix, compression) for i in xrange(1,num+1)]
-#				else:
-#						chr_ld = [parsefunc(fh + str(i) + suffix, compression) for i in xrange(1,num+1)]
-# 
-#				x = pd.concat(chr_ld)
-#		
-#		else:
-#				try:
-#						full_fh = fh + '.l1.ldscore.gz'
-#						open(full_fh, 'rb')
-#						compression = 'gzip'
-#				except IOError:
-#						full_fh = fh + '.l1.ldscore'
-#						open(full_fh, 'rb')
-#						compression = None					
-#				
-#				x = parsefunc(full_fh, compression)
-#		
-#		ii = x['SNP'] != '.'
-#		x = x[ii]		
-#		check_rsid(x['SNP']) 
-#		for col in x.columns[1:]:
-#				x[col] = x[col].astype(float)
-#		
-#		return x
-
