@@ -224,7 +224,7 @@ def obs_to_liab(h2_obs, P, K):
 class Hsq(object):
 	'''
 	The conflict between python and genetics capitalization conventions (capitalize 
-	objects, but additive heritability is lowercase) makes me sad :-(
+	objects, but additive heritability is lowercase) `akes me sad :-(
 	
 	Class for estimating heritability / partitioned heritability from summary statistics.
 	

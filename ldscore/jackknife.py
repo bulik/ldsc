@@ -12,12 +12,15 @@ from scipy.optimize import nnls
 
 
 def _check_shape(x, y):
-	'''Check that x and y have the correct shapes (for regression jackknives).'''
-	if x.shape[0] != y.shape[0]:
-		raise ValueError('Number of datapoints in x != number of datapoints in y.')
+	'''Check that x and y have the correct shapes (for regression jackknives).'''	
 	if len(x.shape) !=2 or len(y.shape) !=2:
 		raise ValueError('x and y must be 2D arrays.')
+	if x.shape[0] != y.shape[0]:
+		raise ValueError('Number of datapoints in x != number of datapoints in y.')
 	n, p = x.shape
+	if p > n:
+		raise ValueError('More dimensions than datapoints.')
+		
 	return (n, p)
 	
 def _check_shape_block(xty_block_values, xtx_block_values):
@@ -70,22 +73,24 @@ class Jackknife(object):
 		Returns (approximately) evenly-spaced jackknife block boundaries.
 	'''
 	
-	def __init__(self, x, y, n_blocks, *args, **kwargs):
-		if len(x.shape) <= 1:
-			x = np.atleast_2d(x).T
-		if len(y.shape) <= 1:
-			y = np.atleast_2d(y).T
-	
-		self.N = y.shape[0]
-		if self.N != x.shape[0]:
-			raise ValueError('Number of data points in y != number of data points in x.')
+	def __init__(self, x, y, n_blocks=None, separators=None, *args, **kwargs):
+		self.N, self.p = _check_shape(x, y)			
+		if separators is not None:
+			if max(separators) != self.N:
+				raise ValueError('Max(separators) must be equal to number of data points.')
+			if min(separators) != 0:
+				raise ValueError('Max(separators) must be equal to 0.')
+			self.separators = sorted(separators)
+			self.n_blocks = len(separators) - 1
+		elif n_blocks is not None:
+			self.n_blocks = n_blocks
+			self.separators = self.get_separators(self.N, self.n_blocks)
+		else:
+			raise ValueError('Must specify either n_blocks are separators.')
 		
-		self.n_blocks = int(n_blocks)
-		self.p = x.shape[1]
 		if self.n_blocks > self.N:
-			msg = 'Number of jackknife blocks ({N1}) > number of datapoints ({N2}). '
-			raise ValueError(msg.format(N1=n_blocks, N2=self.N))
-		
+			raise ValueError('More blocks than data points.')
+			
 		self.__init_specific__(x, y, *args, **kwargs)
 	
 	def __init_specific(x, y, *args, **kwargs):
@@ -180,17 +185,14 @@ class LstsqJackknifeSlow(Jackknife):
 		Compute delete-k values of func(x, y) the slow way, with blocks defined by s.
 	
 	'''
-	def __init_specific__(self, x, y, nn=False, separators=None):
+	def __init_specific__(self, x, y, n_blocks=None, nn=False, separators=None):
 		if nn: # non-negative least squares
 			func = lambda x,y: np.atleast_2d(nnls(x, np.array(y).T[0])[0])
 		else: 
 			func = lambda x,y: np.atleast_2d(np.linalg.lstsq(x, np.array(y).T[0])[0])
-			
-		if separators is None:
-			separators = self.get_separators(self.N, self.n_blocks)
-			
+						
 		self.est = func(x, y)
-		self.delete_values = self.delete_values(x, y, func, separators)
+		self.delete_values = self.delete_values(x, y, func, self.separators)
 		self.pseudovalues = self.delete_values_to_pseudovalues(self.delete_values,self.est)
 		(self.jknife_est, self.jknife_var, self.jknife_se, self.jknife_cov) =\
 			self.jknife(self.pseudovalues)
@@ -254,16 +256,13 @@ class LstsqJackknifeFast(Jackknife):
 		Computes pseudovalues and delete values in a single pass over the block values.
 
 	'''
-	def __init_specific__(self, x, y):
-		if self.separators is None:
-			separators = self.get_separators(self.n_blocks)
-			
-		self.block_values = self.block_values(x, y, self.n_blocks, separators)
-		self.est = self.block_values_to_est(self.block_values)
-		self.delete_values = self.block_values_to_delete_values(self.block_values)
+	def __init_specific__(self, x, y, n_blocks=None, separators=None):
+		xty, xtx = self.block_values(x, y, self.separators)
+		self.est = self.block_values_to_est(xty, xtx)
+		self.delete_values = self.block_values_to_delete_values(xty, xtx)
 		self.pseudovalues = self.delete_values_to_pseudovalues(self.delete_values, self.est)
 		(self.jknife_est, self.jknife_var, self.jknife_se, self.jknife_cov) =\
-			self.jknife(self.pseudovalues, self.n_blocks)		
+			self.jknife(self.pseudovalues)		
 			
 	@classmethod
 	def block_values(self, x, y, s):
@@ -333,6 +332,8 @@ class LstsqJackknifeFast(Jackknife):
 		n_blocks, p = _check_shape_block(xty_block_values, xtx_block_values)
 		xty = np.sum(xty_block_values, axis=0)
 		xtx = np.sum(xtx_block_values, axis=0)
+		print xtx.shape
+
 		return np.linalg.solve(xtx, xty).reshape((1, p))
 
 	@classmethod
@@ -365,8 +366,8 @@ class LstsqJackknifeFast(Jackknife):
 		'''
 		n_blocks, p = _check_shape_block(xty_block_values, xtx_block_values)
 		delete_values = np.zeros((n_blocks, p))
-		xty_tot = np.sum(xty_blocks, axis=0)
-		xtx_tot = np.sum(xtx_blocks, axis=0)
+		xty_tot = np.sum(xty_block_values, axis=0)
+		xtx_tot = np.sum(xtx_block_values, axis=0)
 		for j in xrange(n_blocks):
 			delete_xty = xty_tot - xty_block_values[j]
 			delete_xtx = xtx_tot - xtx_block_values[j]
@@ -376,7 +377,6 @@ class LstsqJackknifeFast(Jackknife):
 		
 
 class RatioJackknife(Jackknife):
-
 	'''
 	Block jackknife class for a ratio estimator (for genetic correlation estimation).
 	
@@ -400,27 +400,52 @@ class RatioJackknife(Jackknife):
 	the category with a zero delete-k block value will be nan. 
 		
 	'''
-
 	def __init__(self, est, numer_delete_values, denom_delete_values):
 		if numer_delete_values.shape != denom_delete_values.shape:
 			raise ValueError('numer_delete_values.shape != denom_delete_values.shape.')
-
-		self.est = est
-		self.numer_delete_values = numer_delete_values 
-		self.denom_delete_values = denom_delete_values 
+		if len(numer_delete_values.shape) != 2:
+			raise ValueError('Delete values must be matrices.')
+		if len(est.shape) != 2 or est.shape[0] != 1 or est.shape[1] != numer_delete_values.shape[1]:
+			raise ValueError('Shape of est does not match shape of delete values.')
+		
 		self.n_blocks = numer_delete_values.shape[0]
-		self.p = numer_delete_values.shape[1]
-		self.pseudovalues = self.__delete_values_to_pseudovalues__(self.est,\
-			self.denom_delete_values, self.numer_delete_values)
+		self.est = est
+		self.pseudovalues = self.delete_values_to_pseudovalues(self.est,\
+			denom_delete_values, numer_delete_values)
 		(self.jknife_est, self.jknife_var, self.jknife_se, self.jknife_cov) =\
-		self.__jknife__(self.pseudovalues, self.n_blocks)
+			self.jknife(self.pseudovalues)
 	
 	@classmethod
 	def delete_values_to_pseudovalues(self, est, denom, numer):
-		'''Converts delete-k values to pseudovalues.'''
-		pseudovalues = np.matrix(np.zeros((self.n_blocks, self.p)))
-		for j in xrange(0,self.n_blocks):
-			pseudovalues[j,...] = self.n_blocks*est - (self.n_blocks - 1)*\
-				numer[j,...]/denom[j,...]
+		'''
+		Converts delete-k values to pseudovalues.
+		
+		Parameters
+		----------
+		est : np.matrix with shape (1, p)
+			Whole-data ratio estimate.
+		denom : np.matrix with shape (n_blocks, p)
+			Denominator delete values.
+		numer : np.matrix with shape (n_blocks, p)
+			Numerator delete values.
+
+		Returns
+		-------
+		pseudovalues :
+			Ratio Jackknife Pseudovalues.
+				
+		Raises
+		------
+		ValueError :
+			If numer.shape != denom.shape.
+			
+		'''
+		if denom.shape != numer.shape:
+			raise ValueError('denom.shape must equal numer.shape')
+			
+		n_blocks, p = denom.shape
+		pseudovalues = np.zeros((n_blocks, p))
+		for j in xrange(0, n_blocks):
+			pseudovalues[j,...] = n_blocks*est - (n_blocks - 1)*numer[j,...]/denom[j,...]
 
 		return pseudovalues
