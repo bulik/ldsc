@@ -591,7 +591,7 @@ def munge_sumstats(args, p=True): # set p = False for testing in order to preven
 		log.log('Total time elapsed: {T}'.format(T=sumstats.sec_to_str(round(time.time()-START_TIME,2))))
 		return dat
 		
-	except:
+	except Exception:
 		log.log('\nERROR converting summary statistics:\n')
 		ex_type, ex, tb = sys.exc_info()
 		log.log( traceback.format_exc(ex) )

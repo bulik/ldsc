@@ -9,7 +9,7 @@ from __future__ import division
 import numpy as np
 from scipy.stats import norm, chi2
 from scipy.optimize import nnls
-
+np.seterr(divide='raise')
 
 def _check_shape(x, y):
 	'''Check that x and y have the correct shapes (for regression jackknives).'''	
@@ -391,9 +391,10 @@ class RatioJackknife(Jackknife):
 	denom_delete_values: np.matrix with shape (n_blocks, p) 
 		Delete values for the denominator.
 		
-	Will return inf jknife estimates and nan variance/covariance/se for any dimensions 
-	where at least one of the denominator delete-values is zero. This will also cause
-	a RuntimeWarning from within numpy.
+	Raises
+	------
+	FloatingPointError :
+		If any entry of denom_delete_values is zero.
 	
 	Note that it is possible for the denominator to cross zero (i.e., be both positive
 	and negative) and still have a finite ratio estimate and SE, for example if the
@@ -451,5 +452,5 @@ class RatioJackknife(Jackknife):
 		pseudovalues = np.zeros((n_blocks, p))
 		for j in xrange(0, n_blocks):
 			pseudovalues[j,...] = n_blocks*est - (n_blocks - 1)*numer[j,...]/denom[j,...]
-
+		
 		return pseudovalues
