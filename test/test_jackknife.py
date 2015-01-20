@@ -5,7 +5,6 @@ import numpy as np
 import nose
 from numpy.testing import assert_array_equal, assert_array_almost_equal
 from nose.tools import assert_raises
-import warnings
 
 class Test_Jackknife(unittest.TestCase):
 	
@@ -224,7 +223,7 @@ class Test_RatioJackknife(unittest.TestCase):
 		#with warnings.catch_warnings(record=True) as w:
 		#		jknife = jk.RatioJackknife(est, numer_delete_vals, denom_delete_vals)
 		assert_raises(FloatingPointError, jk.RatioJackknife, est, numer_delete_vals, denom_delete_vals)
-		
+				
 	def test_2d(self):
 		self.numer_delete_values = np.matrix(np.vstack((np.arange(1,11), 2*np.arange(1,11)))).T
 		x = - np.arange(1,11); x[9] += 1

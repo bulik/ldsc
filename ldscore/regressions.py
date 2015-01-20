@@ -269,10 +269,6 @@ class Hsq(object):
 		Weighted mean chi-square (with the same weights as the regression).
 	lambda_gc : float
 		Devlin and Roeder lambda GC (median chi-square / 0.4549).
-	autocor : float
-		Lag-1 autocorrelation between block jackknife pseudoerrors. If much above zero, the 
-		block jackknife standard error will be unreliable. This can be solved by using a 
-		larger block size.
 	hsq_cov : np.matrix with shape (n_annot, n_annot)
 		Block jackknife estimate of variance-covariance matrix of partitioned h2 estimates.
 	cat_hsq : np.matrix with shape (1, n_annot)

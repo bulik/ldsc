@@ -3,6 +3,13 @@
 
 Fast block jackknives.
 
+Everything in this module deals with 2D numpy arrays. 1D data are represented as arrays 
+with dimension (N, 1) or (1, N), to avoid bugs arising from numpy treating (N, ) as 
+a fundamentally different shape from (N, 1). The convention in this module is for the 
+first dimension to represent # of data points (or # of blocks in a block jackknife, since
+a block is like a datapoint), and for the second dimension to represent the dimensionality
+of the data.
+
 '''
 
 from __future__ import division
@@ -68,7 +75,7 @@ class Jackknife(object):
 	jknife(pseudovalues):
 		Computes jackknife estimate and variance from the jackknife pseudovalues.
 	delete_vals_to_pseudovalues(delete_vals, est):
-		Converts delete-k values and the whole-data estimate to pseudovalues.
+		Converts delete values and the whole-data estimate to pseudovalues.
 	get_separators():
 		Returns (approximately) evenly-spaced jackknife block boundaries.
 	'''
@@ -127,12 +134,12 @@ class Jackknife(object):
 	@classmethod
 	def delete_values_to_pseudovalues(self, delete_values, est):
 		'''
-		Converts whole-data estimate and delete-k values to pseudovalues.
+		Converts whole-data estimate and delete values to pseudovalues.
 		
 		Parameters
 		----------
 		delete_values : np.matrix with shape (n_blocks, p)
-			Delete-k values.
+			Delete values.
 		est : np.matrix with shape (1, p):
 			Whole-data estimate.
 		
@@ -161,8 +168,8 @@ class Jackknife(object):
 
 class LstsqJackknifeSlow(Jackknife):
 	'''
-	Slow linear-regression block jackknife. This class computes delete-k values directly,
-	rather than forming delete-k values from block values. Useful for testing and for
+	Slow linear-regression block jackknife. This class computes delete values directly,
+	rather than forming delete values from block values. Useful for testing and for
 	non-negative least squares (which as far as I am aware does not admit a fast block
 	jackknife algorithm).
 	
@@ -179,10 +186,25 @@ class LstsqJackknifeSlow(Jackknife):
 	nn: bool
 		Non-negative least-squares?
 		
+	Attributes
+	----------
+	est : np.matrix with shape (1, p)
+		FWLS estimate.
+	jknife_est : np.matrix with shape (1, p)
+		Jackknifed estimate.
+	jknife_var : np.matrix with shape (1, p)
+		Variance of jackknifed estimate.
+	jknife_se : np.matrix with shape (1, p)
+		Standard error of jackknifed estimate, equal to sqrt(jknife_var).
+	jknife_cov : np.matrix with shape (p, p)
+		Covariance matrix of jackknifed estimate.
+	delete_vals : np.matrix with shape (n_blocks, p)
+		Jackknife delete values.
+		
 	Methods
 	-------
 	delete_values(x, y, func, s):
-		Compute delete-k values of func(x, y) the slow way, with blocks defined by s.
+		Compute delete values of func(x, y) the slow way, with blocks defined by s.
 	
 	'''
 	def __init_specific__(self, x, y, n_blocks=None, nn=False, separators=None):
@@ -216,7 +238,7 @@ class LstsqJackknifeSlow(Jackknife):
 		Returns
 		-------
 		delete_values : np.matrix with shape (n_blocks, p)
-			Delete-k block values (with n_blocks blocks defined by parameter s).
+			Delete block values (with n_blocks blocks defined by parameter s).
 		
 		Raises
 		------
@@ -246,6 +268,21 @@ class LstsqJackknifeFast(Jackknife):
 	n_blocks : int
 		Number of jackknife blocks
 	
+	Attributes
+	----------
+	est : np.matrix with shape (1, p)
+		FWLS estimate.
+	jknife_est : np.matrix with shape (1, p)
+		Jackknifed estimate.
+	jknife_var : np.matrix with shape (1, p)
+		Variance of jackknifed estimate.
+	jknife_se : np.matrix with shape (1, p)
+		Standard error of jackknifed estimate, equal to sqrt(jknife_var).
+	jknife_cov : np.matrix with shape (p, p)
+		Covariance matrix of jackknifed estimate.
+	delete_vals : np.matrix with shape (n_blocks, p)
+		Jackknife delete values.
+
 	Methods
 	-------
 	block_values(x, y, n_blocks) :
@@ -358,7 +395,7 @@ class LstsqJackknifeFast(Jackknife):
 		Raises
 		------
 		LinAlgError :
-			If delete-k design matrix is singular.
+			If delete design matrix is singular.
 		ValueError :
 			If the last two dimensions of xtx_block_values are not equal or if the first two
 	    dimensions of xtx_block_values do not equal the shape of xty_block_values.
@@ -390,7 +427,13 @@ class RatioJackknife(Jackknife):
 		Delete values for the numerator.
 	denom_delete_values: np.matrix with shape (n_blocks, p) 
 		Delete values for the denominator.
-		
+	
+	Methods
+	-------
+	delete_vals_to_pseudovalues(est, denom, num):
+		Converts denominator/ numerator delete values and the whole-data estimate to 
+		pseudovalues.
+	
 	Raises
 	------
 	FloatingPointError :
@@ -423,7 +466,7 @@ class RatioJackknife(Jackknife):
 	@classmethod
 	def delete_values_to_pseudovalues(self, est, denom, numer):
 		'''
-		Converts delete-k values to pseudovalues.
+		Converts delete values to pseudovalues.
 		
 		Parameters
 		----------
@@ -445,9 +488,6 @@ class RatioJackknife(Jackknife):
 			If numer.shape != denom.shape.
 			
 		'''
-		if denom.shape != numer.shape:
-			raise ValueError('denom.shape must equal numer.shape')
-			
 		n_blocks, p = denom.shape
 		pseudovalues = np.zeros((n_blocks, p))
 		for j in xrange(0, n_blocks):

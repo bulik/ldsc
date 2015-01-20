@@ -1,9 +1,22 @@
+from __future__ import division
+import ldscore.regressions as reg
+import unittest
+import numpy as np
+import nose
+from numpy.testing import assert_array_equal, assert_array_almost_equal
+from nose.tools import assert_raises
+from nose_parameterized import parameterized as param
+
+
+
 class Test_append_intercept(unittest.TestCase):
 	
 	def test_simple(self):
 		x = np.matrix(np.ones(10).reshape((5,2)))
 		correct_x = np.matrix(np.ones(15).reshape((5,3)))
-		assert np.all(jk._append_intercept(x) == correct_x)
+		assert np.all(reg._append_intercept(x) == correct_x)
+
+'''
 
 
 class Test_weight(unittest.TestCase):
@@ -66,3 +79,4 @@ class Test_Hsq_2D(unittest.TestCase):
 		self.assertTrue(np.all( np.abs(x.cat_hsq_se[0,0:2] - (0,0)) < 1e-6) )
 		self.assertTrue(np.all( np.abs(x._jknife.jknife_var[0,0:2] - (0,0)) < 1e-6))
 		self.assertTrue(np.all( np.abs(x._jknife.jknife_est[0,0:2] - (1,1)) < 1e-6))
+'''
