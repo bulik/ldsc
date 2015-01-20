@@ -118,7 +118,7 @@ class Jackknife(object):
 			
 		'''
 		n_blocks = pseudovalues.shape[0]
-		jknife_cov = np.atleast_2d(np.cov(pseudovalues.T, ddof=1) / (n_blocks))
+		jknife_cov = np.atleast_2d(np.cov(pseudovalues.T, ddof=1) / n_blocks)
 		jknife_var = np.atleast_2d(np.diag(jknife_cov))
 		jknife_se = np.atleast_2d(np.sqrt(jknife_var))
 		jknife_est = np.atleast_2d(np.mean(pseudovalues, axis=0))
@@ -378,27 +378,31 @@ class LstsqJackknifeFast(Jackknife):
 
 class RatioJackknife(Jackknife):
 	'''
-	Block jackknife class for a ratio estimator (for genetic correlation estimation).
+	Block jackknife ratio estimate.
 	
-	Inherits from LstsqJackknife.
+	Jackknife.
 	
 	Parameters
 	----------
-	est : float or np.array with shape (1, n_annot)
-		(Biased) ratio estimate (e.g., if we are estimate a = b / c, est should be \
-		\hat{a} = \hat{b} / \hat{c}.
-	numer_delete_values : np.matrix with shape (n_blocks, n_annot) 
-		Delete-k values for the numerator.
-	denom_delete_values: np.matrix with shape (n_blocks, n_annot) 
-		Delete-k values for the denominator.
+	est : float or np.array with shape (1, p)
+		Whole data ratio estimate
+	numer_delete_values : np.matrix with shape (n_blocks, p) 
+		Delete values for the numerator.
+	denom_delete_values: np.matrix with shape (n_blocks, p) 
+		Delete values for the denominator.
 		
-	Warning
-	-------
-	If any of the delete-k block values for a category is zero, will return nan for 
-	jknife_est and inf for jknife_var and jknife_se for that category. jknife_cov will
-	have the expected dimension, but the row and column corresponding to covariance with
-	the category with a zero delete-k block value will be nan. 
-		
+	Will return inf jknife estimates and nan variance/covariance/se for any dimensions 
+	where at least one of the denominator delete-values is zero. This will also cause
+	a RuntimeWarning from within numpy.
+	
+	Note that it is possible for the denominator to cross zero (i.e., be both positive
+	and negative) and still have a finite ratio estimate and SE, for example if the
+	numerator is fixed to 0 and the denominator is either -1 or 1. If the denominator
+	is noisily close to zero, then it is unlikely that the denominator will yield zero
+	exactly (and therefore yield an inf or nan), but delete values will be of the form
+	(numerator / close to zero) and -(numerator / close to zero), i.e., (big) and -(big),
+	and so the jackknife will (correctly) yield huge SE. 	
+
 	'''
 	def __init__(self, est, numer_delete_values, denom_delete_values):
 		if numer_delete_values.shape != denom_delete_values.shape:
