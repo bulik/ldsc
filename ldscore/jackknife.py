@@ -14,7 +14,6 @@ of the data.
 
 from __future__ import division
 import numpy as np
-from scipy.stats import norm, chi2
 from scipy.optimize import nnls
 np.seterr(divide='raise')
 
@@ -80,7 +79,7 @@ class Jackknife(object):
 		Returns (approximately) evenly-spaced jackknife block boundaries.
 	'''
 	
-	def __init__(self, x, y, n_blocks=None, separators=None, *args, **kwargs):
+	def __init__(self, x, y, n_blocks=None, separators=None):
 		self.N, self.p = _check_shape(x, y)			
 		if separators is not None:
 			if max(separators) != self.N:
@@ -97,12 +96,7 @@ class Jackknife(object):
 		
 		if self.n_blocks > self.N:
 			raise ValueError('More blocks than data points.')
-			
-		self.__init_specific__(x, y, *args, **kwargs)
 	
-	def __init_specific(x, y, *args, **kwargs):
-		raise NotImplementedError
-
 	@classmethod
 	def jknife(self, pseudovalues):
 		'''
@@ -207,7 +201,8 @@ class LstsqJackknifeSlow(Jackknife):
 		Compute delete values of func(x, y) the slow way, with blocks defined by s.
 	
 	'''
-	def __init_specific__(self, x, y, n_blocks=None, nn=False, separators=None):
+	def __init__(self, x, y, n_blocks=None, nn=False, separators=None):
+		Jackknife.__init__(self, x, y, n_blocks, separators)
 		if nn: # non-negative least squares
 			func = lambda x,y: np.atleast_2d(nnls(x, np.array(y).T[0])[0])
 		else: 
@@ -293,7 +288,8 @@ class LstsqJackknifeFast(Jackknife):
 		Computes pseudovalues and delete values in a single pass over the block values.
 
 	'''
-	def __init_specific__(self, x, y, n_blocks=None, separators=None):
+	def __init__(self, x, y, n_blocks=None, separators=None):
+		Jackknife.__init__(self, x, y, n_blocks, separators)
 		xty, xtx = self.block_values(x, y, self.separators)
 		self.est = self.block_values_to_est(xty, xtx)
 		self.delete_values = self.block_values_to_delete_values(xty, xtx)
@@ -369,8 +365,6 @@ class LstsqJackknifeFast(Jackknife):
 		n_blocks, p = _check_shape_block(xty_block_values, xtx_block_values)
 		xty = np.sum(xty_block_values, axis=0)
 		xtx = np.sum(xtx_block_values, axis=0)
-		print xtx.shape
-
 		return np.linalg.solve(xtx, xty).reshape((1, p))
 
 	@classmethod

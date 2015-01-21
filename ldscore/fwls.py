@@ -23,8 +23,11 @@ class FWLS(object):
 	n_blocks : int
 		Number of jackknife blocks (for estimating SE via block jackknife).
 	w : np.matrix with shape (n, 1)
-		Initial regression weights (default is the identity matrix).
-	
+		Initial regression weights (default is the identity matrix). These should be on the 
+		inverse CVF scale.
+		slow : bool
+			Use slow block jackknife? (Mostly for testing)		
+			
 	Attributes
 	----------
 	est : np.matrix with shape (1, p)
@@ -48,13 +51,12 @@ class FWLS(object):
 		Weight x by w.
 		
 	'''
-	def __init__(self, x, y, update_func, n_blocks, w=None):
-		print x
+	def __init__(self, x, y, update_func, n_blocks, w=None, slow=False):
 		n, p = jk._check_shape(x, y)
 		if w is None:
 			w = np.ones_like(y)
 		
-		jknife = self.fwls(x, y, update_func, n_blocks, w)
+		jknife = self.fwls(x, y, update_func, n_blocks, w, slow)
 		self.est = jknife.est
 		self.jknife_se = jknife.jknife_se
 		self.jknife_est = jknife.jknife_est
@@ -63,7 +65,7 @@ class FWLS(object):
 		self.delete_values = jknife.delete_values
 		
 	@classmethod
-	def fwls(self, x, y, update_func, n_blocks, w):
+	def fwls(self, x, y, update_func, n_blocks, w, slow=False):
 		'''
 		Feasible weighted least squares (FWLS).
 		
@@ -79,6 +81,9 @@ class FWLS(object):
 			Number of jackknife blocks (for estimating SE via block jackknife).
 		w : np.matrix with shape (n, 1)
 			Initial regression weights.
+		slow : bool
+			Use slow block jackknife? (Mostly for testing)		
+
 		Returns
 		-------
 		jknife : jk.LstsqJackknifeFast
@@ -86,10 +91,20 @@ class FWLS(object):
 	
 		'''
 		for i in xrange(3): # update this later
-			w = np.sqrt(update_func(self.wls(x, y, w)))
+			new_w = np.sqrt(update_func(self.wls(x, y, w)))
+			if new_w.shape != w.shape:
+				print new_w.shape
+				print w.shape
+				raise ValueError('New weights must have same shape.')
+			else:
+			 w = new_w
 		
 		x, y = self._weight(x,w), self._weight(y, w)
-		jknife = jk.LstsqJackknifeFast(x, y, n_blocks)
+		if slow:
+			jknife = jk.LstsqJackknifeSlow(x, y, n_blocks)
+		else:
+			jknife = jk.LstsqJackknifeFast(x, y, n_blocks)
+
 		return jknife
 		
 	@classmethod
