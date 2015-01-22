@@ -6,6 +6,18 @@ import nose
 from numpy.testing import assert_array_equal, assert_array_almost_equal
 from nose.tools import assert_raises
 np.set_printoptions(precision=4)
+
+
+def test_p_z_norm():
+	est = 10
+	se = 1
+	p, z = reg.p_z_norm(est, se)
+	assert z == 10
+	assert_array_almost_equal(p*1e23, 1.523971)
+	se = 0
+	p, z = reg.p_z_norm(est, se)
+	assert p == 0
+	assert np.isinf(z)
 	
 def test_append_intercept():
 	x = np.ones((5,2))
@@ -257,3 +269,50 @@ class Test_Gencov_2D(unittest.TestCase):
 		assert_array_almost_equal(gencov.tot, hsq.tot)
 		assert_array_almost_equal(gencov.tot_se, hsq.tot_se)
 		assert_array_almost_equal(gencov.tot_cov, hsq.tot_cov)
+		
+	
+class Test_RG_2D(unittest.TestCase):
+
+	def setUp(self):
+		self.ld = np.abs(np.random.normal(size=100).reshape((50,2)))+2
+		self.z1 = (np.sum(self.ld, axis=1) * 10).reshape((50,1))
+		self.w_ld = np.random.normal(size=50).reshape((50,1))
+		self.N1 = 9*np.ones((50,1))
+		self.N2 = 7*np.ones((50,1))
+		self.M = np.matrix((700,222))
+		self.hsq1 = 0.5
+		self.hsq2 = 0.6
+		self.rg = reg.RG(self.z1, -self.z1, self.ld, self.w_ld, self.N1, self.N1, 
+			self.M, 1.0, 1.0, 0, n_blocks=20)
+	
+	def test_summary(self):
+		# just make sure it doesn't encounter any errors at runtime
+		print self.rg.summary()
+		print self.rg.summary(silly=True)
+		
+	def test_rg(self):
+		assert np.abs(self.rg.rg_ratio+1) < 0.01 # won't be exactly 1 because the h2 values passed to Gencov aren't 0
+		
+		
+class Test_RG_Bad(unittest.TestCase):
+	
+	def test_negative_h2(self):
+		ld = np.arange(50).reshape((50,1))+0.1
+		z1 = (1/np.sum(ld, axis=1) * 10).reshape((50,1))
+		w_ld = np.random.normal(size=50).reshape((50,1))
+		N1 = 9*np.ones((50,1))
+		N2 = 7*np.ones((50,1))
+		M = np.matrix((-700))
+		hsq1 = 0.5
+		hsq2 = 0.6
+		rg = reg.RG(z1, -z1, ld, w_ld, N1, N1, 
+			M, 1.0, 1.0, 0, n_blocks=20)
+		assert rg._negative_hsq
+		# check no runtime errors when _negative_hsq is True
+		print rg.summary()
+		print rg.summary(silly=True)
+		assert np.isnan(rg.rg_ratio)
+		assert np.isnan(rg.rg_se)
+		assert np.isnan(rg.rg)
+		assert np.isnan(rg.p)
+		assert np.isnan(rg.z)

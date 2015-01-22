@@ -14,6 +14,21 @@ import jackknife as jk
 from irwls import IRWLS
 np.seterr(divide='raise', invalid='raise')
 
+s = lambda x : kill_brackets(str(np.matrix(x)))
+
+
+def p_z_norm(est, se):
+	'''Convert estimate and se to Z-score and P-value.'''
+	try:
+		Z = est / se
+	except (FloatingPointError, ZeroDivisionError):
+		Z = float('inf')
+	
+	P = chi2.sf(Z**2, 1, loc=0, scale=1) # 0 if Z=inf
+	return P, Z
+
+
+
 def kill_brackets(x):
 	'''Get rid of brackets and trailing whitespace in numpy arrays.'''
 	return x.replace('[','').replace(']', '').strip()
@@ -130,7 +145,7 @@ class LD_Score_Regression(object):
 		
 		update_func = lambda a: self._update_func(a, x_tot, w, N, M_tot, Nbar, intercept)
 		if twostep:
-			raise NotImplementedError('twostep')
+			raise NotImplementedError('Two-step estimator coming soon!')
 		else:	
 			jknife = IRWLS(x, yp, update_func, n_blocks, slow=slow, w=initial_w)
 			
@@ -147,6 +162,9 @@ class LD_Score_Regression(object):
 			self.intercept, self.intercept_se = self._intercept(jknife)
 
 		self.jknife = jknife
+		self.tot_delete_values = self._delete_vals_tot(jknife, Nbar, M)
+		if not self.constrain_intercept:
+			self.intercept_delete_values = jknife.delete_values[:, self.n_annot]
 	
 	@classmethod
 	def aggregate(cls, y, x, N, M, intercept=None):
@@ -159,6 +177,12 @@ class LD_Score_Regression(object):
 
 	def _update_func(self, x, ref_ld_tot, w_ld, N, M, Nbar, intercept=None):
 		raise NotImplementedError
+	
+	def _delete_vals_tot(self, jknife, Nbar, M):
+		n_annot = self.n_annot
+		tot_delete_vals = jknife.delete_values[:, 0:n_annot] # shape (n_blocks, n_annot)
+		tot_delete_vals = np.dot(tot_delete_vals, M.T) / Nbar # shape (n_blocks, 1)
+		return tot_delete_vals 
 
 	def _coef(self, jknife, Nbar):
 		'''Get coefficient estimates + cov from the jackknife.'''
@@ -253,7 +277,6 @@ class Hsq(LD_Score_Regression):
 	
 	def summary(self, ref_ld_colnames=None):
 		'''Print summary of the LD Score Regression.'''
-		s = lambda x : kill_brackets(str(np.matrix(x)))
 		out = ['Total observed scale h2: '+s(self.tot)+' ('+s(self.tot_se)+')']
 		if self.n_annot > 1:
 			if ref_ld_colnames is None:
@@ -338,20 +361,14 @@ class Gencov(LD_Score_Regression):
 		self.hsq1 = hsq1;	self.hsq2 = hsq2
 		self.N1 = N1;	self.N2 = N2
 		LD_Score_Regression.__init__(self, z1*z2, x, w, np.sqrt(N1*N2), M, n_blocks, intercept, slow)
-		try:
-			self.Z = self.tot / self.tot_se
-		except FloatingPointError:
-			self.Z = float('inf')
-		
-		self.P_val = chi2.sf(self.Z**2, 1, loc=0, scale=1) # 0 if Z=inf
+		self.p, self.z = p_z_norm(self.tot, self.tot_se)
 	
 	def summary(self, ref_ld_colnames):
 		'''Print summary of the LD Score regression.'''
-		s = lambda x : kill_brackets(str(np.matrix(x)))
 		out = []
 		out.append('Total observed scale gencov: '+s(self.tot)+' ('+s(self.tot_se)+')')
-		out.append('Z-score: '+s(self.Z))
-		out.append('P: '+s(self.P_val))		
+		out.append('Z-score: '+s(self.z))
+		out.append('P: '+s(self.p))		
 
 		if self.n_annot > 1:
 			out.append( 'Categories: '+ str(' '.join(ref_ld_colnames)))
@@ -454,171 +471,53 @@ class Gencov(LD_Score_Regression):
 		return w
 	
 	
-class Gencor(object):
-	'''
-	Class for estimating genetic correlation from summary statistics. Implemented as a ratio
-	estimator with block jackknife bias correction (the block jackknife allows for 
-	estimation of reasonably good standard errors from dependent data and decreases the 
-	bias in a ratio estimate from O(1/N) to O(1/N^2), where N = number of data points). 
-	
-	Parameters
-	----------
-	bhat1, bhat2 : np.matrix with shape (n_snp, 1)
-		(Signed) effect-size estimates for each study. In a case control study, bhat should be
-		the signed square root of chi-square, where the sign is + if OR > 1 and - otherwise. 
-	ld : np.matrix with shape (n_snp, n_annot) 
-		LD Scores.
-	w_ld : np.matrix with shape (n_snp, 1)
-		LD Scores (non-partitioned) computed with sum r^2 taken over only those SNPs included 
-		in the regression.
-	N1, N2 :  np.matrix of ints > 0 with shape (n_snp, 1)
-		Number of individuals sampled for each SNP for each study.
-	M : int > 0
-		Number of SNPs used for estimating LD Score (need not equal number of SNPs included in
-		the regression).
-	hsq1, hsq2 : float
-		Heritability estimates for each study (used in regression weights).
-	N_overlap : int, default 0.
-		Number of overlapping samples.
-	rho : float in [-1,1]
-		Estimate of total phenotypic correlation between trait 1 and trait 2. Only used for 
-		regression weights, and then only when N_overlap > 0. 	
-	n_blocks : int, default = 1000
-		Number of block jackknife blocks.
-	intercepts : list with length 3
-		Intercepts for constrained LD Score regression. If None, then do not constrain 
-		intercept. 
-	
-	Attributes
-	----------
-	N1, N2 : int
-		Sample sizes. In a case/control study, this should be total sample size: number of 
-		cases + number of controls. NOT some measure of effective sample size that accounts 
-		for case/control ratio. The case-control ratio comes into play when converting from
-		observed to liability scale (in the function obs_to_liab).
-	M : np.matrix of ints with shape (1, n_annot)
-		Total number of SNPs per category in the reference panel used for estimating LD Score.
-	M_tot : int
-		Total number of SNPs in the reference panel used for estimating LD Score.
-	n_annot : int
-		Number of partitions.
-	n_snp : int
-		Number of SNPs included in the regression.	
-	hsq1, hsq2 : Hsq
-		Heritability estimates for traits 1 and 2, respectively.
-	gencov : Gencov
-		Genetic covariance estimate.
-	autocor : float
-		Lag-1 autocorrelation between ratio block jackknife pseudoerrors. If much above zero, 
-		the block jackknife standard error will be unreliable. This can be solved by using a 
-		larger block size.
-	tot_gencor : float
-		Total genetic correlation. 
-	tot_gencor_se : float
-		Genetic correlation standard error.
-	_gencor : RatioJackknife
-		Jackknife used for estimating genetic correlation. 
+class RG(object):
 
-	'''
-	def __init__(self, bhat1, bhat2, ref_ld, w_ld, N1, N2, M, intercepts, 
-		N_overlap=None,	rho=None, n_blocks=200, return_silly_things=False, first_hsq=None,
-		slow=False):
+	def __init__(self, z1, z2, x, w, N1, N2, M, intercept_hsq1=None, intercept_hsq2=None, 
+		intercept_gencov=None, n_blocks=200, slow=False):
 
-		self.N1 = N1
-		self.N2 = N2
-		self.N_overlap = N_overlap if N_overlap is not None else 0
-		self.rho = rho if rho is not None else 0
-		self.M = M
-		self.M_tot = np.sum(M)
-		self.n_annot = ref_ld.shape[1]
-		self.n_snp = ref_ld.shape[0]		
-		self.intercepts = intercepts
-		self.huge_se_flag = False
-		self.negative_hsq_flag = False
-		self.out_of_bounds_flag = False
-		self.tiny_hsq_flag = False
-		self.return_silly_things = return_silly_things
-		chisq1 = np.multiply(N1, np.square(bhat1))
-		chisq2 = np.multiply(N2, np.square(bhat2))
+		self._negative_hsq = None
+		self.tiny_hsq_flag = None
+		self.huge_se_flag = None
+		n_snp, n_annot = x.shape
+		hsq1 = Hsq(np.square(z1), x, w, N1, M, n_blocks=n_blocks, intercept=intercept_hsq1, slow=slow)
+		hsq2 = Hsq(np.square(z2), x, w, N1, M, n_blocks=n_blocks, intercept=intercept_hsq2, slow=slow)
+		gencov = Gencov(z1, z2, x, w, N1, N2, M, hsq1.tot, hsq2.tot, hsq1.intercept,
+			hsq2.intercept, n_blocks,	intercept=intercept_gencov, slow=slow)
+		self.hsq1, self.hsq2, self.gencov = hsq1, hsq2, gencov
+		if (hsq1.tot <= 0 or hsq2.tot <= 0):
+			self._negative_hsq = True
+			self.rg_ratio = float('nan'); self.rg = float('nan'); self.rg_se = float('nan')
+			self.p = float('nan'); self.z = float('nan')
+		else:			
+			self.rg_ratio = np.array(gencov.tot / np.sqrt(hsq1.tot * hsq2.tot)).reshape((1,1))
+			denom_delete_values = np.sqrt(np.multiply(hsq1.tot_delete_values, hsq2.tot_delete_values))
+			rg = jk.RatioJackknife(self.rg_ratio, gencov.tot_delete_values, denom_delete_values)
+			self.rg = float(rg.jknife_est)
+			self.rg_se = float(rg.jknife_se)
+			self.p, self.z = p_z_norm(self.rg, self.rg_se)
 		
-		if first_hsq is None:
-			self.hsq1 = Hsq(chisq1, ref_ld, w_ld, N1, M, n_blocks=n_blocks, 
-				nn=False, intercept=intercepts[0], slow=slow)
-		else:
-			self.hsq1 = first_hsq
-			
-		self.hsq2 = Hsq(chisq2, ref_ld, w_ld, N2, M, n_blocks=n_blocks, nn=False, intercept=intercepts[1], slow=slow)	
-		self.gencov = Gencov(bhat1, bhat2, ref_ld, w_ld, N1, N2, M, self.hsq1.tot_hsq,self.hsq2.tot_hsq, N_overlap=self.N_overlap, rho=self.rho, n_blocks=n_blocks,	intercept=intercepts[2], slow=slow)
-		
-		if (self.hsq1.tot_hsq <= 0 or self.hsq2.tot_hsq <= 0):
-			self.negative_hsq_flag = True
-			
-		# total genetic correlation
-		self.tot_gencor_biased = self.gencov.tot_gencov /\
-			np.sqrt(self.hsq1.tot_hsq * self.hsq2.tot_hsq)
-		numer_delete_values = self.cat_to_tot(self.gencov._jknife.delete_values[:,0:self.n_annot], self.M)
-		hsq1_delete_values = self.cat_to_tot(self.hsq1._jknife.delete_values[:,0:self.n_annot], self.M)\
-			/ self.hsq1.Nbar
-		hsq2_delete_values = self.cat_to_tot(self.hsq2._jknife.delete_values[:,0:self.n_annot], self.M)\
-			/ self.hsq2.Nbar
-		denom_delete_values = np.sqrt(np.multiply(hsq1_delete_values, hsq2_delete_values))
-		self.gencor = RatioJackknife(self.tot_gencor_biased, numer_delete_values, denom_delete_values)
-		self.tot_gencor = float(self.gencor.jknife_est)
-		if (self.tot_gencor > 1.2 or self.tot_gencor < -1.2):
-			self.out_of_bounds_flag = True	
-		elif np.isnan(self.tot_gencor):
-			self.tiny_hsq_flag = True
-			
-		self.tot_gencor_se = float(self.gencor.jknife_se)
-		if self.tot_gencor_se > 0.25:
-			self.huge_se_flag	 = True
-		
-		self.Z = self.tot_gencor / self.tot_gencor_se
-		self.P_val = chi2.sf(self.Z**2, 1, loc=0, scale=1)
 
-	def cat_to_tot(self, x, M):
-		'''Converts per-category pseudovalues to total pseudovalues.'''
-		return np.dot(x, M.T)
 	
-	def summary(self):
+	def summary(self, silly=False):
 		'''Print output of Gencor object.'''
 		out = []
-		
-		if self.negative_hsq_flag and not self.return_silly_things:
-			out.append('Genetic Correlation: nan (nan) (heritability estimate < 0) ')
-			out.append('Z-score: nan (nan) (heritability estimate < 0)')
-			out.append('P: nan (nan) (heritability estimate < 0)')
-			out.append('WARNING: One of the h2 estimates was < 0. Consult the documentation.')
-			out = '\n'.join(out)
-
-		elif self.tiny_hsq_flag and not self.return_silly_things:
-			out.append('Genetic Correlation: nan (nan) (heritability close to 0) ')
-			out.append('Z-score: nan (nan) (heritability close to 0)')
-			out.append('P: nan (nan) (heritability close to 0)')
-			out.append('WARNING: one of the h2\'s was < 0 in one of the jackknife blocks. Consult the documentation.')
-			out = '\n'.join(out)
-		
-		elif self.huge_se_flag and not self.return_silly_things:
-			warn_msg = ' WARNING: asymptotic P-values may not be valid when SE(rg) is very high.'
-			out.append('Genetic Correlation: '+s(self.tot_gencor)+' ('+s(self.tot_gencor_se)+')')
-			out.append('Z-score: '+s(self.Z))
-			out.append('P: '+s(self.P_val)+warn_msg)	
-			out = '\n'.join(out)
-			
-		elif self.out_of_bounds_flag and not self.return_silly_things:
+		if self._negative_hsq:
+			out.append('Genetic Correlation: nan (nan) (h2 estimate out of bounds) ')
+			out.append('Z-score: nan (nan) (h2 estimate out of bounds)')
+			out.append('P: nan (nan) (h2 estimate out of bounds)')
+			out.append('WARNING: One of the h2 estimates was out of bounds.')
+			out.append('This usually indicates a data-munging error or that h2 or N is low.')					
+		elif (self.rg > 1.2 or self.rg < -1.2) and not silly:
 			out.append('Genetic Correlation: nan (nan) (rg out of bounds) ')
 			out.append('Z-score: nan (nan) (rg out of bounds)')
 			out.append('P: nan (nan) (rg out of bounds)')
-			out.append('WARNING: rg was out of bounds. Consult the documentation.')
-			out = '\n'.join(out)
-			
+			out.append('WARNING: rg was out of bounds.')
+			out.append('This usually means that h2 is not significantly different from zero.')
 		else:		
-			out.append('Genetic Correlation: '+s(self.tot_gencor)+' ('+s(self.tot_gencor_se)+')')
-			out.append('Z-score: '+s(self.Z))
-			out.append('P: '+s(self.P_val))	
-			if self.return_silly_things and \
-				(self.huge_se_flag or self.negative_hsq_flag or self.out_of_bounds_flag or self.tiny_hsq_flag):
-				out.append('WARNING: returning silly results because you asked for them.')
-			out = '\n'.join(out)
+			out.append('Genetic Correlation: '+s(self.rg)+' ('+s(self.rg_se)+')')
+			out.append('Z-score: '+s(self.z))
+			out.append('P: '+s(self.p))	
 			
+		out = '\n'.join(out)	
 		return kill_brackets(out)
