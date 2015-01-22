@@ -15,7 +15,7 @@ of the data.
 from __future__ import division
 import numpy as np
 from scipy.optimize import nnls
-np.seterr(divide='raise')
+np.seterr(divide='raise', invalid='raise')
 
 def _check_shape(x, y):
 	'''Check that x and y have the correct shapes (for regression jackknives).'''	
@@ -23,6 +23,8 @@ def _check_shape(x, y):
 		raise ValueError('x and y must be 2D arrays.')
 	if x.shape[0] != y.shape[0]:
 		raise ValueError('Number of datapoints in x != number of datapoints in y.')
+	if y.shape[1] != 1:
+		raise ValueError('y must have shape (n_snp, 1)')
 	n, p = x.shape
 	if p > n:
 		raise ValueError('More dimensions than datapoints.')

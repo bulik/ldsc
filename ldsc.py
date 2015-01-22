@@ -593,12 +593,6 @@ if __name__ == '__main__':
 		help='Minor allele frequency lower bound. Default is MAF > 0.')
 		
 	# Basic Flags for Working with Variance Components
-	parser.add_argument('--intercept', default=None, type=str,
-		help='Filename prefix for a .chisq file for one-phenotype LD Score regression. '
-		'--intercept performs the same analysis as --h2, but prints output '
-		'focused on the LD Score regression intercept, rather than the h2 estimate. '
-		'LDSC will automatically append .chisq or .chisq.gz to the filename prefix.'
-		'--intercept requires at minimum also setting the --ref-ld and --w-ld flags.')
 	parser.add_argument('--h2', default=None, type=str,
 		help='Filename prefix for a .chisq file for one-phenotype LD Score regression. '
 		'LDSC will automatically append .chisq or .chisq.gz to the filename prefix.'
@@ -672,7 +666,7 @@ if __name__ == '__main__':
 		
 	# Flags for both LD Score estimation and h2/gencor estimation
 	parser.add_argument('--human-only', default=False, action='store_true',
-		help='For use with --intercept/--h2/--rg. This flag tells LDSC only to print the '
+		help='For use with --h2/--rg. This flag tells LDSC only to print the '
 		'human-readable .log file and not the machine-readable covaraince matrix of the '
 		'estimates.')
 	# frequency (useful for .bin files)
@@ -761,14 +755,13 @@ if __name__ == '__main__':
 	# Summary statistics
 	elif (args.h2 or 
 		args.rg or 
-		args.intercept or 
 		args.rg_list) and\
 		(args.ref_ld or args.ref_ld_chr or args.ref_ld_file or args.ref_ld_file_chr\
 		 or args.ref_ld_list or args.ref_ld_list_chr) and\
 		(args.w_ld or args.w_ld_chr):
 		
-		if np.sum(np.array((args.intercept, args.h2, args.rg or args.rg_list)).astype(bool)) > 1:	
-			raise ValueError('Cannot specify more than one of --h2, --rg, --intercept, --rg-list.')
+		if np.sum(np.array((args.h2, args.rg or args.rg_list)).astype(bool)) > 1:	
+			raise ValueError('Cannot specify more than one of --h2, --rg, --rg-list.')
 		if args.ref_ld and args.ref_ld_chr:
 			raise ValueError('Cannot specify both --ref-ld and --ref-ld-chr.')
 		if args.ref_ld_list and args.ref_ld_list_chr:
@@ -787,8 +780,6 @@ if __name__ == '__main__':
 			sumstats.Rg(args, header)
 		elif args.h2:
 			sumstats.H2(args, header)
-		elif args.intercept:
-			sumstats.Intercept(args, header)		
 		
 	# bad flags
 	else:

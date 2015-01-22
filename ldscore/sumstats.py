@@ -551,48 +551,6 @@ class H2(_sumstats):
 		return sumstats
 	
 
-class Intercept(H2):
-	'''
-	LD Score regression intercept
-	'''
-	def __init__(self, args, header):
-		self._masthead_and_time(args, header)
-		# WARNING: sumstats contains NA values to speed up merge
-		sumstats = self._parse_sumstats(args, self.log, args.intercept, keep_na=True)
-		ref_ldscores = self._read_ref_ld(args, self.log)
-		M_annot = self._read_M(args, self.log)
-		M_annot, ref_ldscores = self._keep_ld(args, self.log, M_annot, ref_ldscores)
-		M_annot, ref_ldscores = self._check_variance(self.log, M_annot, ref_ldscores)
-		w_ldscores = self._read_w_ld(args, self.log)
-		w_ld_colname, ref_ld_colnames, self.sumstats =\
-			self._merge_sumstats_ld(args, self.log, sumstats, M_annot, ref_ldscores, w_ldscores)
-		del sumstats
-		# Remove NA values from sumstats
-		ii = self.sumstats.CHISQ.notnull()
-		self.log.log('{N} SNPs with nonmissing values.'.format(N=ii.sum()))
-		self.sumstats = self.sumstats[ii]
-		self._check_ld_condnum(args, self.log, M_annot, self.sumstats[ref_ld_colnames])
-		self._warn_length(self.log, self.sumstats)
-		self.sumstats = self._filter_chisq(args, self.log, self.sumstats, 0.001)
-		self.log.log('Estimating LD Score regression intercept.')
-		# filter out large-effect loci
-		snp_count = len(self.sumstats); n_annot = len(ref_ld_colnames)
-		if snp_count < args.num_blocks:
-			args.num_blocks = snp_count
-		
-		log_msg = 'Estimating standard errors using a block jackknife with {N} blocks.'
-		self.log.log(log_msg.format(N=args.num_blocks))
-		ref_ld = np.matrix(self.sumstats[ref_ld_colnames]).reshape((snp_count, n_annot))
-		w_ld = np.matrix(self.sumstats[w_ld_colname]).reshape((snp_count, 1))
-		M_annot = np.matrix(M_annot).reshape((1, n_annot))
-		chisq = np.matrix(self.sumstats.CHISQ).reshape((snp_count, 1))
-		N = np.matrix(self.sumstats.N).reshape((snp_count,1))
-		hsqhat = jk.Hsq(chisq, ref_ld, w_ld, N, M_annot, args.num_blocks, slow=args.slow)				
-		self.log.log(hsqhat.summary_intercept())
-		self.hsqhat = hsqhat
-		self._print_end_time(args, self.log)
-
-
 class Rg(_sumstats):
 	'''
 	Implements rg estimation with fixed LD Scores, one fixed phenotype, and a loop over

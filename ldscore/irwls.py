@@ -1,16 +1,17 @@
 '''
 (c) 2015 Brendan Bulik-Sullivan and Hilary Finucane
 
-Feasible weighted least squares.
+Iterativey re-weighted least squares.
 
 '''
 from __future__ import division
 import numpy as np
 import jackknife as jk
 
-class FWLS(object):
+
+class IRWLS(object):
 	'''
-	Feasible weighted least squares (FLWS).
+	Iteratively re-weighted least squares (FLWS).
 	
 	Parameters
 	----------
@@ -25,13 +26,13 @@ class FWLS(object):
 	w : np.matrix with shape (n, 1)
 		Initial regression weights (default is the identity matrix). These should be on the 
 		inverse CVF scale.
-		slow : bool
-			Use slow block jackknife? (Mostly for testing)		
+	slow : bool
+		Use slow block jackknife? (Mostly for testing)		
 			
 	Attributes
 	----------
 	est : np.matrix with shape (1, p)
-		FWLS estimate.
+		IRWLS estimate.
 	jknife_est : np.matrix with shape (1, p)
 		Jackknifed estimate.
 	jknife_var : np.matrix with shape (1, p)
@@ -55,8 +56,10 @@ class FWLS(object):
 		n, p = jk._check_shape(x, y)
 		if w is None:
 			w = np.ones_like(y)
-		
-		jknife = self.fwls(x, y, update_func, n_blocks, w, slow)
+		if w.shape != (n, 1):
+			raise ValueError('w has shape {S}. w must have shape ({N}, 1).'.format(S=w.shape, N=n))
+
+		jknife = self.irwls(x, y, update_func, n_blocks, w, slow)
 		self.est = jknife.est
 		self.jknife_se = jknife.jknife_se
 		self.jknife_est = jknife.jknife_est
@@ -65,9 +68,9 @@ class FWLS(object):
 		self.delete_values = jknife.delete_values
 		
 	@classmethod
-	def fwls(self, x, y, update_func, n_blocks, w, slow=False):
+	def irwls(cls, x, y, update_func, n_blocks, w, slow=False):
 		'''
-		Feasible weighted least squares (FWLS).
+		Iteratively re-weighted least squares (IRWLS).
 		
 		Parameters
 		----------
@@ -87,19 +90,24 @@ class FWLS(object):
 		Returns
 		-------
 		jknife : jk.LstsqJackknifeFast
-			Block jackknife regression with the final FWLS weights.
+			Block jackknife regression with the final IRWLS weights.
 	
 		'''
+		(n, p) = x.shape
+		if y.shape != (n, 1):
+			raise ValueError('y has shape {S}. y must have shape ({N}, 1).'.format(S=y.shape, N=n))
+		if w.shape != (n, 1):
+			raise ValueError('w has shape {S}. w must have shape ({N}, 1).'.format(S=w.shape, N=n))
+
 		for i in xrange(3): # update this later
-			new_w = np.sqrt(update_func(self.wls(x, y, w)))
+			new_w = np.sqrt(update_func(cls.wls(x, y, w)))
 			if new_w.shape != w.shape:
-				print new_w.shape
-				print w.shape
 				raise ValueError('New weights must have same shape.')
 			else:
 			 w = new_w
 		
-		x, y = self._weight(x,w), self._weight(y, w)
+		x = cls._weight(x, w)
+		y = cls._weight(y, w)
 		if slow:
 			jknife = jk.LstsqJackknifeSlow(x, y, n_blocks)
 		else:
@@ -108,7 +116,7 @@ class FWLS(object):
 		return jknife
 		
 	@classmethod
-	def wls(self, x, y, w):
+	def wls(cls, x, y, w):
 		'''
 		Weighted least squares.
 		
@@ -127,13 +135,19 @@ class FWLS(object):
 			Output of np.linalg.lstsq
 	
 		'''
-		x = self._weight(x, w)
-		y = self._weight(y, w)
+		(n, p) = x.shape
+		if y.shape != (n, 1):
+			raise ValueError('y has shape {S}. y must have shape ({N}, 1).'.format(S=y.shape, N=n))
+		if w.shape != (n, 1):
+			raise ValueError('w has shape {S}. w must have shape ({N}, 1).'.format(S=w.shape, N=n))
+		
+		x = cls._weight(x, w)
+		y = cls._weight(y, w)
 		coef = np.linalg.lstsq(x, y)
 		return coef
 
 	@classmethod
-	def _weight(self, x, w):
+	def _weight(cls, x, w):
 		'''
 		Weight x by w.
 	
@@ -157,7 +171,10 @@ class FWLS(object):
 		'''
 		if np.any(w <= 0):
 			raise ValueError('Weights must be > 0')
+		(n, p) = x.shape
+		if w.shape != (n, 1):
+			raise ValueError('w has shape {S}. w must have shape (n, 1).'.format(S=w.shape))
 
-		w = w/ float(np.sum(w))
+		w = w / float(np.sum(w))
 		x_new = np.multiply(x, w)
 		return x_new

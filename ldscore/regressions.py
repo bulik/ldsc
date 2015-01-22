@@ -3,13 +3,16 @@
 
 Estimators of heritability and genetic correlation.
 
+Shape convention is (n_snp, n_annot) for all classes.
+Last column = intercept.
+
 '''
 from __future__ import division
 import numpy as np
 from scipy.stats import norm, chi2
 import jackknife as jk
-from fwls import FWLS
-
+from irwls import IRWLS
+np.seterr(divide='raise', invalid='raise')
 
 def kill_brackets(x):
 	'''Get rid of brackets and trailing whitespace in numpy arrays.'''
@@ -98,24 +101,38 @@ def h2_obs_to_liab(h2_obs, P, K):
 class LD_Score_Regression(object):
 
 	def __init__(self, y, x, w, N, M, n_blocks, intercept=None, slow=False, twostep=False):
-		M_tot = float(np.sum(M))
+		for i in [y, x, w, M, N]:
+			try:
+				if len(i.shape) != 2:
+					raise TypeError('Arguments must be matrices.')
+			except AttributeError:
+				raise TypeError('Arguments must be matrices.')
+				
 		n_snp, self.n_annot = x.shape
+		if any(i.shape != (n_snp, 1) for i in [y,w,N]):
+			raise ValueError('N, weights and response (z1z2 or chisq) must have shape (n_snp, 1).')
+		if M.shape != (1, self.n_annot):
+			raise ValueError('M must have shape (1, n_annot).')
+		
+		M_tot = float(np.sum(M))
 		x_tot = np.sum(x, axis=1).reshape((n_snp, 1))
+		self.constrain_intercept = intercept is not None
+		self.intercept = intercept
+		tot_agg = self.aggregate(y, x_tot, N, M_tot, intercept)
+		initial_w = self._update_weights(x_tot, w, N, M_tot, tot_agg, intercept)
 		Nbar = np.mean(N) # keep condition number low
 		x = np.multiply(N, x) / Nbar
-		self.constrain_intercept = intercept is not None
 		if not self.constrain_intercept:
-			x = append_intercept(x)
-			x_tot = append_intercept(x_tot)
-			update_func = lambda x: self.update_func(x, x_tot, w, N, M, Nbar)
+			x, x_tot = append_intercept(x), append_intercept(x_tot)
+			yp = y
 		else:
-			self.intercept = intercept
-			update_func = lambda x: self.update_func(x, x_tot, w, N, M, Nbar, intercept)
+			yp = y - intercept
 		
+		update_func = lambda a: self._update_func(a, x_tot, w, N, M_tot, Nbar, intercept)
 		if twostep:
-			pass
+			raise NotImplementedError('twostep')
 		else:	
-			jknife = FWLS(x, y, update_func, n_blocks, slow=slow)
+			jknife = IRWLS(x, yp, update_func, n_blocks, slow=slow, w=initial_w)
 			
 		self.coef, self.coef_cov, self.coef_se = self._coef(jknife, Nbar)
 		self.cat, self.cat_cov, self.cat_se =\
@@ -126,7 +143,22 @@ class LD_Score_Regression(object):
 			 self._prop(jknife, M, Nbar, self.cat, self.tot)
 			 
 		self.enrichment, self.M_prop = self._enrichment(M, M_tot, self.cat, self.tot)
+		if not self.constrain_intercept:
+			self.intercept, self.intercept_se = self._intercept(jknife)
+
 		self.jknife = jknife
+	
+	@classmethod
+	def aggregate(cls, y, x, N, M, intercept=None):
+		if intercept is None:
+			intercept = cls.__null_intercept__
+			
+		num = M*(np.mean(y) - intercept)
+		denom = np.mean(np.multiply(x, N))
+		return num / denom
+
+	def _update_func(self, x, ref_ld_tot, w_ld, N, M, Nbar, intercept=None):
+		raise NotImplementedError
 
 	def _coef(self, jknife, Nbar):
 		'''Get coefficient estimates + cov from the jackknife.'''
@@ -153,8 +185,10 @@ class LD_Score_Regression(object):
 	def _prop(self, jknife, M, Nbar, cat, tot):
 		'''Convert total h2 and per-category h2 to per-category proportion h2.'''
 		n_annot = self.n_annot
-		numer_delete_vals = np.multiply(M, jknife.delete_values[:, 0:n_annot]) / Nbar
-		denom_delete_vals = np.sum(numer_delete_vals, axis=1)*np.ones(n_annot) 
+		n_blocks = jknife.delete_values.shape[0]
+		numer_delete_vals = np.multiply(M, jknife.delete_values[:, 0:n_annot]) / Nbar # (n_blocks, n_annot)
+		denom_delete_vals = np.sum(numer_delete_vals, axis=1).reshape((n_blocks, 1))
+		denom_delete_vals = np.dot(denom_delete_vals, np.ones((1, n_annot)))
 		prop = jk.RatioJackknife(cat / tot, numer_delete_vals, denom_delete_vals)
 		return prop.est, prop.jknife_cov, prop.jknife_se
 	
@@ -167,23 +201,23 @@ class LD_Score_Regression(object):
 	def _intercept(self, jknife):
 		'''Extract intercept and intercept SE from block jackknife.'''
 		n_annot = self.n_annot
-		intercept = jknife.est[0, n_annot] + 1
+		intercept = jknife.est[0, n_annot]
 		intercept_se = jknife.jknife_se[0, n_annot-1]
 		return intercept, intercept_se
 
 	
 class Hsq(LD_Score_Regression):
-		
-	def __init__(self, y, x, w, N, M, n_blocks, intercept=None, slow=False, twostep=False):
+	__null_intercept__ = 1
+
+	def __init__(self, y, x, w, N, M, n_blocks=200, intercept=None, slow=False, twostep=False):
 		LD_Score_Regression.__init__(self, y, x, w, N, M, n_blocks, intercept, slow, twostep)
 		self.mean_chisq, self.lambda_gc = self._summarize_chisq(y)
 		if not self.constrain_intercept:
-			self.intercept, self.intercept_se = self._intercept(self.jknife)
 			self.ratio, self.ratio_se = self._ratio(self.intercept, self.intercept_se, self.mean_chisq)
-		
-	def update_func(self, x, ref_ld_tot, w_ld, N, M, Nbar, intercept=None):
+				
+	def _update_func(self, x, ref_ld_tot, w_ld, N, M, Nbar, intercept=None):
 		'''
-		Update function for FWLS
+		Update function for IRWLS
 		
 		x is the output of np.linalg.lstsq.
 		x[0] is the regression coefficients
@@ -191,12 +225,13 @@ class Hsq(LD_Score_Regression):
 		the last element of x[0] is the intercept.
 
 		'''
-		hsq = (np.dot(M.T, x[0][0])/Nbar)[0,0]
+		hsq = M*x[0][0]/Nbar
 		if intercept is None:
 			intercept = x[0][1]
 	
-		ld = ref_ld_tot[:,0].reshape(w_ld.shape)		
-		return self.weights(ld, w_ld, N, 	np.sum(M), hsq, intercept)
+		ld = ref_ld_tot[:,0].reshape(w_ld.shape) # remove intercept
+		w = self.weights(ld, w_ld, N, M, hsq, intercept)
+		return w
 
 	def _summarize_chisq(self, chisq):
 		'''Compute mean chi^2 and lambda_GC.'''
@@ -206,6 +241,7 @@ class Hsq(LD_Score_Regression):
 		return mean_chisq, lambda_gc
 
 	def _ratio(self, intercept, intercept_se, mean_chisq):
+		'''Compute ratio (intercept - 1) / (mean chi^2 -1 ).'''
 		if mean_chisq > 1:
 			ratio_se = intercept_se / (mean_chisq - 1)
 			ratio = (intercept - 1) / (mean_chisq - 1)
@@ -215,11 +251,14 @@ class Hsq(LD_Score_Regression):
 
 		return ratio, ratio_se
 	
-	def summary(self, ref_ld_colnames):
+	def summary(self, ref_ld_colnames=None):
 		'''Print summary of the LD Score Regression.'''
 		s = lambda x : kill_brackets(str(np.matrix(x)))
 		out = ['Total observed scale h2: '+s(self.tot)+' ('+s(self.tot_se)+')']
 		if self.n_annot > 1:
+			if ref_ld_colnames is None:
+				ref_ld_colnames = ['CAT_'+str(i) for i in xrange(self.n_annot)]
+
 			out.append( 'Categories: ' + ' '.join(ref_ld_colnames))
 			out.append( 'Observed scale h2: ' + s(self.cat))
 			out.append( 'Observed scale h2 SE: ' + s(self.cat_se))
@@ -243,8 +282,14 @@ class Hsq(LD_Score_Regression):
 		out = '\n'.join(out)	
 		return kill_brackets(out)
 		
+	def _update_weights(self, ld, w_ld, N, M, hsq, intercept):
+		if intercept is None:
+			intercept = self.__null_intercept__
+			
+		return self.weights(ld, w_ld, N, M, hsq, intercept)
+		
 	@classmethod
-	def weights(self, ld, w_ld, N, M, hsq, intercept=1.0):
+	def weights(cls, ld, w_ld, N, M, hsq, intercept=None):
 		'''
 		Regression weights.
 	
@@ -257,7 +302,7 @@ class Hsq(LD_Score_Regression):
 			in the regression.
 		N :  np.matrix of ints > 0 with shape (n_snp, 1)
 			Number of individuals sampled for each SNP.
-		M : int > 0
+		M : float > 0
 			Number of SNPs used for estimating LD Score (need not equal number of SNPs included in
 			the regression).
 		hsq : float in [0,1]
@@ -269,28 +314,40 @@ class Hsq(LD_Score_Regression):
 			Regression weights. Approx equal to reciprocal of conditional variance function.
 	
 		'''
+		M = float(M)
+		if intercept is None:
+			intercept = 1
+			
 		hsq = max(hsq, 0.0)
 		hsq = min(hsq, 1.0)
 		ld = np.fmax(ld, 1.0)
 		w_ld = np.fmax(w_ld, 1.0) 
 		c = hsq * N / M
-		het_w = 1.0 / np.square(intercept + np.multiply(c, ld))
+		het_w = 1.0 / (2*np.square(intercept + np.multiply(c, ld)))
 		oc_w = 1.0 / w_ld
 		w = np.multiply(het_w, oc_w)
 		return w
 
 
 class Gencov(LD_Score_Regression):
-
-	def __init__(self, z1, z2, x, w, N1, N2, M, hsq1, hsq2, n_blocks=200, intercept=None, slow=False):
-		self.hsq1, self.hsq2 = hsq1, hsq2
-		self.N1, self.N2 = N1, N2
-		LD_Score_Regression.__init__(z1*z2, x, w, np.sqrt(N1*N2), M, n_blocks, intercept, slow)
-		self.Z = self.tot / self.tot_se
-		self.P_val = chi2.sf(self.Z**2, 1, loc=0, scale=1)
-
+	__null_intercept__ = 0
+	
+	def __init__(self, z1, z2, x, w, N1, N2, M, hsq1, hsq2, intercept_hsq1, intercept_hsq2,
+		n_blocks=200, intercept=None, slow=False):
+		self.intercept_hsq1 = intercept_hsq1;	self.intercept_hsq2 = intercept_hsq2
+		self.hsq1 = hsq1;	self.hsq2 = hsq2
+		self.N1 = N1;	self.N2 = N2
+		LD_Score_Regression.__init__(self, z1*z2, x, w, np.sqrt(N1*N2), M, n_blocks, intercept, slow)
+		try:
+			self.Z = self.tot / self.tot_se
+		except FloatingPointError:
+			self.Z = float('inf')
+		
+		self.P_val = chi2.sf(self.Z**2, 1, loc=0, scale=1) # 0 if Z=inf
+	
 	def summary(self, ref_ld_colnames):
 		'''Print summary of the LD Score regression.'''
+		s = lambda x : kill_brackets(str(np.matrix(x)))
 		out = []
 		out.append('Total observed scale gencov: '+s(self.tot)+' ('+s(self.tot_se)+')')
 		out.append('Z-score: '+s(self.Z))
@@ -312,8 +369,35 @@ class Gencov(LD_Score_Regression):
 		out = '\n'.join(out)
 		return kill_brackets(out)
 
+	def _update_func(self, x, ref_ld_tot, w_ld, N, M, Nbar, intercept=None):
+		'''
+		Update function for IRWLS
+		
+		x is the output of np.linalg.lstsq.
+		x[0] is the regression coefficients
+		x[0].shape is (# of dimensions, 1)
+		the last element of x[0] is the intercept.
+
+		'''
+		rho_g = M* x[0][0]/Nbar
+		if intercept is None: # i.e,. if the regression includes an intercept
+			intercept = x[0][1]
+	
+		ld = ref_ld_tot[:,0].reshape(w_ld.shape) # remove intercept if we have one
+		w = self.weights(ld, w_ld, self.N1, self.N2, np.sum(M), self.hsq1, self.hsq2, rho_g, 
+			intercept, self.intercept_hsq1, self.intercept_hsq2)
+
+		return w
+	
+	def _update_weights(self, ld, w_ld, sqrt_n1n2, M, rho_g, intercept):
+		'''Weight function with the same signature for Hsq and Gencov.'''
+		w = self.weights(ld, w_ld, self.N1, self.N2, M, self.hsq1, self.hsq2, rho_g,
+			intercept, self.intercept_hsq1, self.intercept_hsq2)	
+		return w
+	
 	@classmethod
-	def gencov_weights(ld, w_ld, N1, N2, No, M, h1, h2, rho_g, rho):
+	def weights(cls, ld, w_ld, N1, N2, M, h1, h2, rho_g, intercept_rg=None, 
+		intercept_hsq1=None, intercept_hsq2=None):
 		'''
 		Regression weights.
 		
@@ -324,19 +408,17 @@ class Gencov(LD_Score_Regression):
 		w_ld : np.matrix with shape (n_snp, 1)
 			LD Scores (non-partitioned) computed with sum r^2 taken over only those SNPs included 
 			in the regression.
-		M : int > 0
+		M : float > 0
 			Number of SNPs used for estimating LD Score (need not equal number of SNPs included in
 			the regression).
 		N1, N2 :  np.matrix of ints > 0 with shape (n_snp, 1)
 			Number of individuals sampled for each SNP for each study.
-		No : int
-			Number of overlapping individuals.
 		h1, h2 : float in [0,1]
 			Heritability estimates for each study.
 		rhog : float in [0,1]
 			Genetic covariance estimate.
-		rho : float in [0,1]
-			Phenotypic correlation estimate.
+		intercept : float 
+			Genetic covariance intercept, on the z1*z2 scale (so should be Ns*rho/sqrt(N1*N2)).
 	
 		Returns
 		-------
@@ -344,25 +426,31 @@ class Gencov(LD_Score_Regression):
 			Regression weights. Approx equal to reciprocal of conditional variance function.
 	
 		'''
-
-		h1 = max(h1,0) 
-		h2=max(h2,0)
-		h1 = min(h1,1)
-		h2=min(h2,1)
-		rho_g = min(rho_g,1)
-		rho_g = max(rho_g, -1)	
+		M = float(M)
+		if intercept_rg is None:
+			intercept_rg = 0
+		if intercept_hsq1 is None:	
+			intercept_hsq1 = 1
+		if intercept_hsq2 is None:
+			intercept_hsq2 = 1
+			
+		h1 = max(h1, 0.0); h2 = max(h2, 0.0)
+		h1 = min(h1, 1.0); h2 = min(h2, 1.0); 
+		rho_g = min(rho_g, 1.0); rho_g = max(rho_g, -1.0)	
 		ld = np.fmax(ld, 1.0)
 		w_ld = np.fmax(w_ld, 1.0) 
-		# prevent integer division bugs with np.divide
-		N1 = N1.astype(float); N2 = N2.astype(float); No = float(No)
-		a = h1*ld / M + np.divide(1.0, N1)
-		b = h2*ld / M + np.divide(1.0, N2)
-		c = rho_g*ld / M + np.divide(No*rho, np.multiply(N1,N2))
-		het_w = np.divide(1.0, np.multiply(a, b) + 2*np.square(c))
-		oc_w = np.divide(1.0, w_ld)
-		# the factor of 3 is for debugging -- for degenerate rg (same sumstats twice)
-		# the 3 makes the h2 weights equal to the gencov weights
-		w = 3*np.multiply(het_w, oc_w)
+		a = np.multiply(N1, h1*ld) / M + intercept_hsq1
+		b = np.multiply(N2, h2*ld) / M + intercept_hsq2
+		sqrt_n1n2 = np.sqrt(np.multiply(N1, N2))
+		c = np.multiply(sqrt_n1n2, rho_g*ld) / M + intercept_rg
+		try:
+			het_w = 1.0 / (np.multiply(a, b) + np.square(c))
+		except FloatingPointError:
+			# bizarre error; should never happen in practice
+			raise FloatingPointError('Why did you set hsq intercept <= 0?')
+
+		oc_w = 1.0 / w_ld
+		w = np.multiply(het_w, oc_w) 
 		return w
 	
 	
