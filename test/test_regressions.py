@@ -25,9 +25,9 @@ def test_append_intercept():
 	assert_array_equal(reg.append_intercept(x), correct_x)
 
 
-def test_kill_brackets():
+def test_remove_brackets():
 	x = ' [] [] asdf [] '
-	nose.tools.assert_equal(reg.kill_brackets(x), 'asdf')
+	nose.tools.assert_equal(reg.remove_brackets(x), 'asdf')
 
 
 class Test_h2_obs_to_liab(unittest.TestCase):

@@ -10,8 +10,9 @@ import argparse
 from scipy.stats import chi2
 from ldscore import sumstats
 from ldscore import parse
-from ldsc import MASTHEAD
+from ldsc import MASTHEAD, Logger, sec_to_str
 import time
+np.seterr(invalid='ignore')
 
 null_values = {
 	
@@ -249,8 +250,8 @@ def parse_dat(dat_gen, convert_colname, merge_alleles, log, args):
 		new = ii.sum()
 		drops['P'] += old-new; old = new
 		if not args.no_alleles:	
-			dat.A1 = dat.A1.apply(lambda y: y.upper())
-			dat.A2 = dat.A2.apply(lambda y: y.upper())
+			dat.A1 = dat.A1.str.upper()
+			dat.A2 = dat.A2.str.upper()
 			ii &= filter_alleles(dat.A1+dat.A2)
 			drops['A'] += old-new; old = new
 		
@@ -456,7 +457,7 @@ def munge_sumstats(args, p=True): # set p = False for testing in order to preven
 	if args.out is None:
 		raise ValueError('The --out flag is required.')	
 
-	log = sumstats.Logger(args.out + '.log')
+	log = Logger(args.out + '.log')
 	try:	
 		if args.sumstats is None:
 			raise ValueError('The --sumstats flag is required.')
@@ -534,7 +535,8 @@ def munge_sumstats(args, p=True): # set p = False for testing in order to preven
 		if args.merge_alleles:
 			log.log('Reading list of SNPs for allele merge from {F}'.format(F=args.merge_alleles))
 			(openfunc, compression) = get_compression(args.merge_alleles)
-			merge_alleles = pd.read_csv(args.merge_alleles, compression=compression, header=0, delim_whitespace=True)
+			merge_alleles = pd.read_csv(args.merge_alleles, compression=compression, header=0, 
+				delim_whitespace=True, na_values='.')
 			if any(x not in merge_alleles.columns for x in ["SNP","A1","A2"]):
 				raise ValueError('--merge-alleles must have columns SNP, A1, A2.')
 		
@@ -588,7 +590,7 @@ def munge_sumstats(args, p=True): # set p = False for testing in order to preven
 		log.log('Max chi^2 = ' + str( round(CHISQ.max(), 3) ))
 		log.log('{N} Genome-wide significant SNPs (some may have been removed by filtering).'.format(N=(CHISQ > 29).sum()))
 		log.log('\nConversion finished at {T}'.format(T=time.ctime()) )
-		log.log('Total time elapsed: {T}'.format(T=sumstats.sec_to_str(round(time.time()-START_TIME,2))))
+		log.log('Total time elapsed: {T}'.format(T=sec_to_str(round(time.time()-START_TIME,2))))
 		return dat
 		
 	except Exception:

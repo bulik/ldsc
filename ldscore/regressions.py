@@ -14,8 +14,7 @@ import jackknife as jk
 from irwls import IRWLS
 np.seterr(divide='raise', invalid='raise')
 
-s = lambda x : kill_brackets(str(np.matrix(x)))
-
+s = lambda x : remove_brackets(str(np.matrix(x)))
 
 def p_z_norm(est, se):
 	'''Convert estimate and se to Z-score and P-value.'''
@@ -27,9 +26,7 @@ def p_z_norm(est, se):
 	P = chi2.sf(Z**2, 1, loc=0, scale=1) # 0 if Z=inf
 	return P, Z
 
-
-
-def kill_brackets(x):
+def remove_brackets(x):
 	'''Get rid of brackets and trailing whitespace in numpy arrays.'''
 	return x.replace('[','').replace(']', '').strip()
 	
@@ -302,8 +299,7 @@ class Hsq(LD_Score_Regression):
 			else:
 				out.append( 'Ratio: NA (mean chi^2 < 1)' )
 			
-		out = '\n'.join(out)	
-		return kill_brackets(out)
+		return remove_brackets('\n'.join(out))
 		
 	def _update_weights(self, ld, w_ld, N, M, hsq, intercept):
 		if intercept is None:
@@ -369,7 +365,6 @@ class Gencov(LD_Score_Regression):
 		out.append('Total observed scale gencov: '+s(self.tot)+' ('+s(self.tot_se)+')')
 		out.append('Z-score: '+s(self.z))
 		out.append('P: '+s(self.p))		
-
 		if self.n_annot > 1:
 			out.append( 'Categories: '+ str(' '.join(ref_ld_colnames)))
 			out.append( 'Observed scale gencov: '+s(self.cat))
@@ -383,8 +378,7 @@ class Gencov(LD_Score_Regression):
 		else:
 			out.append( 'Intercept: '+ s(self.intercept)+' ('+s(self.intercept_se)+')')
 
-		out = '\n'.join(out)
-		return kill_brackets(out)
+		return remove_brackets('\n'.join(out))
 
 	def _update_func(self, x, ref_ld_tot, w_ld, N, M, Nbar, intercept=None):
 		'''
@@ -477,8 +471,6 @@ class RG(object):
 		intercept_gencov=None, n_blocks=200, slow=False):
 
 		self._negative_hsq = None
-		self.tiny_hsq_flag = None
-		self.huge_se_flag = None
 		n_snp, n_annot = x.shape
 		hsq1 = Hsq(np.square(z1), x, w, N1, M, n_blocks=n_blocks, intercept=intercept_hsq1, slow=slow)
 		hsq2 = Hsq(np.square(z2), x, w, N1, M, n_blocks=n_blocks, intercept=intercept_hsq2, slow=slow)
@@ -497,16 +489,14 @@ class RG(object):
 			self.rg_se = float(rg.jknife_se)
 			self.p, self.z = p_z_norm(self.rg, self.rg_se)
 		
-
-	
 	def summary(self, silly=False):
 		'''Print output of Gencor object.'''
 		out = []
 		if self._negative_hsq:
-			out.append('Genetic Correlation: nan (nan) (h2 estimate out of bounds) ')
-			out.append('Z-score: nan (nan) (h2 estimate out of bounds)')
-			out.append('P: nan (nan) (h2 estimate out of bounds)')
-			out.append('WARNING: One of the h2 estimates was out of bounds.')
+			out.append('Genetic Correlation: nan (nan) (h2  out of bounds) ')
+			out.append('Z-score: nan (nan) (h2  out of bounds)')
+			out.append('P: nan (nan) (h2  out of bounds)')
+			out.append('WARNING: One of the h2\'s was out of bounds.')
 			out.append('This usually indicates a data-munging error or that h2 or N is low.')					
 		elif (self.rg > 1.2 or self.rg < -1.2) and not silly:
 			out.append('Genetic Correlation: nan (nan) (rg out of bounds) ')
@@ -519,5 +509,4 @@ class RG(object):
 			out.append('Z-score: '+s(self.z))
 			out.append('P: '+s(self.p))	
 			
-		out = '\n'.join(out)	
-		return kill_brackets(out)
+		return remove_brackets('\n'.join(out))

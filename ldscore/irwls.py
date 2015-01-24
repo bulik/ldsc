@@ -63,7 +63,7 @@ class IRWLS(object):
 		self.est = jknife.est
 		self.jknife_se = jknife.jknife_se
 		self.jknife_est = jknife.jknife_est
-		self.jknife_var = jknife.jknife_var	
+		self.jknife_var = jknife.jknife_var 
 		self.jknife_cov = jknife.jknife_cov
 		self.delete_values = jknife.delete_values
 		
