@@ -8,6 +8,12 @@ from pandas.util.testing import assert_series_equal, assert_frame_equal
 from nose.tools import *
 from numpy.testing import assert_array_equal, assert_array_almost_equal
 from nose.plugins.attrib import attr
+import os
+from ldsc import parser
+
+DIR = os.path.dirname(__file__)
+
+s._N_CHR = 2 # having to mock 22 files is annoying
 
 class Mock(object):
 	'''
@@ -153,16 +159,20 @@ def test_strand_ambiguous():
 @attr(speed='slow')
 class Test_Simulate_RG(unittest.TestCase):
 	
-	def setUp(self):
-		args = Mock()
-
-	def sim1(self): # test statistical properties (constrain intercept here)
-		args.ref_ld = ''
-		args.w_ld = ''
-		args.rg = ''
-		def test(self):
-			for i in xrange(1000):
-				pass
+	def test_sim1(self): # test statistical properties (constrain intercept here)
+		args = parser.parse_args('')
+		args.ref_ld = DIR+'/simulate_test/ldscore/oneld_onefile'
+		args.w_ld = DIR+'/simulate_test/ldscore/w'
+		args.h2 = DIR+'/simulate_test/sumstats/1'
+		args.out = DIR+'/simulate_test/logs/1'
+		x = s.estimate_h2(args, log)
+		print x.summary('asdf')
+		assert False
+			
+#	def test(self):
+#			
+#			for i in xrange(1000):
+#				pass
 			
 		# unbiasedness
 		# correct SE's
@@ -174,5 +184,5 @@ class Test_Simulate_RG(unittest.TestCase):
 		args.M = 1234
 	
 	
-			
+# test that concatenating LD sideways yields same results as reading one file
 		

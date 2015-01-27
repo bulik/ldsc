@@ -275,23 +275,23 @@ class test_end_to_end(unittest.TestCase):
 	
 	def setUp(self):
 		self.args = munge.parser.parse_args('')
-		self.args.sumstats = 'test/test_munge/sumstats'
+		self.args.sumstats = 'test/munge_test/sumstats'
 		self.args.out = 'asdf'
 		self.args.daner = True
 
 	def test_basic(self):
 		x = munge.munge_sumstats(self.args, p=False)
-		correct = pd.read_csv('test/test_munge/correct.sumstats', delim_whitespace=True, header=0)
+		correct = pd.read_csv('test/munge_test/correct.sumstats', delim_whitespace=True, header=0)
 		assert_frame_equal(x, correct)
 		
 	def test_merge_alleles(self):
-		self.args.merge_alleles = 'test/test_munge/merge_alleles'
+		self.args.merge_alleles = 'test/munge_test/merge_alleles'
 		x = munge.munge_sumstats(self.args, p=False)
-		correct = pd.read_csv('test/test_munge/correct_merge.sumstats', delim_whitespace=True, header=0)
+		correct = pd.read_csv('test/munge_test/correct_merge.sumstats', delim_whitespace=True, header=0)
 		assert_frame_equal(x, correct)
 		
 	def test_bad_merge_alleles(self):
-		self.args.merge_alleles = 'test/test_munge/merge_alleles_bad'
+		self.args.merge_alleles = 'test/munge_test/merge_alleles_bad'
 		nose.tools.assert_raises(ValueError, munge.munge_sumstats, self.args, p=False)
 
 	def test_bad_flags1(self):

@@ -15,7 +15,7 @@ import jackknife as jk
 import parse as ps
 import regressions as reg
 import sys, traceback
-
+_N_CHR = 22	
 # complementary bases
 COMPLEMENT = {'A': 'T', 'T': 'A', 'C': 'G', 'G': 'C'}
 # bases
@@ -86,7 +86,7 @@ def _read_M( args, log):
 		if args.ref_ld:
 			M_annot = ps.M_fromlist(args.ref_ld.split(','), common=(not args.not_M_5_50))	
 		elif args.ref_ld_chr:
-			M_annot = ps.M_fromlist(args.ref_ld_chr.split(','), 22, common=(not args.not_M_5_50))
+			M_annot = ps.M_fromlist(args.ref_ld_chr.split(','), _N_CHR, common=(not args.not_M_5_50))
 
 	return M_annot
 
@@ -111,7 +111,7 @@ def _read_chr_split_files(chr_arg, not_chr_arg, log, noun, parsefunc, *kwargs):
 		elif chr_arg:
 			f = ps.sub_chr(chr_arg, '[1-22]')
 			log.log('Reading {N} from {F} ...'.format(F=f, N=noun))
-			out = parsefunc(not_chr_arg.split(','), 22)
+			out = parsefunc(not_chr_arg.split(','), _N_CHR)
 	except ValueError as e:
 		log.log('Error parsing {N}.'.format(N=noun))
 		raise e
@@ -249,6 +249,7 @@ def estimate_h2(args, log):
 		_overlap_output(args, overlap_matrix, M_annot, n_annot, hsqhat, ref_ld_cnames, M_tot)
 
 	log.log(hsqhat.summary(ref_ld_cnames)) # should have args.overlap_annot
+	return hsqhat
 
 def estimate_rg(args, log):
 	'''Estimate rg between trait 1 and a list of other traits.'''
@@ -369,7 +370,7 @@ def _parse_rg(rg):
 	return rg_paths, rg_files
 
 def _print_rg_delete_values(rg, fh, log):
-	'''Print block jackknife delete values.'''
+	'''Print block jacwkknife delete values.'''
 	_print_delete_values(rg.hsq1, fh+'.hsq1.delete', log)
 	_print_delete_values(rg.hsq2, fh+'.hsq2.delete', log)
 	_print_delete_values(rg.gencov, fh+'.gencov.delete', log)
