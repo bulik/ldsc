@@ -299,7 +299,7 @@ class Test_RG_Bad(unittest.TestCase):
 	def test_negative_h2(self):
 		ld = np.arange(50).reshape((50,1))+0.1
 		z1 = (1/np.sum(ld, axis=1) * 10).reshape((50,1))
-		w_ld = np.random.normal(size=50).reshape((50,1))
+		w_ld = np.ones((50, 1))
 		N1 = 9*np.ones((50,1))
 		N2 = 7*np.ones((50,1))
 		M = np.matrix((-700))

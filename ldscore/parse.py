@@ -237,9 +237,7 @@ def __ID_List_Factory__(colnames, keepcol, fname_end, header=None, usecols=None)
 			self.IDList = self.df.iloc[:,[self.__keepcol__]].astype('object')
 		
 		def loj(self, externalDf):
-			'''
-			Returns indices of those elements of self.IDList that appear in exernalDf
-			'''
+			'''Returns indices of those elements of self.IDList that appear in exernalDf.'''
 			r = externalDf.columns[0]
 			l = self.IDList.columns[0]
 			merge_df = externalDf.iloc[:,[0]]

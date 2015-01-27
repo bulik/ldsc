@@ -1,13 +1,10 @@
 '''
 (c) 2014 Brendan Bulik-Sullivan and Hilary Finucane
 
-This is a command line application for estimating
-	1. LD Score and friends (L1, L1^2, L2 and L4)
+LDSC is a command line tool for estimating
+	1. LD Score 
 	2. heritability / partitioned heritability
-	3. genetic covariance
-	4. genetic correlation
-	5. block jackknife standard errors for all of the above.
-	
+	3. genetic covariance / correlation
 	
 '''
 from __future__ import division
@@ -15,14 +12,13 @@ import ldscore.ldscore as ld
 import ldscore.parse as ps
 import ldscore.jackknife as jk
 import ldscore.sumstats as sumstats
-import argparse
 import numpy as np
 import pandas as pd
 from subprocess import call
 from itertools import product
+import time, sys, traceback, argparse
 
 __version__ = '1.0.0'
-
 MASTHEAD = "*********************************************************************\n"
 MASTHEAD += "* LD Score Regression (LDSC)\n"
 MASTHEAD += "* Version {V}\n".format(V=__version__)
@@ -30,7 +26,6 @@ MASTHEAD += "* (C) 2014-2015 Brendan Bulik-Sullivan and Hilary Finucane\n"
 MASTHEAD += "* Broad Institute of MIT and Harvard / MIT Department of Mathematics\n"
 MASTHEAD += "* GNU General Public License v3\n"
 MASTHEAD += "*********************************************************************\n"
-
 pd.set_option('display.max_rows', 500)
 pd.set_option('display.max_columns', 500)
 pd.set_option('display.width', 1000)
@@ -38,7 +33,6 @@ pd.set_option('precision', 4)
 pd.set_option('max_colwidth',1000)
 np.set_printoptions(linewidth=1000)
 np.set_printoptions(precision=4)
-
 
 def sec_to_str(t):
 	'''Convert seconds to days:hours:minutes:seconds'''
@@ -591,67 +585,72 @@ if __name__ == '__main__':
 	if args.out is None:
 		raise ValueError('--out is required.')
 
-	log = logger(args.out+'.log')
+	log = Logger(args.out+'.log')
+	try: 
+		defaults = vars(parser.parse_args(''))
+		opts = vars(args)
+		non_defaults = [x for x in opts.keys() if opts[x] != defaults[x]]	
+		header = MASTHEAD
+		header += "\nOptions: \n"
+		options = ['--'+x.replace('_','-')+' '+str(opts[x]) for x in non_defaults]
+		header += '\n'.join(options).replace('True','').replace('False','')+'\n'
+		log.log(header)
+		log.log('Beginning analysis at {T}'.format(T=time.ctime()))
+		start_time = time.time()
+		if args.no_intercept and args.h2:
+			args.constrain_intercept = 1
+		elif args.no_intercept and args.rg:
+			args.constrain_intercept = '1,1,0'
 	
-	args = parser.parse_args()
-	defaults = vars(parser.parse_args(''))
-	opts = vars(args)
-	non_defaults = [x for x in opts.keys() if opts[x] != defaults[x]]	
-	header = MASTHEAD
-	header += "\nOptions: \n"
-	options = ['--'+x.replace('_','-')+' '+str(opts[x]) for x in non_defaults]
-	header += '\n'.join(options).replace('True','').replace('False','')+'\n'
-	log.log('Beginning analysis at {T}'.format(T=time.ctime()))
-	start_time = time.time()
-	if args.no_intercept and args.h2:
-		args.constrain_intercept = 1
-	elif args.no_intercept and args.rg:
-		args.constrain_intercept = '1,1,0'
+		if args.constrain_intercept:
+			args.constrain_intercept = args.constrain_intercept.replace('N','-')
+			if args.h2:
+				args.constrain_intercept = float(args.h2)
+			elif args.rg:
+				args.constrain_intercept = [float(x) for x in args.constrain_intercept.split(',')]
 	
-	if args.constrain_intercept:
-		args.constrain_intercept = args.constrain_intercept.replace('N','-')
-		if args.h2:
-			args.constrain_intercept = float(args.h2)
-		elif args.rg:
-			args.constrain_intercept = [float(x) for x in args.constrain_intercept.split(',')]
-	
-	if args.n_blocks <= 1:
-		raise ValueError('--n-blocks must be an integer > 1.')
-	if args.bfile is not None:
-		if args.l2 is None:
-			raise ValueError('Must specify --l2 with --bfile.')
-		if args.annot is not None and args.extract is not None:
-			raise ValueError('--annot and --extract are currently incompatible.')
-		if args.cts_bin is not None and args.extract is not None:
-			raise ValueError('--cts-bin and --extract are currently incompatible.')
-		if args.annot is not None and args.cts_bin is not None:
-			raise ValueError('--annot and --cts-bin are currently incompatible.')	
-		if (args.cts_bin is not None) != (args.cts_breaks is not None):
-			raise ValueError('Must set both or neither of --cts-bin and --cts-breaks.')
-		if args.per_allele and args.pq_exp is not None:
-			raise ValueError('Cannot set both --per-allele and --pq-exp (--per-allele is equivalent to --pq-exp 1).')
-		if args.per_allele:
-			args.pq_exp = 1
+		if args.n_blocks <= 1:
+			raise ValueError('--n-blocks must be an integer > 1.')
+		if args.bfile is not None:
+			if args.l2 is None:
+				raise ValueError('Must specify --l2 with --bfile.')
+			if args.annot is not None and args.extract is not None:
+				raise ValueError('--annot and --extract are currently incompatible.')
+			if args.cts_bin is not None and args.extract is not None:
+				raise ValueError('--cts-bin and --extract are currently incompatible.')
+			if args.annot is not None and args.cts_bin is not None:
+				raise ValueError('--annot and --cts-bin are currently incompatible.')	
+			if (args.cts_bin is not None) != (args.cts_breaks is not None):
+				raise ValueError('Must set both or neither of --cts-bin and --cts-breaks.')
+			if args.per_allele and args.pq_exp is not None:
+				raise ValueError('Cannot set both --per-allele and --pq-exp (--per-allele is equivalent to --pq-exp 1).')
+			if args.per_allele:
+				args.pq_exp = 1
 		
-		ldscore(args, log)
-	# summary statistics
-	elif (args.h2 or args.rg) and (args.ref_ld or args.ref_ld_chr) and (args.w_ld or args.w_ld_chr):
-		if args.h2 is not None and args.rg is not None:	
-			raise ValueError('Cannot set both --h2 and --rg.')
-		if args.ref_ld and args.ref_ld_chr:
-			raise ValueError('Cannot set both --ref-ld and --ref-ld-chr.')
-		if args.w_ld and args.w_ld_chr:
-			raise ValueError('Cannot set both --w-ld and --w-ld-chr.')
-		if args.rg:
-			sumstats.Rg(args, log)
-		elif args.h2:
-			sumstats.H2(args, log)
-	# bad flags
-	else:
-		print header
-		print 'Error: no analysis selected.'
-		print 'ldsc.py -h describes options.'
-	
-	log.log('Analysis finished at {T}'.format(T=time.ctime()) )
-	time_elapsed = round(time.time()-start_time,2)
-	log.log('Total time elapsed: {T}'.format(T=sec_to_str(time_elapsed)))
+			ldscore(args, log)
+		# summary statistics
+		elif (args.h2 or args.rg) and (args.ref_ld or args.ref_ld_chr) and (args.w_ld or args.w_ld_chr):
+			if args.h2 is not None and args.rg is not None:	
+				raise ValueError('Cannot set both --h2 and --rg.')
+			if args.ref_ld and args.ref_ld_chr:
+				raise ValueError('Cannot set both --ref-ld and --ref-ld-chr.')
+			if args.w_ld and args.w_ld_chr:
+				raise ValueError('Cannot set both --w-ld and --w-ld-chr.')
+			if args.rg:
+				sumstats.estimate_rg(args, log)
+			elif args.h2:
+				sumstats.estimate_h2(args, log)
+
+			# bad flags
+		else:
+			print header
+			print 'Error: no analysis selected.'
+			print 'ldsc.py -h describes options.'
+	except Exception:
+		ex_type, ex, tb = sys.exc_info()
+		log.log( traceback.format_exc(ex) )
+		raise
+	finally:
+		log.log('Analysis finished at {T}'.format(T=time.ctime()) )
+		time_elapsed = round(time.time()-start_time,2)
+		log.log('Total time elapsed: {T}'.format(T=sec_to_str(time_elapsed)))

@@ -373,7 +373,7 @@ def allele_merge(dat, alleles, log):
 	dat = pd.merge(alleles, dat, how='left', on='SNP', sort=False).reset_index(drop=True)	
 	ii = dat.A1.notnull()
 	a1234 = dat.A1[ii] + dat.A2[ii] + dat.MA[ii]
-	match = a1234.apply(lambda y: sumstats.MATCH_ALLELES[y]) 
+	match = a1234.apply(lambda y: y in sumstats.MATCH_ALLELES) 
 	jj = pd.Series(np.zeros(len(dat),dtype=bool))
 	jj[ii] = match
 	old = ii.sum()
@@ -456,7 +456,8 @@ parser.add_argument('--a1-inc', default=False, action='store_true',
 def munge_sumstats(args, p=True): # set p = False for testing in order to prevent printing
 	if args.out is None:
 		raise ValueError('The --out flag is required.')	
-
+	
+	START_TIME = time.time()	
 	log = Logger(args.out + '.log')
 	try:	
 		if args.sumstats is None:
@@ -475,7 +476,6 @@ def munge_sumstats(args, p=True): # set p = False for testing in order to preven
 			header += '\n'
 			log.log(header)
 			
-		START_TIME = time.time()	
 		file_cnames = [x for x in read_header(args.sumstats)] # note keys not cleaned
 		flag_cnames, signed_sumstat_null = parse_flag_cnames(log, args)
 		if args.ignore:
@@ -589,8 +589,6 @@ def munge_sumstats(args, p=True): # set p = False for testing in order to preven
 		log.log( 'Lambda GC = ' + str( round(CHISQ.median() / 0.4549, 3)) )
 		log.log('Max chi^2 = ' + str( round(CHISQ.max(), 3) ))
 		log.log('{N} Genome-wide significant SNPs (some may have been removed by filtering).'.format(N=(CHISQ > 29).sum()))
-		log.log('\nConversion finished at {T}'.format(T=time.ctime()) )
-		log.log('Total time elapsed: {T}'.format(T=sec_to_str(round(time.time()-START_TIME,2))))
 		return dat
 		
 	except Exception:
@@ -598,6 +596,9 @@ def munge_sumstats(args, p=True): # set p = False for testing in order to preven
 		ex_type, ex, tb = sys.exc_info()
 		log.log( traceback.format_exc(ex) )
 		raise
+	finally:
+		log.log('\nConversion finished at {T}'.format(T=time.ctime()) )
+		log.log('Total time elapsed: {T}'.format(T=sec_to_str(round(time.time()-START_TIME,2))))
 		
 if __name__ == '__main__':
 	munge_sumstats(parser.parse_args(), p=True)

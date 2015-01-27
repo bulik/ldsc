@@ -116,12 +116,12 @@ class LD_Score_Regression(object):
 		for i in [y, x, w, M, N]:
 			try:
 				if len(i.shape) != 2:
-					raise TypeError('Arguments must be matrices.')
+					raise TypeError('Arguments must be 2D arrays.')
 			except AttributeError:
-				raise TypeError('Arguments must be matrices.')
+				raise TypeError('Arguments must be arrays.')
 				
 		n_snp, self.n_annot = x.shape
-		if any(i.shape != (n_snp, 1) for i in [y,w,N]):
+		if any(i.shape != (n_snp, 1) for i in [y, w, N]):
 			raise ValueError('N, weights and response (z1z2 or chisq) must have shape (n_snp, 1).')
 		if M.shape != (1, self.n_annot):
 			raise ValueError('M must have shape (1, n_annot).')
@@ -358,13 +358,14 @@ class Gencov(LD_Score_Regression):
 		self.N1 = N1;	self.N2 = N2
 		LD_Score_Regression.__init__(self, z1*z2, x, w, np.sqrt(N1*N2), M, n_blocks, intercept, slow)
 		self.p, self.z = p_z_norm(self.tot, self.tot_se)
+		self.mean_z1z2 = np.mean(np.multiply(z1, z2))
 	
 	def summary(self, ref_ld_colnames):
 		'''Print summary of the LD Score regression.'''
 		out = []
 		out.append('Total observed scale gencov: '+s(self.tot)+' ('+s(self.tot_se)+')')
-		out.append('Z-score: '+s(self.z))
-		out.append('P: '+s(self.p))		
+		#out.append('Z-score: '+s(self.z))
+		#out.append('P: '+s(self.p))		
 		if self.n_annot > 1:
 			out.append( 'Categories: '+ str(' '.join(ref_ld_colnames)))
 			out.append( 'Observed scale gencov: '+s(self.cat))
@@ -373,6 +374,7 @@ class Gencov(LD_Score_Regression):
 			out.append( 'Proportion of gencov: ' +s(self.prop))
 			out.append( 'Enrichment: '+s(self.enrichment))
 		
+		out.append('Mean z1*z2: '+s(self.mean_z1z2))
 		if self.constrain_intercept is not None:
 			out.append( 'Intercept: constrained to {C}'.format(C=s(self.intercept)))
 		else:
@@ -482,12 +484,13 @@ class RG(object):
 			self.rg_ratio = float('nan'); self.rg = float('nan'); self.rg_se = float('nan')
 			self.p = float('nan'); self.z = float('nan')
 		else:			
-			self.rg_ratio = np.array(gencov.tot / np.sqrt(hsq1.tot * hsq2.tot)).reshape((1,1))
+			rg_ratio = np.array(gencov.tot / np.sqrt(hsq1.tot * hsq2.tot)).reshape((1,1))
 			denom_delete_values = np.sqrt(np.multiply(hsq1.tot_delete_values, hsq2.tot_delete_values))
-			rg = jk.RatioJackknife(self.rg_ratio, gencov.tot_delete_values, denom_delete_values)
-			self.rg = float(rg.jknife_est)
+			rg = jk.RatioJackknife(rg_ratio, gencov.tot_delete_values, denom_delete_values)
+			self.rg_jknife = float(rg.jknife_est)
 			self.rg_se = float(rg.jknife_se)
-			self.p, self.z = p_z_norm(self.rg, self.rg_se)
+			self.rg_ratio = float(rg_ratio)
+			self.p, self.z = p_z_norm(self.rg_ratio, self.rg_se)
 		
 	def summary(self, silly=False):
 		'''Print output of Gencor object.'''
@@ -498,14 +501,14 @@ class RG(object):
 			out.append('P: nan (nan) (h2  out of bounds)')
 			out.append('WARNING: One of the h2\'s was out of bounds.')
 			out.append('This usually indicates a data-munging error or that h2 or N is low.')					
-		elif (self.rg > 1.2 or self.rg < -1.2) and not silly:
+		elif (self.rg_ratio > 1.2 or self.rg_ratio < -1.2) and not silly:
 			out.append('Genetic Correlation: nan (nan) (rg out of bounds) ')
 			out.append('Z-score: nan (nan) (rg out of bounds)')
 			out.append('P: nan (nan) (rg out of bounds)')
 			out.append('WARNING: rg was out of bounds.')
 			out.append('This usually means that h2 is not significantly different from zero.')
 		else:		
-			out.append('Genetic Correlation: '+s(self.rg)+' ('+s(self.rg_se)+')')
+			out.append('Genetic Correlation: '+s(self.rg_ratio)+' ('+s(self.rg_se)+')')
 			out.append('Z-score: '+s(self.z))
 			out.append('P: '+s(self.p))	
 			
