@@ -114,10 +114,10 @@ describe_cname = {
 	'NSTUDY': 'Number of studies in which the SNP was genotyped.'
 }
 
-def read_header(fh, sep="\t"):
+def read_header(fh):
 	'''Read the first line of a file and returns a list with the column names.'''
 	(openfunc, compression) = get_compression(fh)
-	return [x.rstrip('\n') for x in openfunc(fh).readline().split(sep)]
+	return [x.rstrip('\n') for x in openfunc(fh).readline().split()]
 	
 def get_cname_map(flag, default, ignore):
 	'''
@@ -476,7 +476,8 @@ def munge_sumstats(args, p=True): # set p = False for testing in order to preven
 			header += '\n'
 			log.log(header)
 			
-		file_cnames = [x for x in read_header(args.sumstats)] # note keys not cleaned
+		file_cnames = read_header(args.sumstats) # note keys not cleaned
+		print file_cnames
 		flag_cnames, signed_sumstat_null = parse_flag_cnames(log, args)
 		if args.ignore:
 			ignore_cnames = [clean_header(x) for x in args.ignore.split(',')]
@@ -508,7 +509,7 @@ def munge_sumstats(args, p=True): # set p = False for testing in order to preven
 			sign_cnames = [x for x in cname_translation if cname_translation[x] in null_values] 
 			if len(sign_cnames) > 1: 
 				raise ValueError('Too many signed sumstat columns. Specify which to ignore with the --ignore flag.')
-			
+						
 			sign_cname = sign_cnames[0]
 			signed_sumstat_null = null_values[cname_translation[sign_cname]]
 			cname_translation[sign_cname] = 'SIGNED_SUMSTAT' 
