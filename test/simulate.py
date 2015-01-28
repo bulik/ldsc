@@ -74,6 +74,6 @@ for i in xrange(N_SIMS):
 	c = np.sqrt(1+N_INDIV*(h21*two_ldsc[:,0]/float(M_two[0]) + h22*two_ldsc[:,1]/float(M_two[1])))
 	z = np.multiply(z, c)
 	dfi = df.copy()
-	dfi['BETA'] = z/np.sqrt(N_INDIV)
+	dfi['Z'] = z
 	dfi.reindex(np.random.permutation(dfi.index))
 	dfi.to_csv('simulate_test/sumstats/'+str(i), sep='\t', index=False)

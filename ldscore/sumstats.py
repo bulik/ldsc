@@ -237,7 +237,7 @@ def estimate_h2(args, log):
 	n_snp = len(sumstats); n_annot = len(ref_ld_cnames)
 	s = lambda x: np.array(x).reshape((n_snp, 1))
 	n_blocks = min(n_snp, args.n_blocks)
-	chisq = s(sumstats.BETA**2 * sumstats.N)
+	chisq = s(sumstats.Z**2)
 	hsqhat = reg.Hsq(chisq, ref_ld, s(sumstats[w_ld_cname]), s(sumstats.N), 
 		M_annot, n_blocks=n_blocks, intercept=args.constrain_intercept)
 
@@ -293,7 +293,7 @@ def _read_other_sumstats(args, log, pheno2, sumstats, ref_ld_cnames):
 		loop = _select_and_log(loop, _filter_alleles(alleles), log, 
 			'{N} SNPs with valid alleles.')	
 	
-	loop['BETA2'] = _align_alleles(loop.BETA2, alleles)
+	loop['Z2'] = _align_alleles(loop.Z2, alleles)
 	loop = loop.drop(['A1', 'A1x', 'A2', 'A2x'], axis=1)
 	_check_ld_condnum(args, log, loop[ref_ld_cnames])
 	_warn_length(log, loop)
@@ -332,8 +332,8 @@ def _print_gencor(args, log, rghat, ref_ld_cnames, i, rg_paths, print_hsq1):
 
 def _merge_sumstats_sumstats( args, sumstats1, sumstats2, log):
 	'''Merge two sets of summary statistics.'''
-	sumstats1.rename(columns={'N':'N1','BETA':'BETA1'}, inplace=True)			
-	sumstats2.rename(columns={'A1':'A1x','A2':'A2x','N':'N2','BETA':'BETA2'}, inplace=True)			
+	sumstats1.rename(columns={'N':'N1','Z':'Z1'}, inplace=True)			
+	sumstats2.rename(columns={'A1':'A1x','A2':'A2x','N':'N2','Z':'Z2'}, inplace=True)			
 	x = _merge_and_log(sumstats1, sumstats2, 'summary staistics', log)
 	return x
 
@@ -342,10 +342,10 @@ def _filter_alleles(alleles):
 	ii = alleles.apply(lambda y: y in MATCH_ALLELES)
 	return ii
 
-def _align_alleles(beta, alleles):
-	'''Align BETA1 and BETA2 to same choice of ref allele (allowing for strand flip).'''
-	beta *= (-1)**alleles.apply(lambda y: FLIP_ALLELES[y])
-	return beta
+def _align_alleles(z, alleles):
+	'''Align Z1 and Z2 to same choice of ref allele (allowing for strand flip).'''
+	z *= (-1)**alleles.apply(lambda y: FLIP_ALLELES[y])
+	return z
 	
 def _rg(sumstats, args, log, M_annot, ref_ld_cnames, w_ld_cname):
 	'''Run the regressions.'''
@@ -357,7 +357,7 @@ def _rg(sumstats, args, log, M_annot, ref_ld_cnames, w_ld_cname):
 	if args.constrain_intercept is not None:
 		intercepts = args.constrain_intercept
 
-	rghat = reg.RG(s(sumstats.BETA1*np.sqrt(sumstats.N1)), s(sumstats.BETA2*np.sqrt(sumstats.N2)), 
+	rghat = reg.RG(s(sumstats.Z1), s(sumstats.Z2), 
 		ref_ld, s(sumstats[w_ld_cname]), s(sumstats.N1), s(sumstats.N2), M_annot, intercept_hsq1=intercepts[0], 
 		intercept_hsq2=intercepts[1], intercept_gencov=intercepts[2], n_blocks=n_blocks) 
 	

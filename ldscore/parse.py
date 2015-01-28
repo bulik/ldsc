@@ -64,9 +64,9 @@ def read_cts(fh, match_snps):
 
 def sumstats(fh, alleles=False, dropna=True):
 	'''Parses .sumstats files. See docs/file_formats_sumstats.txt.'''
-	dtype_dict = {'SNP': str,	'BETA': float, 'N': float,	'A1': str, 'A2': str}
+	dtype_dict = {'SNP': str,	'Z': float, 'N': float,	'A1': str, 'A2': str}
 	compression = get_compression(fh)
-	usecols = ['SNP','BETA','N']	
+	usecols = ['SNP','Z','N']	
 	if alleles:
 		usecols += ['A1', 'A2']
 		
