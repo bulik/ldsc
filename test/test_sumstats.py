@@ -212,10 +212,6 @@ class Test_RG_Statistical():
 		assert_allclose(np.mean(map(t('intercept'), map(t('hsq2'), self.rg))), 1, atol=0.1)
 	def test_hsq_int_se(self):
 		assert_allclose(np.mean(map(t('intercept_se'), map(t('hsq2'), self.rg))), np.std(map(t('intercept'), map(t('hsq2'), self.rg))), atol=0.1)
-
-def test_rg_statistical(): # test statistical properties (constrain intercept here)
-	for z in [x, y]:
-		assert_allclose(np.mean(map(t('tot_se'), map(t('gencov'), z))), np.std(map(t('tot'), map(t('gencov'), z))), atol=0.02)
 	
 
 @attr('slow')
