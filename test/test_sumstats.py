@@ -6,13 +6,13 @@ import pandas as pd
 import nose
 from pandas.util.testing import assert_series_equal, assert_frame_equal
 from nose.tools import *
-from numpy.testing import assert_array_equal, assert_array_almost_equal
+from numpy.testing import assert_array_equal, assert_array_almost_equal, assert_allclose
 from nose.plugins.attrib import attr
 import os
 from ldsc import parser
 
 DIR = os.path.dirname(__file__)
-
+N_REP = 1000
 s._N_CHR = 2 # having to mock 22 files is annoying
 
 class Mock(object):
@@ -24,9 +24,11 @@ class Mock(object):
 	
 	def log(self, x):
 		pass
+		#print x
 		
 log = Mock()
 args = Mock()
+t = lambda attr: lambda obj: getattr(obj, attr, float('nan'))
 
 def test_check_condnum():
 	x = np.ones((2,2))
@@ -156,33 +158,210 @@ def test_strand_ambiguous():
  'TG': False}
 	assert_equal(m, s.STRAND_AMBIGUOUS)
 	
-@attr(speed='slow')
-class Test_Simulate_RG(unittest.TestCase):
+@attr('slow')
+class Test_RG_Statistical():
 	
-	def test_sim1(self): # test statistical properties (constrain intercept here)
+	@classmethod
+	def setUpClass(cls):
+		args = parser.parse_args('')
+		args.ref_ld = DIR+'/simulate_test/ldscore/oneld_onefile'
+		args.w_ld = DIR+'/simulate_test/ldscore/w'
+		args.rg = ','.join((DIR+'/simulate_test/sumstats/'+str(i) for i in xrange(N_REP)))
+		args.out = DIR+'/simulate_test/log/1'
+		x = s.estimate_rg(args, log)
+		args.constrain_intercept = [1, 1, 0]
+		y = s.estimate_rg(args, log)
+		cls.rg = x
+		cls.rg_noint = y
+		
+	def test_rg_ratio(self):
+		assert_allclose(np.mean(map(t('rg_ratio'), self.rg)), 0, atol=0.02)
+	def test_rg_ratio_noint(self):
+		assert_allclose(np.mean(map(t('rg_ratio'), self.rg_noint)), 0, atol=0.02)
+
+	def test_rg_se(self):
+		assert_allclose(np.mean(map(t('rg_se'), self.rg)), np.std(map(t('rg_ratio'), self.rg)), atol=0.02)
+	def test_rg_se_noint(self):
+		assert_allclose(np.mean(map(t('rg_se'), self.rg_noint)), np.std(map(t('rg_ratio'), self.rg_noint)), atol=0.02)
+
+	def test_gencov_tot(self):
+		assert_allclose(np.mean(map(t('tot'), map(t('gencov'), self.rg))), 0, atol=0.02)
+	def test_gencov_tot_noint(self):
+		assert_allclose(np.mean(map(t('tot'), map(t('gencov'), self.rg_noint))), 0, atol=0.02)
+
+	def test_gencov_tot_se(self):
+		assert_allclose(np.std(map(t('tot'), map(t('gencov'), self.rg))), np.mean(map(t('tot_se'), map(t('gencov'), self.rg))), atol=0.02)
+	def test_gencov_tot_se_noint(self):
+		assert_allclose(np.std(map(t('tot'), map(t('gencov'), self.rg_noint))), np.mean(map(t('tot_se'), map(t('gencov'), self.rg_noint))), atol=0.02)
+
+	def test_gencov_cat(self):
+		assert_allclose(np.mean(map(t('cat'), map(t('gencov'), self.rg))), [0,0], atol=0.02)
+	def test_gencov_cat_noint(self):
+		assert_allclose(np.mean(map(t('cat'), map(t('gencov'), self.rg_noint))), [0,0], atol=0.02)
+
+	def test_gencov_cat_se(self):
+		assert_allclose(np.std(map(t('cat'), map(t('gencov'), self.rg))), np.mean(map(t('cat_se'), map(t('gencov'), self.rg))), atol=0.02)
+	def test_gencov_cat_se_noint(self):
+		assert_allclose(np.std(map(t('cat'), map(t('gencov'), self.rg_noint))), np.mean(map(t('cat_se'), map(t('gencov'), self.rg_noint))), atol=0.02)
+
+	def test_gencov_int(self):
+		assert_allclose(np.mean(map(t('intercept'), map(t('gencov'), self.rg))), 0, atol=0.1)
+	def test_gencov_int_se(self):
+		assert_allclose(np.mean(map(t('intercept_se'), map(t('gencov'), self.rg))), np.std(map(t('intercept'), map(t('gencov'), self.rg))), atol=0.1)
+	def test_hsq_int(self):
+		assert_allclose(np.mean(map(t('intercept'), map(t('hsq2'), self.rg))), 1, atol=0.1)
+	def test_hsq_int_se(self):
+		assert_allclose(np.mean(map(t('intercept_se'), map(t('hsq2'), self.rg))), np.std(map(t('intercept'), map(t('hsq2'), self.rg))), atol=0.1)
+
+def test_rg_statistical(): # test statistical properties (constrain intercept here)
+	for z in [x, y]:
+		assert_allclose(np.mean(map(t('tot_se'), map(t('gencov'), z))), np.std(map(t('tot'), map(t('gencov'), z))), atol=0.02)
+	
+
+@attr('slow')
+class Test_H2_Statistical(unittest.TestCase):
+	
+	@classmethod
+	def setUpClass(cls):
+		args = parser.parse_args('')
+		args.ref_ld = DIR+'/simulate_test/ldscore/twold_onefile'
+		args.w_ld = DIR+'/simulate_test/ldscore/w'
+		h2 = []; h2_noint = []
+		for i in xrange(N_REP):
+			args.constrain_intercept = None
+			args.h2 = DIR+'/simulate_test/sumstats/'+str(i)
+			args.out = DIR+'/simulate_test/log/1'
+			h2.append(s.estimate_h2(args, log))
+			args.constrain_intercept = 1
+			h2_noint.append(s.estimate_h2(args, log))
+		
+		cls.h2 = h2
+		cls.h2_noint = h2_noint
+			
+	def test_tot(self):
+		assert_allclose(np.mean( map(t('tot'), self.h2)), 0.9, atol=0.05)
+		
+	def test_tot_noint(self):
+		assert_allclose(np.mean( map(t('tot'), self.h2_noint)), 0.9, atol=0.05)
+		
+	def test_tot_se(self):
+		assert_allclose(np.mean( map(t('tot_se'), self.h2)), np.std( map(t('tot'), self.h2)), atol=0.05)
+
+	def test_tot_se_noint(self):
+		assert_allclose(np.mean( map(t('tot_se'), self.h2_noint)), np.std( map(t('tot'), self.h2_noint)), atol=0.05)
+
+	def test_cat(self):
+		x = np.mean( map(t('cat'), self.h2_noint), axis=0)
+		y = np.array((0.3,0.6)).reshape(x.shape)
+		assert_allclose(x, y, atol=0.05)
+
+	def test_cat_noint(self):
+		x = np.mean( map(t('cat'), self.h2_noint), axis=0)
+		y = np.array((0.3,0.6)).reshape(x.shape)
+		assert_allclose(x, y, atol=0.05)
+
+	def test_cat_se(self):
+		x = np.mean( map(t('cat_se'), self.h2), axis=0)
+		y = np.std( map(t('cat'), self.h2), axis=0).reshape(x.shape)
+		assert_allclose(x, y, atol=0.05)
+	
+	def test_cat_se_noint(self):
+		x = np.mean( map(t('cat_se'), self.h2_noint), axis=0)
+		y = np.std( map(t('cat'), self.h2_noint), axis=0).reshape(x.shape)
+		assert_allclose(x, y, atol=0.05)
+
+	def test_prop(self):
+		for h in [self.h2, self.h2_noint]:
+			pass		#assert np.all(np.mean( map(t('prop'), h), axis=0) - [1/3, 2/3] <  0.05)
+
+	def test_prop_se(self):
+		for h in [self.h2, self.h2_noint]:
+			pass	#assert np.all(np.mean( map(t('prop_se'), h), axis=0) - np.std( map(t('prop'), h), axis=0) < 0.05)
+
+	def test_int(self):
+		assert_allclose(np.mean( map(t('intercept'), self.h2)), 1, atol=0.1)
+		
+	def test_int_se(self):
+		assert_allclose(np.std( map(t('intercept'), self.h2)), np.mean(map(t('intercept_se'), self.h2)), atol=0.1)
+	
+class Test_Estimate(unittest.TestCase):
+		
+	def test_h2_M(self): # check --M works
 		args = parser.parse_args('')
 		args.ref_ld = DIR+'/simulate_test/ldscore/oneld_onefile'
 		args.w_ld = DIR+'/simulate_test/ldscore/w'
 		args.h2 = DIR+'/simulate_test/sumstats/1'
-		args.out = DIR+'/simulate_test/logs/1'
-		x = s.estimate_h2(args, log)
-		print x.summary('asdf')
-		assert False
-			
-#	def test(self):
-#			
-#			for i in xrange(1000):
-#				pass
-			
-		# unbiasedness
-		# correct SE's
-	
-	def sim2(self): # check that obscure flags work
-		args.print_cov = True
-		args.print_delete_vals = True 
-		args.no_check_alleles	
-		args.M = 1234
-	
-	
-# test that concatenating LD sideways yields same results as reading one file
+		args.out = DIR+'/simulate_test/log/1'
+		args.print_cov = True # right now just check no runtime errors
+		args.print_delete_vals = True
+		x = s.estimate_h2(args, log)	
+		args.M = str(float(open(DIR+'/simulate_test/ldscore/oneld_onefile.l2.M_5_50').read()))
+		y = s.estimate_h2(args, log)		
+		assert_array_almost_equal(x.tot, y.tot)
+		assert_array_almost_equal(x.tot_se, y.tot_se)
+		args.M = '1,2'
+		assert_raises(ValueError, s.estimate_h2, args, log)
+		args.M = 'foo_bar'
+		assert_raises(ValueError, s.estimate_h2, args, log)
+
+	def test_h2_ref_ld(self): # test different ways of reading ref ld
+		args = parser.parse_args('')
+		args.ref_ld_chr = DIR+'/simulate_test/ldscore/twold_onefile'
+		args.w_ld = DIR+'/simulate_test/ldscore/w'
+		args.h2 = DIR+'/simulate_test/sumstats/1'
+		args.out = DIR+'/simulate_test/log/1'
+		x = s.estimate_h2(args, log)		
+		args.ref_ld = DIR+'/simulate_test/ldscore/twold_firstfile,'+DIR+'/simulate_test/ldscore/twold_secondfile'
+		y = s.estimate_h2(args, log)		
+		args.ref_ld_chr = DIR+'/simulate_test/ldscore/twold_firstfile,'+DIR+'/simulate_test/ldscore/twold_secondfile'
+		z = s.estimate_h2(args, log)		
+		assert_almost_equal(x.tot, y.tot)
+		assert_almost_equal(y.tot, z.tot)
+		assert_almost_equal(x.tot_se, y.tot_se)
+		assert_almost_equal(y.tot_se, z.tot_se)
+
+	def test_rg_M(self): # test statistical properties (constrain intercept here)
+		args = parser.parse_args('')
+		args.ref_ld = DIR+'/simulate_test/ldscore/oneld_onefile'
+		args.w_ld = DIR+'/simulate_test/ldscore/w'
+		args.rg = ','.join([DIR+'/simulate_test/sumstats/1' for _ in xrange(2)])
+		args.out = DIR+'/simulate_test/log/1'
+		x = s.estimate_rg(args, log)[0]
+		args.M = '158099.791431'
+		y = s.estimate_rg(args, log)[0]		
+		assert_array_almost_equal(x.rg_ratio, y.rg_ratio)
+		assert_array_almost_equal(x.rg_se, y.rg_se)
+		args.M = '1,2'
+		assert_raises(ValueError, s.estimate_rg, args, log)
+		args.M = 'foo_bar'
+		assert_raises(ValueError, s.estimate_rg, args, log)
 		
+	def test_rg_ref_ld(self):
+		args = parser.parse_args('')
+		args.ref_ld_chr = DIR+'/simulate_test/ldscore/twold_onefile'
+		args.w_ld = DIR+'/simulate_test/ldscore/w'
+		args.rg = ','.join([DIR+'/simulate_test/sumstats/1' for _ in xrange(2)])
+		args.out = DIR+'/simulate_test/log/1'
+		args.print_cov = True # right now just check no runtime errors
+		args.print_delete_vals = True
+		x = s.estimate_rg(args, log)[0]		
+		args.ref_ld = DIR+'/simulate_test/ldscore/twold_firstfile,'+DIR+'/simulate_test/ldscore/twold_secondfile'
+		y = s.estimate_rg(args, log)[0]	
+		args.ref_ld_chr = DIR+'/simulate_test/ldscore/twold_firstfile,'+DIR+'/simulate_test/ldscore/twold_secondfile'
+		z = s.estimate_rg(args, log)[0]		
+		assert_almost_equal(x.rg_ratio, y.rg_ratio)
+		assert_almost_equal(y.rg_ratio, z.rg_ratio)
+		assert_almost_equal(x.rg_se, y.rg_se)
+		assert_almost_equal(y.rg_se, z.rg_se)
+		
+	def test_no_check_alleles(self):
+		args = parser.parse_args('')
+		args.ref_ld = DIR+'/simulate_test/ldscore/oneld_onefile'
+		args.w_ld = DIR+'/simulate_test/ldscore/w'
+		args.rg = ','.join([DIR+'/simulate_test/sumstats/1' for _ in xrange(2)])
+		args.out = DIR+'/simulate_test/log/1'
+		x = s.estimate_rg(args, log)[0]
+		args.no_check_alleles = True
+		y = s.estimate_rg(args, log)[0]
+		assert_equal(x.rg_ratio, y.rg_ratio)
+		assert_equal(x.rg_se, y.rg_se)

@@ -223,7 +223,7 @@ class LD_Score_Regression(object):
 		'''Extract intercept and intercept SE from block jackknife.'''
 		n_annot = self.n_annot
 		intercept = jknife.est[0, n_annot]
-		intercept_se = jknife.jknife_se[0, n_annot-1]
+		intercept_se = jknife.jknife_se[0, n_annot]
 		return intercept, intercept_se
 
 	
@@ -375,7 +375,7 @@ class Gencov(LD_Score_Regression):
 			out.append( 'Enrichment: '+s(self.enrichment))
 		
 		out.append('Mean z1*z2: '+s(self.mean_z1z2))
-		if self.constrain_intercept is not None:
+		if self.constrain_intercept:
 			out.append( 'Intercept: constrained to {C}'.format(C=s(self.intercept)))
 		else:
 			out.append( 'Intercept: '+ s(self.intercept)+' ('+s(self.intercept_se)+')')
@@ -385,7 +385,6 @@ class Gencov(LD_Score_Regression):
 	def _update_func(self, x, ref_ld_tot, w_ld, N, M, Nbar, intercept=None):
 		'''
 		Update function for IRWLS
-		
 		x is the output of np.linalg.lstsq.
 		x[0] is the regression coefficients
 		x[0].shape is (# of dimensions, 1)

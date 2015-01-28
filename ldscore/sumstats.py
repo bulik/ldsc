@@ -73,15 +73,16 @@ def _read_annot(args,log):
 		'annot matrix', ps.annot, frqfile=args.frqfile)
 	return overlap_matrix, M_tot
 
-def _read_M( args, log):
+def _read_M(args, log, n_annot):
 	'''Read M (--M, --M-file, etc).'''
 	if args.M:
 		try:
 			M_annot = [float(x) for x in args.M.split(',')]
-		except TypeError as e:
-			raise TypeError('Could not cast --M to float: ' + str(e.args))
-		if len(M_annot) != len(ref_ld.columns) - 1:
+		except ValueError as e:
+			raise ValueError('Could not cast --M to float: ' + str(e.args))
+		if len(M_annot) != n_annot:
 			raise ValueError('# terms in --M must match # of LD Scores in --ref-ld.')
+		M_annot = np.array(M_annot).reshape((1, n_annot))
 	else:
 		if args.ref_ld:
 			M_annot = ps.M_fromlist(args.ref_ld.split(','), common=(not args.not_M_5_50))	
@@ -111,7 +112,7 @@ def _read_chr_split_files(chr_arg, not_chr_arg, log, noun, parsefunc, *kwargs):
 		elif chr_arg:
 			f = ps.sub_chr(chr_arg, '[1-22]')
 			log.log('Reading {N} from {F} ...'.format(F=f, N=noun))
-			out = parsefunc(not_chr_arg.split(','), _N_CHR)
+			out = parsefunc(chr_arg.split(','), _N_CHR)
 	except ValueError as e:
 		log.log('Error parsing {N}.'.format(N=noun))
 		raise e
@@ -124,11 +125,10 @@ def _read_sumstats(args, log, fh, alleles=False, dropna=False):
 	sumstats = ps.sumstats(fh, alleles=alleles, dropna=dropna)
 	log_msg = 'Read summary statistics for {N} SNPs.'
 	log.log(log_msg.format(N=len(sumstats)))
-	if args.no_check_alleles:
-		m = len(sumstats)
-		sumstats = sumstats.drop_duplicates(subset='SNP')
-		if m > len(sumstats):
-			log.log('Dropped {M} SNPs with duplicated rs numbers.'.format(M=m-len(sumstats)))
+	m = len(sumstats)
+	sumstats = sumstats.drop_duplicates(subset='SNP')
+	if m > len(sumstats):
+		log.log('Dropped {M} SNPs with duplicated rs numbers.'.format(M=m-len(sumstats)))
 		
 	return sumstats
 
@@ -218,7 +218,8 @@ def _merge_and_log(ld, sumstats, noun, log):
 def _read_ld_sumstats(args, log, fh, alleles=False, dropna=True):
 	sumstats = _read_sumstats(args, log, fh, alleles=alleles, dropna=dropna)
 	ref_ld = _read_ref_ld(args, log)
-	M_annot = _read_M(args, log)
+	n_annot = len(ref_ld.columns) - 1
+	M_annot = _read_M(args, log, n_annot)
 	M_annot, ref_ld = _check_variance(log, M_annot, ref_ld)
 	w_ld = _read_w_ld(args, log)
 	sumstats = _merge_and_log(ref_ld, sumstats, 'reference panel LD', log)
@@ -277,10 +278,10 @@ def estimate_rg(args, log):
 			log.log(msg.format(I=i+2, N=len(rg_paths), F=rg_paths[i+1]))
 			ex_type, ex, tb = sys.exc_info()
 			log.log( traceback.format_exc(ex)+'\n' )
-			if len(RG) < i: # if exception raised before appending to RG
-				RG.append(None) 
+			if len(RG) <= i: # if exception raised before appending to RG
+				RG.append(None)
 	
-	log.log('\nSummary of Genetic Correlation Results\n'+_get_rg_table(rg_paths, RG))
+	log.log('\nSummary of Genetic Correlation Results\n'+_get_rg_table(rg_paths, RG, args))
 	return RG
 
 def _read_other_sumstats(args, log, pheno2, sumstats, ref_ld_cnames):
@@ -298,7 +299,7 @@ def _read_other_sumstats(args, log, pheno2, sumstats, ref_ld_cnames):
 	_warn_length(log, loop)
 	return loop
 
-def _get_rg_table(rg_paths, RG):
+def _get_rg_table(rg_paths, RG, args):
 	'''Print a table of genetic correlations.'''
 	t = lambda attr: lambda obj: getattr(obj, attr, 'NA')
 	x = pd.DataFrame()
@@ -308,10 +309,12 @@ def _get_rg_table(rg_paths, RG):
 	x['se'] = map(t('rg_se') , RG)
 	x['p'] = map(t('p') , RG)
 	x['h2'] = map(t('tot'), map(t('hsq2') , RG))
-	x['h2_int'] = map(t('intercept'), map(t('hsq2') , RG))
-	x['h2_int_se'] = map(t('intercept_se'), map(t('hsq2') , RG))
-	x['gcov_int'] = map(t('intercept'), map(t('gencov') , RG))
-	x['gcov_int_se'] = map(t('intercept_se'), map(t('gencov') , RG))
+	if args.constrain_intercept is None:
+		x['h2_int'] = map(t('intercept'), map(t('hsq2') , RG))
+		x['h2_int_se'] = map(t('intercept_se'), map(t('hsq2') , RG))
+		x['gcov_int'] = map(t('intercept'), map(t('gencov') , RG))
+		x['gcov_int_se'] = map(t('intercept_se'), map(t('gencov') , RG))
+
 	return x.to_string(header=True, index=False)+'\n'
 			
 def _print_gencor(args, log, rghat, ref_ld_cnames, i, rg_paths, print_hsq1):
@@ -370,7 +373,7 @@ def _parse_rg(rg):
 	return rg_paths, rg_files
 
 def _print_rg_delete_values(rg, fh, log):
-	'''Print block jacwkknife delete values.'''
+	'''Print block jackknife delete values.'''
 	_print_delete_values(rg.hsq1, fh+'.hsq1.delete', log)
 	_print_delete_values(rg.hsq2, fh+'.hsq2.delete', log)
 	_print_delete_values(rg.gencov, fh+'.gencov.delete', log)

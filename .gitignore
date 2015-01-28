@@ -70,3 +70,8 @@ docs/_build/
 *.extract
 *.gz
 *.cts
+*.log
+*.delete
+*.cov
+*.sumstats
+*.delete_k
