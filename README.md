@@ -1,8 +1,7 @@
 LDSC (LD SCore)
 ===============
 
-v0.0001 (alpha)
-Warning: under very active development
+v1.0.0
 
 LDSC is a command line tool for estimating heritability and genetic correlation from GWAS
 summary statistics. LDSC also computes LD Scores.
@@ -21,12 +20,19 @@ Please report bugs on the [issue tracker](https://github.com/bulik/ldsc/issues).
 Citation
 --------
 
-For now, please cite
+If you use the software or the LD Score regression intercept, please cite
 
-Bulik-Sullivan, et al. LD Score Regression Distinguishes Confounding from Polygenicity in Genome-Wide Association Studies.
-In Press at Nature Genetics. ([bioRxiv Version](http://biorxiv.org/content/early/2014/02/21/002931))
+Bulik-Sullivan, B et al. LD Score Regression Distinguishes Confounding from Polygenicity in Genome-Wide Association Studies.
+In Press at Nature Genetics. ([Director's cut](http://biorxiv.org/content/early/2014/02/21/002931))
 
-We are currently preparing manuscripts describing the methods for estimating partitioned h2 and rg.
+For genetic correlation, please also cite
+
+Bulik-Sullivan, et al. An Atlas of Genetic Correlations across Human Diseases and Traits. bioRxiv doi: http://dx.doi.org/10.1101/014498
+
+For partitioned heritability, please also cite
+
+Finucane, HK, et al. Partitioning Heritability by Functional Category using GWAS Summary Statistics. bioRxiv doi: http://dx.doi.org/10.1101/014241
+
 
 Requirements
 ------------
