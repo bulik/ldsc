@@ -312,9 +312,9 @@ def process_n(dat, args, log):
 	
 	return dat
 	
-def p_to_beta(P, N):
+def p_to_z(P, N):
 	'''Convert P-value and N to standardized beta.'''
-	return np.sqrt(chi2.isf(P, 1)/N)
+	return np.sqrt(chi2.isf(P, 1))
 
 def check_median(x, expected_median, tolerance, name):
 	'''Check that median(x) is within tolerance of expected_median.'''
@@ -477,7 +477,6 @@ def munge_sumstats(args, p=True): # set p = False for testing in order to preven
 			log.log(header)
 			
 		file_cnames = read_header(args.sumstats) # note keys not cleaned
-		print file_cnames
 		flag_cnames, signed_sumstat_null = parse_flag_cnames(log, args)
 		if args.ignore:
 			ignore_cnames = [clean_header(x) for x in args.ignore.split(',')]
@@ -561,19 +560,19 @@ def munge_sumstats(args, p=True): # set p = False for testing in order to preven
 		log.log('Removed {M} SNPs with duplicated rs numbers ({N} SNPs remain).'.format(M=old-new, N=new))
 		# filtering on N cannot be done chunkwise		
 		dat = process_n(dat, args, log)
-		dat.P = p_to_beta(dat.P, dat.N) 
-		dat.rename(columns={'P': 'BETA'}, inplace=True)
+		dat.P = p_to_z(dat.P, dat.N) 
+		dat.rename(columns={'P': 'Z'}, inplace=True)
 		if not args.a1_inc:
 			log.log(check_median(dat.SIGNED_SUMSTAT, signed_sumstat_null, 0.1, sign_cname))
-			dat.BETA *= (dat.SIGNED_SUMSTAT > signed_sumstat_null)	
+			dat.Z *= (-1)**(dat.SIGNED_SUMSTAT < signed_sumstat_null)	
 			dat.drop('SIGNED_SUMSTAT', inplace=True, axis=1)
 	
 		# do this last so we don't have to worry about NA values in the rest of the program
 		if args.merge_alleles:
 			dat = allele_merge(dat, merge_alleles, log)
-
+	
 		out_fname = args.out+'.sumstats'
-		print_colnames = [c for c in dat.columns if c in ['SNP','N','BETA','A1','A2']]
+		print_colnames = [c for c in dat.columns if c in ['SNP','N','Z','A1','A2']]
 		msg = 'Writing summary statistics for {M} SNPs ({N} with nonmissing beta) to {F}.'
 		log.log( msg.format(M=len(dat), F=out_fname+'.gz', N=dat.N.notnull().sum()))
 		if p:
@@ -581,7 +580,7 @@ def munge_sumstats(args, p=True): # set p = False for testing in order to preven
 			os.system('gzip -f {F}'.format(F=out_fname))
 		
 		log.log('\nMetadata:')
-		CHISQ = (dat.BETA**2 * dat.N)
+		CHISQ = (dat.Z**2)
 		mean_chisq = CHISQ.mean()
 		log.log( 'Mean chi^2 = ' + str( round(mean_chisq, 3)) )
 		if mean_chisq < 1.02:

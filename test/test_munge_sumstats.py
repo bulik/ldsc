@@ -6,6 +6,7 @@ import pandas as pd
 import nose
 from pandas.util.testing import assert_series_equal
 from pandas.util.testing import assert_frame_equal
+from numpy.testing import assert_array_equal, assert_array_almost_equal, assert_allclose
 
 class Mock(object):
 	'''
@@ -20,15 +21,15 @@ class Mock(object):
 log = Mock()
 args = munge.parser.parse_args('')
 
-class test_p_to_beta(unittest.TestCase):
+class test_p_to_z(unittest.TestCase):
 
 	def setUp(self):
 		self.N = pd.Series([1,2,3])
 		self.P = pd.Series([0.1,0.1,0.1])
-		self.BETA = pd.Series([1.644854, 1.163087, 0.9496567])
+		self.Z = pd.Series([1.644854, 1.644854, 1.644854])
 	
-	def test_p_to_beta(self):
-		assert_series_equal(munge.p_to_beta(self.P, self.N), self.BETA)
+	def test_p_to_z(self):
+		assert_allclose(munge.p_to_z(self.P, self.N), self.Z, atol=1e-5)
 
 class test_check_median(unittest.TestCase):
 	
