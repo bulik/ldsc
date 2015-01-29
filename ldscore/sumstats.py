@@ -249,7 +249,7 @@ def estimate_h2(args, log):
 		overlap_matrix, M_tot = _read_annot(args, log)
 		_overlap_output(args, overlap_matrix, M_annot, n_annot, hsqhat, ref_ld_cnames, M_tot)
 
-	log.log(hsqhat.summary(ref_ld_cnames)) # should have args.overlap_annot
+	log.log(hsqhat.summary(ref_ld_cnames, P=args.samp_prev, K=args.pop_prev)) # should have args.overlap_annot
 	return hsqhat
 
 def estimate_rg(args, log):
@@ -308,7 +308,13 @@ def _get_rg_table(rg_paths, RG, args):
 	x['rg'] = map(t('rg_ratio') , RG)
 	x['se'] = map(t('rg_se') , RG)
 	x['p'] = map(t('p') , RG)
-	x['h2'] = map(t('tot'), map(t('hsq2') , RG))
+	if args.samp_prev is not None and args.pop_prev is not None:
+		c = reg.h2_obs_to_liab(1, args.samp_prev[1], args.pop_prev[1])
+		x['h2_liab'] = map(lambda x: c*x, map(t('tot'), map(t('hsq2') , RG)))
+		x['h2_liab_se'] = map(lambda x: c*x, map(t('tot_se'), map(t('hsq2') , RG)))
+	else:
+		x['h2_obs'] = map(t('tot'), map(t('hsq2') , RG))
+		x['h2_obs_se'] =  map(t('tot_se	'), map(t('hsq2') , RG))
 	if args.constrain_intercept is None:
 		x['h2_int'] = map(t('intercept'), map(t('hsq2') , RG))
 		x['h2_int_se'] = map(t('intercept_se'), map(t('hsq2') , RG))
@@ -321,12 +327,12 @@ def _print_gencor(args, log, rghat, ref_ld_cnames, i, rg_paths, print_hsq1):
 	l = lambda x: x+''.join(['-' for i in range(len(x.replace('\n','')))])
 	if print_hsq1:
 		log.log(l('\nHeritability of phenotype 1\n'))
-		log.log(rghat.hsq1.summary(ref_ld_cnames))
+		log.log(rghat.hsq1.summary(ref_ld_cnames, P=args.samp_prev[0], K=args.pop_prev[0]))
 
 	log.log(l('\nHeritability of phenotype {I}/{N}\n'.format(I=i+2, N=len(rg_paths))))
-	log.log(rghat.hsq2.summary(ref_ld_cnames))
+	log.log(rghat.hsq2.summary(ref_ld_cnames, P=args.samp_prev[1], K=args.pop_prev[1]))
 	log.log(l('\nGenetic Covariance\n'))
-	log.log(rghat.gencov.summary(ref_ld_cnames))
+	log.log(rghat.gencov.summary(ref_ld_cnames, P=args.samp_prev, K=args.pop_prev))
 	log.log(l('\nGenetic Correlation\n'))
 	log.log(rghat.summary()+'\n')
 

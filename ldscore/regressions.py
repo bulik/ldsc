@@ -272,16 +272,23 @@ class Hsq(LD_Score_Regression):
 
 		return ratio, ratio_se
 	
-	def summary(self, ref_ld_colnames=None):
+	def summary(self, ref_ld_colnames=None, P=None, K=None):
 		'''Print summary of the LD Score Regression.'''
-		out = ['Total observed scale h2: '+s(self.tot)+' ('+s(self.tot_se)+')']
+		if P is not None and K is not None:
+			T = 'Liability'
+			c = h2_obs_to_liab(1, P, K)
+		else:
+			T = 'Observed'
+			c = 1
+			
+		out = ['Total '+T+' scale h2: '+s(c*self.tot)+' ('+s(c*self.tot_se)+')']
 		if self.n_annot > 1:
 			if ref_ld_colnames is None:
 				ref_ld_colnames = ['CAT_'+str(i) for i in xrange(self.n_annot)]
 
 			out.append( 'Categories: ' + ' '.join(ref_ld_colnames))
-			out.append( 'Observed scale h2: ' + s(self.cat))
-			out.append( 'Observed scale h2 SE: ' + s(self.cat_se))
+			out.append( T+' scale h2: ' + s(c*self.cat))
+			out.append( T+' scale h2 SE: ' + s(c*self.cat_se))
 			out.append( 'Proportion of SNPs: '+ s(self.M_prop))
 			out.append( 'Proportion of h2g: ' + s(self.prop))
 			out.append( 'Enrichment: ' + s(self.enrichment))
@@ -360,19 +367,26 @@ class Gencov(LD_Score_Regression):
 		self.p, self.z = p_z_norm(self.tot, self.tot_se)
 		self.mean_z1z2 = np.mean(np.multiply(z1, z2))
 	
-	def summary(self, ref_ld_colnames):
+	def summary(self, ref_ld_colnames, P=None, K=None):
 		'''Print summary of the LD Score regression.'''
 		out = []
-		out.append('Total observed scale gencov: '+s(self.tot)+' ('+s(self.tot_se)+')')
+		if P is not None and K is not None:
+			T = 'Liability'
+			c = gencov_obs_to_liab(1, P[0], P[1], K[0], K[1])
+		else:
+			T = 'Observed'
+			c = 1
+
+		out.append('Total '+T+' scale gencov: '+s(self.tot)+' ('+s(self.tot_se)+')')
 		#out.append('Z-score: '+s(self.z))
 		#out.append('P: '+s(self.p))		
 		if self.n_annot > 1:
 			out.append( 'Categories: '+ str(' '.join(ref_ld_colnames)))
-			out.append( 'Observed scale gencov: '+s(self.cat))
-			out.append( 'Observed scale gencov SE: '+s(self.cat_se))
+			out.append( T+' scale gencov: '+s(self.cat))
+			out.append( T+' scale gencov SE: '+s(self.cat_se))
 			out.append( 'Proportion of SNPs: '+s(self.M_prop))
 			out.append( 'Proportion of gencov: ' +s(self.prop))
-			out.append( 'Enrichment: '+s(self.enrichment))
+			out.append( 'Enrichment: '+s(self.enrichment))	
 		
 		out.append('Mean z1*z2: '+s(self.mean_z1z2))
 		if self.constrain_intercept:

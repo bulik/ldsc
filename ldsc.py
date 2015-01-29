@@ -578,6 +578,12 @@ parser.add_argument('--frqfile', type=str,
 	help='For use with --overlap-annot. Provides allele frequencies to prune to common '
 	'snps if --not-M-5-50 is not set.')
 
+# transform to liability scale
+parser.add_argument('--samp-prev',default=None,
+	help='Sample prevalence of binary phenotype (for conversion to liability scale).')
+parser.add_argument('--pop-prev',default=None,
+	help='Population prevalence of binary phenotype (for conversion to liability scale).')
+
 if __name__ == '__main__':
 
 	args = parser.parse_args()
@@ -635,9 +641,21 @@ if __name__ == '__main__':
 				raise ValueError('Cannot set both --ref-ld and --ref-ld-chr.')
 			if args.w_ld and args.w_ld_chr:
 				raise ValueError('Cannot set both --w-ld and --w-ld-chr.')
+			if (args.samp_prev is not None) != (args.pop_prev is not None):
+				raise ValueError('Must set both or neither of --samp-prev and --pop-prev.') 
+			
 			if args.rg:
+				if args.samp_prev is not None and args.pop_prev is not None:
+					if not (',' in args.samp_prev and ',' in args.pop_prev):
+						raise ValueError('For --rg, --samp-prev and --pop-prev must each have at least two numbers separated by a comma.')
+					else:
+						args.samp_prev, args.pop_prev = map(lambda x: map(float, x.split(',')), 
+							[args.samp_prev, args.pop_prev])
+							
 				sumstats.estimate_rg(args, log)
 			elif args.h2:
+				if args.samp_prev is not None and args.pop_prev is not None:
+					args.samp_prev, args.pop_prev = map(float, [args.samp_prev, args.pop_prev])
 				sumstats.estimate_h2(args, log)
 
 			# bad flags
