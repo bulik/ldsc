@@ -1,44 +1,22 @@
-This document describes all new file formats introduced for use with the --sumstats* flags
-in the ldsc.py software package.
-
-Contents
-(0) ldscore, M  -- see file_formats_ld.txt
-(1) chisq
-(2) allele
+This document describes all new file formats introduced for use with the --h2 and --rg flags.
 
 *NOTE* chromosomes are assumed to be integers. This software does not yet deal with sex
 chromosomes.
 
-*NOTE* gzip your chisq / allele files
-
-(1) chisq
+(1) sumstats
 ---------
-This file format is used for chi-square statistics or P-values for a single GWAS. Tab-
-delimited text, one row per SNP with a header row. The first four columns are the same as
-the first four columns of a Plink .bim file: 
+This file format is used for storing GWAS Z-scores. The format is Tab- delimited text, 
+one row per SNP with a header row. The column order does not matter. We strongly 
+recommend that you convert your summary statistics to the .sumstats format using the
+munge_sumstats.py script included with ldsc, because munge_sumstats.py checks all the
+gotchas that we've run into over the course of developing this software and applying it
+to all of the data in Bulik-Sullivan*, Finucane*, et al, 2015.
 
-Required
-(0) CHR -- chromosome
-(1) SNP -- SNP identifier (e.g., rs number. Non-unique identifiers, NA's or .'s will 
-	result in a ValueError being raised).
-(2) CM -- genetic position (centimorgans). Set to zero by default. 
-(3) BP -- physical position (base pairs).
-(4) N -- sample size (which may vary from SNP to SNP).
-(5) CHISQ or P -- GWAS summary statistic. ldsc.py will automatically convert P-values to
-	chi-square statistics. The advantage of using chi-square statistics is that many 
-	statistical software packages have limited ability to deal with very low p-values (e.g.,
-	will report all P-values less than 10e-303 as 0, which will result in ldsc.py raising
-	a ValueError).
+Required Columns
+(1) SNP -- SNP identifier (e.g., rs number)
+(2) N -- sample size (which may vary from SNP to SNP).
+(3) Z -- Z-score. Sign is w.r.t. A1
+(4) A1 -- first allele
+(5) A2 -- second allele
 
-Optional
-(6) INFO -- imputation quality (for use with the --info-min and --info-max flags)
-(7) MAF -- study minor allele frequency (for use with the --maf flag. ldsc.py will 
-	automatically convert frequencies in [0,1] to minor allele frequencies in [0,0.5])
-
-
-(2) allele
------------
-
-Required
-(1) SNP
-(2) INC_ALLELE -- trait increasing allele (for QT) OR risk allele
+Note that LDSC filters out all variants that are not SNPs and strand-ambiguous SNPs. 
