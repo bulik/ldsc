@@ -100,6 +100,8 @@ def h2_obs_to_liab(h2_obs, P, K):
 		Heritability of liability in the population.
 		
 	'''
+	if np.isnan(P) and np.isnan(K):
+		return h2_obs
 	if K <= 0 or K >= 1:
 		raise ValueError('K must be in the range (0,1)')
 	if P <= 0 or P >= 1:

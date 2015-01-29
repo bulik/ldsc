@@ -651,7 +651,6 @@ if __name__ == '__main__':
 					else:
 						args.samp_prev, args.pop_prev = map(lambda x: map(float, x.split(',')), 
 							[args.samp_prev, args.pop_prev])
-							
 				sumstats.estimate_rg(args, log)
 			elif args.h2:
 				if args.samp_prev is not None and args.pop_prev is not None:
