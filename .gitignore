@@ -75,3 +75,5 @@ docs/_build/
 *.cov
 *.sumstats
 *.delete_k
+*asdf*
+*qwer*
