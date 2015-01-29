@@ -167,7 +167,7 @@ class Test_RG_Statistical():
 		args.ref_ld = DIR+'/simulate_test/ldscore/oneld_onefile'
 		args.w_ld = DIR+'/simulate_test/ldscore/w'
 		args.rg = ','.join((DIR+'/simulate_test/sumstats/'+str(i) for i in xrange(400)))
-		args.out = DIR+'/simulate_test/log/1'
+		args.out = DIR+'/simulate_test/1'
 		x = s.estimate_rg(args, log)
 		args.constrain_intercept = [1, 1, 0]
 		y = s.estimate_rg(args, log)
@@ -228,7 +228,7 @@ class Test_H2_Statistical(unittest.TestCase):
 		for i in xrange(N_REP):
 			args.constrain_intercept = None
 			args.h2 = DIR+'/simulate_test/sumstats/'+str(i)
-			args.out = DIR+'/simulate_test/log/1'
+			args.out = DIR+'/simulate_test/1'
 			h2.append(s.estimate_h2(args, log))
 			args.constrain_intercept = 1
 			h2_noint.append(s.estimate_h2(args, log))
@@ -289,7 +289,7 @@ class Test_Estimate(unittest.TestCase):
 		args.ref_ld = DIR+'/simulate_test/ldscore/oneld_onefile'
 		args.w_ld = DIR+'/simulate_test/ldscore/w'
 		args.h2 = DIR+'/simulate_test/sumstats/1'
-		args.out = DIR+'/simulate_test/log/1'
+		args.out = DIR+'/simulate_test/1'
 		args.print_cov = True # right now just check no runtime errors
 		args.print_delete_vals = True
 		x = s.estimate_h2(args, log)	
@@ -307,7 +307,7 @@ class Test_Estimate(unittest.TestCase):
 		args.ref_ld_chr = DIR+'/simulate_test/ldscore/twold_onefile'
 		args.w_ld = DIR+'/simulate_test/ldscore/w'
 		args.h2 = DIR+'/simulate_test/sumstats/1'
-		args.out = DIR+'/simulate_test/log/1'
+		args.out = DIR+'/simulate_test/1'
 		x = s.estimate_h2(args, log)		
 		args.ref_ld = DIR+'/simulate_test/ldscore/twold_firstfile,'+DIR+'/simulate_test/ldscore/twold_secondfile'
 		y = s.estimate_h2(args, log)		
@@ -323,7 +323,7 @@ class Test_Estimate(unittest.TestCase):
 		args.ref_ld = DIR+'/simulate_test/ldscore/oneld_onefile'
 		args.w_ld = DIR+'/simulate_test/ldscore/w'
 		args.rg = ','.join([DIR+'/simulate_test/sumstats/1' for _ in xrange(2)])
-		args.out = DIR+'/simulate_test/log/1'
+		args.out = DIR+'/simulate_test/1'
 		x = s.estimate_rg(args, log)[0]
 		args.M = open(DIR+'/simulate_test/ldscore/oneld_onefile.l2.M_5_50', 'rb').read().rstrip('\n')
 		y = s.estimate_rg(args, log)[0]		
@@ -339,7 +339,7 @@ class Test_Estimate(unittest.TestCase):
 		args.ref_ld_chr = DIR+'/simulate_test/ldscore/twold_onefile'
 		args.w_ld = DIR+'/simulate_test/ldscore/w'
 		args.rg = ','.join([DIR+'/simulate_test/sumstats/1' for _ in xrange(2)])
-		args.out = DIR+'/simulate_test/log/1'
+		args.out = DIR+'/simulate_test/1'
 		args.print_cov = True # right now just check no runtime errors
 		args.print_delete_vals = True
 		x = s.estimate_rg(args, log)[0]		
@@ -357,7 +357,7 @@ class Test_Estimate(unittest.TestCase):
 		args.ref_ld = DIR+'/simulate_test/ldscore/oneld_onefile'
 		args.w_ld = DIR+'/simulate_test/ldscore/w'
 		args.rg = ','.join([DIR+'/simulate_test/sumstats/1' for _ in xrange(2)])
-		args.out = DIR+'/simulate_test/log/1'
+		args.out = DIR+'/simulate_test/1'
 		x = s.estimate_rg(args, log)[0]
 		args.no_check_alleles = True
 		y = s.estimate_rg(args, log)[0]

@@ -328,7 +328,7 @@ def _print_gencor(args, log, rghat, ref_ld_cnames, i, rg_paths, print_hsq1):
 	if print_hsq1:
 		log.log(l('\nHeritability of phenotype 1\n'))
 		log.log(rghat.hsq1.summary(ref_ld_cnames, P=args.samp_prev[0], K=args.pop_prev[0]))
-
+	
 	log.log(l('\nHeritability of phenotype {I}/{N}\n'.format(I=i+2, N=len(rg_paths))))
 	log.log(rghat.hsq2.summary(ref_ld_cnames, P=args.samp_prev[1], K=args.pop_prev[1]))
 	log.log(l('\nGenetic Covariance\n'))
