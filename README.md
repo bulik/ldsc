@@ -15,7 +15,7 @@ Once you have installed `ldsc` as well as the required packages, typing
 ```
 $ python ldsc.py -h
 ```
-will print a list of all command-line options. Short tutorials describing the four basic functions of `ldsc` (estimating LD Scores, h2 and partitioned h2, genetic correlation, the LD Score regression intercept) can be found in the wiki. 
+will print a list of all command-line options. Short tutorials describing the four basic functions of `ldsc` (estimating LD Scores, h2 and partitioned h2, genetic correlation, the LD Score regression intercept) can be found in the wiki. If you would like to run the tests, please see the wiki.
 
 ## Where Can I Get LD Scores?
 
