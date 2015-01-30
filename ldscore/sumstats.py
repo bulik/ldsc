@@ -308,7 +308,7 @@ def _get_rg_table(rg_paths, RG, args):
 	x['rg'] = map(t('rg_ratio') , RG)
 	x['se'] = map(t('rg_se') , RG)
 	x['p'] = map(t('p') , RG)
-	if args.samp_prev is not None and args.pop_prev is not None:
+	if all((i is not None for i in args.samp_prev)) and all((i is not None for it in args.pop_prev)):
 		c = reg.h2_obs_to_liab(1, args.samp_prev[1], args.pop_prev[1])
 		x['h2_liab'] = map(lambda x: c*x, map(t('tot'), map(t('hsq2') , RG)))
 		x['h2_liab_se'] = map(lambda x: c*x, map(t('tot_se'), map(t('hsq2') , RG)))
@@ -325,6 +325,8 @@ def _get_rg_table(rg_paths, RG, args):
 			
 def _print_gencor(args, log, rghat, ref_ld_cnames, i, rg_paths, print_hsq1):
 	l = lambda x: x+''.join(['-' for i in range(len(x.replace('\n','')))])
+	if args.samp_prev is None and args.pop_prev is None:
+		args.samp_prev = [None, None]; args.pop_prev = [None, None]
 	if print_hsq1:
 		log.log(l('\nHeritability of phenotype 1\n'))
 		log.log(rghat.hsq1.summary(ref_ld_cnames, P=args.samp_prev[0], K=args.pop_prev[0]))
