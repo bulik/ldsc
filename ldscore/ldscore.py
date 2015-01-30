@@ -119,84 +119,9 @@ class __GenotypeArrayInMemory__(object):
 
 	def __filter_maf_(geno, m, n, maf):
 		raise NotImplementedError
-	'''
-	def __ldscore_pbar__(self,m):
-		widgets = ['Computed LD for ', pb.Counter(), ' / {m} SNPs ('.format(m=m),
-			pb.Timer(), ')']
-		pbar = pb.ProgressBar(widgets=widgets,maxval=m).start()
-		return pbar
 			
-	def __filter_indivs_pbar__(self, n):
-		widgets = ['Filtered ', pb.Counter(), ' / {n} individuals ('.format(n=n),
-			pb.Timer(), ')']
-		pbar = pb.ProgressBar(widgets=widgets,maxval=n).start()
-		return pbar
-		
-	def __filter_snps_pbar__(self, m):
-		widgets = ['Computed MAF for ', pb.Counter(), ' / {m} SNPs ('.format(m=m),
-			pb.Timer(), ')']
-		pbar = pb.ProgressBar(widgets=widgets,maxval=m).start()
-		return pbar
-	'''
-	
-	### L1 w.r.t. minor allele
-	def l1VarBlocks(self, block_left, c, annot=None):
-		'''
-		Estimates
-		
-		L1hat(j) := sum_k r_jk
-		
-		for j = 1,..., M, where the sign of r_jk reflects the correlation between the
-		(in-sample) minor alleles at j and k.
-		
-		'''
-		snp_getter = lambda n: self.nextSNPs(n, minorRef=True)
-		func = lambda x: x
-		l1hat = self.__corSumVarBlocks__(block_left,c,func,snp_getter,annot)
-		return l1hat
-		
-	def l1BlockJackknife(self, block_left, c, annot=None, jN=10):
-		func = lambda x: x
-		snp_getter = lambda n: self.nextSNPs(n, minorRef=True)
-		return self.__corSumBlockJackknife__(block_left, c, func, snp_getter, annot, jN)
-
-
-	### L1 ^ 2 (unbiased) w.r.t. minor allele 
-	def l1sqVarBlocks(self, block_left, c, annot=None):
-		'''
-		For each SNP j = 1, ... , M computes an approximately unbiased estimate of L1(j)^2
-		
-		L1hat(j)^2 := ((N-1) / N) ( sum_k rhat_jk ) ^ 2 - ( sum_k L1hat(k) ) / N,
-		
-		where the sums are taken over all SNPs k within 1cM of j. This would be an unbiased
-		estimator if genotypes were multivariate normal. 
-		
-		'''
-		block_right = block_left_to_right(block_left)
-		l1hat = self.l1VarBlocks(block_left, c, annot)
-		l1sqhat = self.__l1_to_l1sqhat_(l1hat, block_left, block_right)
-		return l1sqhat
-	
-	def __l1_to_l1sqhat_(self, l1hat, block_left, block_right):
-		l1sqhat = np.square(l1hat)*(self.n - 1) / self.n
-		for k in xrange(self.m):
-			l1sqhat[block_left[k]:block_right[k],...] -= l1hat[k] / self.n
-		
-		return l1sqhat
-		
-	def l1sqBlockJackknife(self, block_left, c, annot=None, jN=10):
-		func = lambda x: x
-		func2 = lambda x,y : np.square(np.dot(x,y))
-		snp_getter = lambda n: self.nextSNPs(n, minorRef=True)
-		return self.__corSumBlockJackknife__(block_left, c, func, snp_getter, annot, jN, func2)
-
-
-	### L2
 	def ldScoreVarBlocks(self, block_left, c, annot=None):
-		'''
-		Computes an unbiased estimate of L2(j) for j=1,..,M
-		
-		'''
+		'''Computes an unbiased estimate of L2(j) for j=1,..,M.'''
 		func = lambda x: self.__l2_unbiased__(x,self.n)
 		snp_getter = self.nextSNPs
 		return self.__corSumVarBlocks__(block_left, c, func, snp_getter, annot)
@@ -209,25 +134,7 @@ class __GenotypeArrayInMemory__(object):
 	def __l2_unbiased__(self, x, n): 
 		denom = n-2 if n>2 else n # allow n<2 for testing purposes
 		sq = np.square(x)
-		return sq - (1-sq) / denom
-				
-	### L4
-	def l4VarBlocks(self, block_left, c, annot=None, jN=10):
-		'''
-		Computes an estimate of L4 that is unbiased for MVN genotypes.
-		'''
-		func = lambda x: self.__l4_unbiased__(x,self.n)
-		snp_getter = self.nextSNPs
-		return self.__corSumVarBlocks__(block_left, c, func, snp_getter, annot)
-	
-	def __l4_unbiased__(self, x, n):
-		raise NotImplementedError
-	
-	def l4BlockJackknife(self, block_left, c, annot=None, jN=10):
-		func = lambda x: np.square(np.square((x)))
-		snp_getter = self.nextSNPs
-		return self.__corSumBlockJackknife__(block_left, c, func, snp_getter, annot, jN)
-		
+		return sq - (1-sq) / denom		
 		
 	# general methods for calculating sums of Pearson correlation coefficients
 	def __corSumVarBlocks__(self, block_left, c, func, snp_getter, annot=None):
@@ -280,30 +187,22 @@ class __GenotypeArrayInMemory__(object):
 		if b > m:
 			c = 1; b = m
 		l_A = 0; nsq = n**2 # l_A := index of leftmost SNP in matrix A
-		
 		A = snp_getter(b)
 		rfuncAB = np.zeros((b,c))
 		rfuncBB = np.zeros((c,c))
 		# chunk inside of block
-		#pbar = self.__ldscore_pbar__(m)
-	
 		for l_B in xrange(0,b,c): # l_B := index of leftmost SNP in matrix B
-			#pbar.update(l_B)
 			B = A[:,l_B:l_B+c]
 			np.dot(A.T, B / n, out=rfuncAB)
 			rfuncAB = func(rfuncAB)
 			cor_sum[l_A:l_A+b,:] += np.dot(rfuncAB,annot[l_B:l_B+c,:])
-		
 		# chunk to right of block
 		b0 = b
 		md = int(c*np.floor(m/c))
 		end = md + 1 if md !=m else md
 		for l_B in xrange(b0,end,c):
-			#pbar.update(l_B)
-			
 			# check if the annot matrix is all zeros for this block + chunk
 			# this happens w/ sparse categories (i.e., pathways)
-			
 			# update the block
 			old_b = b
 			b = block_sizes[l_B]
@@ -327,7 +226,6 @@ class __GenotypeArrayInMemory__(object):
 				rfuncAB = np.zeros((b,c))
 			
 			B = snp_getter(c) 		
-
 			p1 = np.all(annot[l_A:l_A+b,:] == 0)
 			p2 = np.all(annot[l_B:l_B+c,:] == 0)
 			if p1 and p2:
@@ -341,140 +239,7 @@ class __GenotypeArrayInMemory__(object):
 			rfuncBB = func(rfuncBB)
 			cor_sum[l_B:l_B+c,:] += np.dot(rfuncBB, annot[l_B:l_B+c,:])
 		
-		#pbar.finish()
 		return cor_sum
-	
-# 	def __corSumBlockJackknife__(self, block_left, c, func1, snp_getter, annot=None, jN=10,
-# 		func2=np.dot):
-#		'''
-#		Estimates LD Score and standard error using a block jackknife.
-#		
-#		Parameters
-#		----------
-#		
-#		Returns
-#		-------
-#		
-#		Notes
-#		-----
-#		
-#		'''
-#
-# 		M, N = self.m, self.n; 
-# 		if jN > N:
-# 			raise ValueError('jN must be <= N')
-# 		jSize = int(np.ceil(N/jN))
-# 		last_jSize = N - (jN-1)	*jSize
-# 		def jsize(i):
-# 			if i < jN: return jSize
-# 			elif i == jN: return last_jSize
-# 			else: raise ValueError
-# 
-# 		block_sizes = np.array(np.arange(M) - block_left)
-# 		block_sizes = np.ceil(block_sizes / c)*c
-# 		if not np.any(annot):
-# 			N_A = 1 # number of annotations
-# 			annot = np.ones((M,N_A))
-# 		else:
-# 			N_A = annot.shape[1]
-# 			annot_m = annot.shape[0]
-# 			if annot_m != self.m:
-# 				raise ValueError('Incorrect number of SNPs in annot')
-# 				
-# 		# b = index of first SNP for which SNP 0 is not included in LD Score
-# 		b = np.nonzero(block_left > 0)
-# 		if np.any(b):
-# 			b = b[0][0]
-# 		else:
-# 			b = M
-# 		b = int(np.ceil(b/c)*c) # round up to a multiple of c
-# 		if b > M:
-# 			c = 1; b = M
-# 		l_A = 0; nsq = N**2 # l_A := index of leftmost SNP in matrix A
-# 		A = snp_getter(b) # read first b0 SNPs into the block 
-# 		rAB = np.zeros((b,c,jN))
-# 		rBB = np.zeros((c,c,jN))
-# 		MD = int(c*np.floor(M/c))
-# 		# num SNPs x num annotations x num jknife blocks + 1 
-# 		# last index in 3rd axis is LD Score with nothing deleted
-# 		cor_sum = np.zeros((M,N_A,jN+1)) 
-# 		# chunk inside of block
-# 		pbar = self.__ldscore_pbar__(M)
-# 		for l_B in xrange(0,b,c): # l_B := index of leftmost SNP in matrix B
-# 			pbar.update(l_B)
-# 			B = A[:,l_B:l_B+c]		
-# 			for ji in xrange(0, jN):
-# 				i = ji*jSize
-# 				jA = A[i:i+jsize(ji),:]
-# 				jB = B[i:i+jsize(ji),:]
-# 				rAB[:,:,ji] = np.dot(jA.T, jB) / jsize(ji)
-# 			for j in xrange(0,jN+1):
-# 				ii = np.arange(jN) != j
-# 				jRfuncAB = func1(np.mean(rAB[:,:,ii], axis=2)) 
-# 				cor_sum[l_A:l_A+b,:,j] += func2(jRfuncAB, annot[l_B:l_B+c,:])
-# 
-# 		# chunk to right of block
-# 		b0 = b
-# 		MD = int(c*np.floor(M/c))
-# 		end = MD + 1 if MD !=M else MD
-# 		for l_B in xrange(b0, end, c):
-# 			pbar.update(l_B)
-# 			old_b = b
-# 			b = block_sizes[l_B]
-# 			
-# 			if l_B > b0 and b > 0:
-# 				A = np.hstack((A[:,old_b-b+c:old_b],B)) # block_size can't increase more than c	
-# 				l_A += old_b-b+c
-# 			elif l_B == b0 and b > 0:
-# 				A = A[:,b0-b:b0]
-# 				l_A = b0-b
-# 			elif b == 0: # no SNPs to left in window, e.g., after a sequence gap
-# 				A = np.array(()).reshape((N,0))
-# 				l_A = l_B
-# 			
-# 			if l_B == MD:
-# 				c = M - MD
-# 				#rAB = np.zeros((b,c,jN))
-# 				#rBB = np.zeros((c,c,jN))
-# 			#if b != old_b:
-# 			#rAB = np.zeros((b,c,jN))
-# 			rAB = []; rBB = []
-# 			
-# 			B = snp_getter(c)
-# 			
-# 			# compute block values
-# 			for ji in xrange(0, jN):
-# 				i = ji*jSize
-# 				jA = A[i:i+jsize(ji),:]
-# 				jB = B[i:i+jsize(ji),:]
-# 				rAB.append(np.dot(jA.T, jB) / jsize(ji))
-# 				rBB.append(np.dot(jB.T, jB) / jsize(ji))
-# 				#rAB[:,:,ji] = np.dot(jA.T, jB) / jsize(ji)
-# 				#rBB[:,:,ji] = np.dot(jB.T,jB) / jsize(ji)
-# 			
-# 			rAB.append(np.zeros(rAB[1].shape))
-# 			rBB.append(np.zeros(rBB[1].shape))
-# 			sum_rAB = np.sum(rAB, axis=0)
-# 			sum_rBB = np.sum(rBB, axis=0)
-# 
-# 			# compute delete-k values
-# 			for j in xrange(0,jN+1):
-# 				#ii = np.arange(jN) != j
-# 				#jRfuncAB = func1(np.mean(rAB[:,:,ii], axis=2))  
-# 				#jRfuncBB = func1(np.mean(rBB[:,:,ii], axis=2))
-# 				denom = jN if j != jN+1 else jN+1
-# 				jRfuncAB = func1( (sum_rAB - rAB[j]) / denom )
-# 				jRfuncBB = func1( (sum_rBB - rBB[j]) / denom )
-# 				cor_sum[l_A:l_A+b,:,j] += func2(jRfuncAB, annot[l_B:l_B+c,:])
-# 				cor_sum[l_B:l_B+c,:,j] += func2(annot[l_A:l_A+b,:].T,jRfuncAB).T
-# 				cor_sum[l_B:l_B+c,:,j] += func2(jRfuncBB, annot[l_B:l_B+c,:])
-# 				
-# 		# compute jackknife SE and jackknife estimate
-# 		cor_sum_se = np.sqrt(jN-1)*np.std(cor_sum[:,:,0:jN],axis=2)	
-# 		cor_sum_jn = jN*cor_sum[:,:,jN] - (jN-1)*np.mean(cor_sum[:,:,0:jN], axis=2)
-# 		pbar.finish()
-# 		print 
-# 		return (cor_sum_jn, cor_sum_se)			
 
 
 class PlinkBEDFile(__GenotypeArrayInMemory__):
@@ -501,7 +266,6 @@ class PlinkBEDFile(__GenotypeArrayInMemory__):
 		magicNumber.fromfile(fh, 2)
 		bedMode = ba.bitarray(endian="little")
 		bedMode.fromfile(fh, 1)
-		### TODO this is ugly
 		e = (4 - n % 4) if n % 4 != 0 else 0
 		nru = n + e
 		self.nru = nru
@@ -531,13 +295,10 @@ class PlinkBEDFile(__GenotypeArrayInMemory__):
 		nru_new = n_new + e
 		nru = self.nru
 		z = ba.bitarray(m*2*nru_new, endian="little")
-		#pbar = self.__filter_indivs_pbar__(len(keep_indivs))
 		for e, i in enumerate(keep_indivs):
-			#pbar.update(e)
 			z[2*e::2*nru_new] = geno[2*i::2*nru]
 			z[2*e+1::2*nru_new] = geno[2*i+1::2*nru]
 
-		#pbar.finish()
 		self.nru = nru_new
 		return (z, m, n_new)
 	
@@ -570,15 +331,12 @@ class PlinkBEDFile(__GenotypeArrayInMemory__):
 		Why does bitarray not have >> ????
 		
 		'''
-	
 		nru = self.nru
  		m_poly = 0
  		y = ba.bitarray()
  		if keep_snps is None: keep_snps = xrange(m)
  		kept_snps = []; freq = []
- 		#pbar = self.__filter_snps_pbar__(len(keep_snps))
 		for e,j in enumerate(keep_snps):
-			#pbar.update(e)
 			z = geno[2*nru*j:2*nru*(j+1)]
 			A = z[0::2]; a = A.count()
 			B = z[1::2]; b = B.count()
@@ -593,7 +351,6 @@ class PlinkBEDFile(__GenotypeArrayInMemory__):
 				m_poly += 1			
 				kept_snps.append(j)	
 		
-		#pbar.finish()	
  		return (y, m_poly, n, kept_snps, freq)
 		
 	def nextSNPs(self, b, minorRef=None):
@@ -653,181 +410,6 @@ class PlinkBEDFile(__GenotypeArrayInMemory__):
 		self._currentSNP += b
 		return Y 
 		
-		
-class VcfBINFile(__GenotypeArrayInMemory__):
-	'''
-	Interface for genotypes stored as a python bitarray.
-	
-	Parameters
-	----------
-	Inherits __init__ from parent class.	
-	
-	Methods
-	-------
-	__read__(fname, m, n)
-		Reads genotypes from file.
-	__filter_indivs__(geno, keep_indivs, n)
-		Filters individuals.
-	__filter_snps_maf__(geno, m, mafMin, keep_snps)
-		Filters SNPs and removes low-MAF SNPs.
-	nextSNPs(b, minorRef)
-		Returns an (n, b) array of genotypes at the next b SNPs.
-	
-	Attributes
-	----------
-	Same as parent class.
-	
-	'''
-	def __read__(self, fname, m, n):
-		if not fname.endswith('.bin'):
-			raise ValueError('.bin filename must end in .bin')
-
-		n, m = self.n, self.m
-		geno = ba.bitarray(endian="big")
-		magicNumber = ba.bitarray(endian="big")
-		fh = open(fname,'rb')
-		magicNumber.fromfile(fh, 4)
-		ldsc = ba.bitarray()
-		ldsc.fromstring('ldsc')
-		if magicNumber != ldsc:
-			raise IOError("Magic number from .bin file not recognized")
-		# check file length
-		geno.fromfile(fh)
-		exp_len = m*n + ((8-m*n) % 8)
-		real_len = len(geno)
-		if real_len != exp_len:
-			s = "Binary .bin file has {n1} bits, expected {n2}"
-			raise IOError(s.format(n1=real_len, n2=exp_len))
-
-		return (n, geno)
-		
-	def __filter_indivs__(self, geno, keep_indivs, m, n):
-		'''
-		Filters the genotype matrix to retain only those individuals in keep_indivs.
-		
-		Parameters
-		----------
-		geno : ba.bitarray
-			Genotype array before filtering.
-		keep_indivs : np.array of ints
-			Array of indices of individuals to retain.
-		n : int
-			Number of individuals before filtering.
-		
-		Returns
-		-------
-		z : ba.bitarray
-			Filtered genotype matrix.
-		n_new : int
-			Number of individuals retained after filtering.
-		
-		'''
-		
-		n_new = len(keep_indivs)
-		z = ba.bitarray(m*n_new, endian="big")
-		#pbar = self.__filter_indivs_pbar__(len(keep_indivs))
-		for e, i in enumerate(keep_indivs):
-			#pbar.update(e)
-			z[e::n_new] = geno[i:m*n:n]
-
-		#pbar.finish()
-		return (z, m, n_new)
-
-	def __filter_snps_maf__(self, geno, m, n, mafMin, keep_snps):
-		'''
-		Removes low-MAF SNPs + SNPs not in keep_snps from the gentotype matrix.
-	
-		A SNP is retained if the SNP index is included in keep_snps AND the SNP has MAF 
-		above mafMin. 
-		
-		Parameters
-		----------
-		geno : ba.bitarray
-			Genotype array.
-		m : int 
-			Number of SNPs.
-		mafMin : float in [0, 0.5)
-			Minimum minor allele frequency required for inclusion. 
-		keep_snps : np.array of ints
-			Indices of SNPs to keep. 
-			
-		Returns
-		-------
-		y[0:m_poly*n] : ba.bitarary
-			Bitarray with genotypes at SNPs that passed filters.
-		m_poly : int
-			Number of SNPs that passed filters.
-		kept_snps : np.array of ints
-			Indices of SNPs that passed filters.
-		freq : np.array of floats
-			Genotype frequencies (NB: not minor allele frequency, frequency of the 
-			allele coded 1). 
-			
-		'''
-
-		y = ba.bitarray(m*n, endian="big")
-		m_poly = 0; freq =  []
-		if keep_snps is None: keep_snps = xrange(m)
-		kept_snps = []
- 		#pbar = self.__filter_snps_pbar__(len(keep_snps))
-		for e,j in enumerate(keep_snps):
-			#pbar.update(e)
-			z = geno[j*n:(j+1)*n]
-			c = z.count()
-			if c < n and np.minimum(c/n,1-c/n) > mafMin:
-				y[m_poly*n:(m_poly+1)*n] = z
-				m_poly += 1
-				freq.append(c/n)
-				kept_snps.append(j)
-				
-		#pbar.finish()
-		return (y[0:m_poly*n], m_poly, n, kept_snps, freq)
-		
-	def nextSNPs(self, b, minorRef=None):
-		'''
-		Unpacks the binary array of genotypes and returns an n x b matrix of floats of 
-		normalized genotypes for the next b SNPs, where n := number of samples.
-		
-		Parameters
-		----------
-		b : int
-			Number of SNPs to return.
-		minorRef: bool, default None
-			Should we flip reference alleles so that the minor allele is the reference?
-			(This is useful for computing l1 w.r.t. minor allele).
-		
-		Returns
-		-------
-		X : np.array with dtype float64 with shape (n, b), where n := number of samples
-			Matrix of genotypes normalized to mean zero and variance one. If minorRef is
-			not None, then the minor allele will be the positive allele (i.e., two copies
-			of the minor allele --> a positive number).
-		
-		'''
-	
-		b = int(b)
-		if b <= 0:
-			raise ValueError("b must be > 0")
-		
-		if self._currentSNP + b > self.m:
-			s = '{b} SNPs requested, {k} SNPs remain'
-			raise ValueError(s.format(b=b, k=(self.m-self._currentSNP)))
-		
-		b = min(self.m - self._currentSNP, b)
-		n = self.n
-		c = self._currentSNP
-		X = np.array( self.geno[c*n:(c+b)*n].tolist(), dtype="float64").reshape((b,n)).T
-		if minorRef is not None:
-			flip_ref = np.ones(b)
-			flip_ref[np.nonzero(np.array(self.freq[c:(c+b)]) > 0.5)] = -1
-			denom = self.sqrtpq[c:c+b] * flip_ref
-			X = (X - self.freq[c:c+b] ) / denom
-		else:
-			X = (X - self.freq[c:c+b] ) / self.sqrtpq[c:c+b]
-		
-		self._currentSNP += b
-		return X		
-
 
 class AnnotFile():
 
