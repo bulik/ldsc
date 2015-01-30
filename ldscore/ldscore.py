@@ -409,16 +409,3 @@ class PlinkBEDFile(__GenotypeArrayInMemory__):
 
 		self._currentSNP += b
 		return Y 
-		
-
-class AnnotFile():
-
-	def __init__(self, fname):
-		self._read(fname)
-
-	def _read(self, fname):
-		dtype_dict = {0:"str", 1:"float64", 2:"string"}
-		self.annot = pd.read_csv(fname, header=0, delim_whitespace=True, dtype=dtype_dict)
-		numAnnots = self.annot.shape[1] - 3
-		self.annotIDs = self.annot['SNP']
-		self.annotMatrix = np.array(self.annot.ix[:,4:], dtype="float64")
