@@ -372,7 +372,8 @@ class Gencov(LD_Score_Regression):
 	def summary(self, ref_ld_colnames, P=None, K=None):
 		'''Print summary of the LD Score regression.'''
 		out = []
-		if all((i is not None for i in P)) and all((i is not None for i in K)):
+		if P is not None and K is not None and\
+			 all((i is not None for i in P)) and all((i is not None for i in K)):
 			T = 'Liability'
 			c = gencov_obs_to_liab(1, P[0], P[1], K[0], K[1])
 		else:
