@@ -5,11 +5,13 @@
 
 `ldsc` is a command line tool for estimating heritability and genetic correlation from GWAS summary statistics. `ldsc` also computes LD Scores.
 
-## How Do I Use This?
+## Getting Started
 
-First, you will need to install python as well as the packages listed under the requirements header below. 
+First, you will need to install python as well as the packages listed under the requirements header below. In order to download `ldsc`, you should clone this repository
 
-Typing
+  git clone https://github.com/bulik/ldsc.git
+
+Once you have installed `ldsc` as well as the required packages, typing
 ```
 $ python ldsc.py -h
 ```
