@@ -1,13 +1,11 @@
 
-LDSC (LD SCore)
-===============
+#LDSC (LD SCore)
 
 `v1.0.0`
 
 `ldsc` is a command line tool for estimating heritability and genetic correlation from GWAS summary statistics. `ldsc` also computes LD Scores.
 
-How Do I Use This?
---------------------
+## How Do I Use This?
 
 First, you will need to install python as well as the packages listed under the requirements header below. Once you have downloaded all requirements, you can check that you have everything you need by running 
 ```
@@ -15,8 +13,12 @@ $ python ldsc.py -h
 ```
 which will print a list of command-line options. Short tutorials describing the four basic functions of `ldsc` (estimating LD Scores, h2 and partitioned h2, genetic correlation, the LD Score regression intercept) can be found in the [tutorial](tutorial/) subdirectory.
 
-Support
--------
+## Where Can I Get LD Scores?
+
+You can download LD Scores that are suitable for basic LD Score analyses (the LD Score regression intercept, heritability, partitioned heritability with the baseline model, genetic correlation) from $URL_GOES_HERE.
+
+
+##Support
 
 Before contacting us, please try the following:
 
@@ -27,8 +29,7 @@ Before contacting us, please try the following:
 
 Please report bugs on the [issue tracker](https://github.com/bulik/ldsc/issues). 
 
-Citation
---------
+##Citation
 
 If you use the software or the LD Score regression intercept, please cite
 
@@ -44,8 +45,7 @@ For partitioned heritability, please also cite
 Finucane, HK, et al. Partitioning Heritability by Functional Category using GWAS Summary Statistics. bioRxiv doi: http://dx.doi.org/10.1101/014241
 
 
-Requirements
-------------
+##Requirements
 
 1. `Python 2.7`
 2. `argparse 1.2.1`
@@ -54,14 +54,12 @@ Requirements
 5. `pandas 0.15.0`
 6. `scipy 0.10.1`
 
-License
--------
+##License
 
 This project is licensed under GNU GPL v3.
 
 
-Authors
--------
+##Authors
 
 Brendan Bulik-Sullivan (Broad Institute of MIT and Harvard)
 
