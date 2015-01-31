@@ -576,7 +576,7 @@ def munge_sumstats(args, p=True): # set p = False for testing in order to preven
 		msg = 'Writing summary statistics for {M} SNPs ({N} with nonmissing beta) to {F}.'
 		log.log( msg.format(M=len(dat), F=out_fname+'.gz', N=dat.N.notnull().sum()))
 		if p:
-			dat.to_csv(out_fname, sep="\t", index=False, columns=print_colnames)
+			dat.to_csv(out_fname, sep="\t", index=False, columns=print_colnames, float_format='%.3f')
 			os.system('gzip -f {F}'.format(F=out_fname))
 		
 		log.log('\nMetadata:')
@@ -584,8 +584,8 @@ def munge_sumstats(args, p=True): # set p = False for testing in order to preven
 		mean_chisq = CHISQ.mean()
 		log.log( 'Mean chi^2 = ' + str( round(mean_chisq, 3)) )
 		if mean_chisq < 1.02:
-			log.log( "WARNING: mean chi^2 may be too small.")
-			
+			log.log( "WARNING: mean chi^2 may be too small.")			
+
 		log.log( 'Lambda GC = ' + str( round(CHISQ.median() / 0.4549, 3)) )
 		log.log('Max chi^2 = ' + str( round(CHISQ.max(), 3) ))
 		log.log('{N} Genome-wide significant SNPs (some may have been removed by filtering).'.format(N=(CHISQ > 29).sum()))
