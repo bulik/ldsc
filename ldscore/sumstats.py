@@ -14,7 +14,7 @@ import scipy.stats as stats
 import jackknife as jk
 import parse as ps
 import regressions as reg
-import sys, traceback
+import sys, traceback, copy
 _N_CHR = 22	
 # complementary bases
 COMPLEMENT = {'A': 'T', 'T': 'A', 'C': 'G', 'G': 'C'}
@@ -230,6 +230,13 @@ def _read_ld_sumstats(args, log, fh, alleles=False, dropna=True):
 
 def estimate_h2(args, log):
 	'''Estimate h2 and partitioned h2.'''
+	args = copy.deepcopy(args)
+	if args.samp_prev is not None and args.pop_prev is not None:
+		args.samp_prev, args.pop_prev = map(float, [args.samp_prev, args.pop_prev])
+	if args.intercept_h2 is not None:
+		args.intercept_h2 = float(args.intercept_h2)
+	if args.no_intercept:
+		args.intercept_h2 = 1
 	M_annot, w_ld_cname, ref_ld_cnames, sumstats = _read_ld_sumstats(args, log, args.h2)
 	ref_ld = sumstats.as_matrix(columns=ref_ld_cnames)
 	_check_ld_condnum(args, log, ref_ld_cnames)
@@ -239,7 +246,7 @@ def estimate_h2(args, log):
 	n_blocks = min(n_snp, args.n_blocks)
 	chisq = s(sumstats.Z**2)
 	hsqhat = reg.Hsq(chisq, ref_ld, s(sumstats[w_ld_cname]), s(sumstats.N), 
-		M_annot, n_blocks=n_blocks, intercept=args.constrain_intercept, twostep=args.two_step)
+		M_annot, n_blocks=n_blocks, intercept=args.intercept_h2, twostep=args.two_step)
 
 	if args.print_cov:
 		_print_cov(hsqhat, args.out+'.cov', log)
@@ -254,17 +261,28 @@ def estimate_h2(args, log):
 
 def estimate_rg(args, log):
 	'''Estimate rg between trait 1 and a list of other traits.'''
+	args=copy.deepcopy(args)
 	rg_paths, rg_files = _parse_rg(args.rg)
-	pheno1 = rg_paths[0]
+	n_pheno = len(rg_paths)
+	f = lambda x: _split_or_none(x, n_pheno)
+	args.intercept_h2, args.intercept_gencov, args.samp_prev, args.pop_prev = map(f, 
+		[args.intercept_h2, args.intercept_gencov, args.samp_prev, args.pop_prev])
+	map(lambda x: _check_arg_len(x, n_pheno), ((args.intercept_h2, '--intercept-h2'),
+		(args.intercept_gencov, '--intercept-gencov'), (args.samp_prev, '--samp-prev'), 
+		(args.pop_prev, '--pop-prev')))
+	if args.no_intercept:
+		args.intercept_h2 = [1 for _ in xrange(n_pheno)]
+		args.intercept_gencov = [0 for _ in xrange(n_pheno)]
+	p1 = rg_paths[0]
 	out_prefix = args.out + rg_files[0]
-	M_annot, w_ld_cname, ref_ld_cnames, sumstats = _read_ld_sumstats(args, log, pheno1, 
+	M_annot, w_ld_cname, ref_ld_cnames, sumstats = _read_ld_sumstats(args, log, p1, 
 		alleles=True, dropna=True)
 	RG = []; n_annot = len(M_annot)
-	for i, pheno2 in enumerate(rg_paths[1:len(rg_paths)]):
+	for i, p2 in enumerate(rg_paths[1:n_pheno]):
 		log.log('Computing rg for phenotype {I}/{N}'.format(I=i+2, N=len(rg_paths)))	
 		try:
-			loop = _read_other_sumstats(args, log, pheno2, sumstats, ref_ld_cnames)
-			rghat = _rg(loop, args, log, M_annot, ref_ld_cnames, w_ld_cname)	
+			loop = _read_other_sumstats(args, log, p2, sumstats, ref_ld_cnames)
+			rghat = _rg(loop, args, log, M_annot, ref_ld_cnames, w_ld_cname, i)	
 			RG.append(rghat)
 			_print_gencor(args, log, rghat, ref_ld_cnames, i, rg_paths, i==0)
 			out_prefix_loop = out_prefix + '_' + rg_files[i+1]
@@ -284,8 +302,8 @@ def estimate_rg(args, log):
 	log.log('\nSummary of Genetic Correlation Results\n'+_get_rg_table(rg_paths, RG, args))
 	return RG
 
-def _read_other_sumstats(args, log, pheno2, sumstats, ref_ld_cnames):
-	loop = _read_sumstats(args, log, pheno2, alleles=True, dropna=False)
+def _read_other_sumstats(args, log, p2, sumstats, ref_ld_cnames):
+	loop = _read_sumstats(args, log, p2, alleles=True, dropna=False)
 	loop = _merge_sumstats_sumstats(args, sumstats, loop, log) 
 	loop = loop.dropna(how='any')
 	alleles = loop.A1+loop.A2+loop.A1x+loop.A2x
@@ -316,26 +334,27 @@ def _get_rg_table(rg_paths, RG, args):
 	else:
 		x['h2_obs'] = map(t('tot'), map(t('hsq2') , RG))
 		x['h2_obs_se'] =  map(t('tot_se	'), map(t('hsq2') , RG))
-	if args.constrain_intercept is None:
-		x['h2_int'] = map(t('intercept'), map(t('hsq2') , RG))
-		x['h2_int_se'] = map(t('intercept_se'), map(t('hsq2') , RG))
-		x['gcov_int'] = map(t('intercept'), map(t('gencov') , RG))
-		x['gcov_int_se'] = map(t('intercept_se'), map(t('gencov') , RG))
 
+	x['h2_int'] = map(t('intercept'), map(t('hsq2') , RG))
+	x['h2_int_se'] = map(t('intercept_se'), map(t('hsq2') , RG))
+	x['gcov_int'] = map(t('intercept'), map(t('gencov') , RG))
+	x['gcov_int_se'] = map(t('intercept_se'), map(t('gencov') , RG))
 	return x.to_string(header=True, index=False)+'\n'
 			
 def _print_gencor(args, log, rghat, ref_ld_cnames, i, rg_paths, print_hsq1):
 	l = lambda x: x+''.join(['-' for i in range(len(x.replace('\n','')))])
+	P = [args.samp_prev[0], args.samp_prev[i+1]]
+	K= [args.pop_prev[0], args.pop_prev[i+1]]
 	if args.samp_prev is None and args.pop_prev is None:
 		args.samp_prev = [None, None]; args.pop_prev = [None, None]
 	if print_hsq1:
 		log.log(l('\nHeritability of phenotype 1\n'))
-		log.log(rghat.hsq1.summary(ref_ld_cnames, P=args.samp_prev[0], K=args.pop_prev[0]))
+		log.log(rghat.hsq1.summary(ref_ld_cnames, P=P[0], K=K[0]))
 	
 	log.log(l('\nHeritability of phenotype {I}/{N}\n'.format(I=i+2, N=len(rg_paths))))
-	log.log(rghat.hsq2.summary(ref_ld_cnames, P=args.samp_prev[1], K=args.pop_prev[1]))
+	log.log(rghat.hsq2.summary(ref_ld_cnames, P=P[1], K=K[1]))
 	log.log(l('\nGenetic Covariance\n'))
-	log.log(rghat.gencov.summary(ref_ld_cnames, P=args.samp_prev, K=args.pop_prev))
+	log.log(rghat.gencov.summary(ref_ld_cnames, P=P, K=K))
 	log.log(l('\nGenetic Correlation\n'))
 	log.log(rghat.summary()+'\n')
 
@@ -343,7 +362,7 @@ def _merge_sumstats_sumstats( args, sumstats1, sumstats2, log):
 	'''Merge two sets of summary statistics.'''
 	sumstats1.rename(columns={'N':'N1','Z':'Z1'}, inplace=True)			
 	sumstats2.rename(columns={'A1':'A1x','A2':'A2x','N':'N2','Z':'Z2'}, inplace=True)			
-	x = _merge_and_log(sumstats1, sumstats2, 'summary staistics', log)
+	x = _merge_and_log(sumstats1, sumstats2, 'summary statistics', log)
 	return x
 
 def _filter_alleles(alleles):
@@ -356,16 +375,13 @@ def _align_alleles(z, alleles):
 	z *= (-1)**alleles.apply(lambda y: FLIP_ALLELES[y])
 	return z
 	
-def _rg(sumstats, args, log, M_annot, ref_ld_cnames, w_ld_cname):
+def _rg(sumstats, args, log, M_annot, ref_ld_cnames, w_ld_cname, i):
 	'''Run the regressions.'''
 	n_snp = len(sumstats); n_annot = len(ref_ld_cnames)
 	s = lambda x: np.array(x).reshape((n_snp, 1))
 	n_blocks = min(args.n_blocks, n_snp)	
-	ref_ld = sumstats.as_matrix(columns=ref_ld_cnames) # TODO is this the right shape?
-	intercepts = [None, None, None]
-	if args.constrain_intercept is not None:
-		intercepts = args.constrain_intercept
-
+	ref_ld = sumstats.as_matrix(columns=ref_ld_cnames) 
+	intercepts = [args.intercept_h2[0], args.intercept_h2[i+1], args.intercept_gencov[i+1]]
 	rghat = reg.RG(s(sumstats.Z1), s(sumstats.Z2), 
 		ref_ld, s(sumstats[w_ld_cname]), s(sumstats.N1), s(sumstats.N2), M_annot, 
 		intercept_hsq1=intercepts[0], intercept_hsq2=intercepts[1], 
@@ -393,3 +409,15 @@ def _print_rg_cov(rghat, fh, log):
 	_print_cov(rghat.hsq1, fh+'.hsq1.cov', log)
 	_print_cov(rghat.hsq2, fh+'.hsq2.cov', log)
 	_print_cov(rghat.gencov, fh+'.gencov.cov', log)
+	
+def _split_or_none(x, n):
+	if x is not None:
+		y = map(float, x.replace('N','-').split(','))
+	else:
+		y = [None for _ in xrange(n)]
+	return y
+	
+def _check_arg_len(x, n):
+	x, m = x
+	if len(x) != n:
+		raise ValueError('{M} must have the same number of arguments as --rg/--h2.'.format(M=m))

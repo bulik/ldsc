@@ -504,13 +504,11 @@ parser.add_argument('--no-intercept', action='store_true',
 	help = 'If used with --h2, this constrains the LD Score regression intercept to equal '
 	'1. If used with --rg, this constrains the LD Score regression intercepts for the h2 '
 	'estimates to be one and the intercept for the genetic covariance estimate to be zero.')
-parser.add_argument('--constrain-intercept', action='store', default=None,
-	help = 'If used with --h2, constrain the regression intercept to be a fixed value. '
-	'If used with -rg, constrain the regression intercepts to a comma-separated list '
-	'of three values, where the first value is the intercept of the first h2 regression, '
-	'the second value is the intercept of the second h2 regression, and the third '
-	'value is the intercept of the genetic covaraince regression (i.e., an estimate '
-	'of (# of overlapping samples)*(phenotpyic correlation). ')
+parser.add_argument('--intercept-h2', action='store', default=None,
+	help = 'Intercepts for constrained-intercept single-trait LD Score regression.')
+parser.add_argument('--intercept-gencov', action='store', default=None,
+	help = 'Intercepts for constrained-intercept cross-trait LD Score regression.'
+	' Must have same length as --rg. The first entry is ignored.')
 parser.add_argument('--M', default=None, type=str,
 	help='# of SNPs (if you don\'t want to use the .l2.M files that came with your .l2.ldscore.gz files)')
 parser.add_argument('--two-step', default=None, type=float,
@@ -573,20 +571,7 @@ if __name__ == '__main__':
 		header += '\n'.join(options).replace('True','').replace('False','')+'\n'
 		log.log(header)
 		log.log('Beginning analysis at {T}'.format(T=time.ctime()))
-		start_time = time.time()
-		if args.no_intercept and args.h2:
-			args.constrain_intercept = '1'
-		elif args.no_intercept and args.rg:
-			args.constrain_intercept = '1,1,0'
-		if args.constrain_intercept and args.two_step:
-			raise ValueError('--constrain-intercept / --no-intercept and --two-step are not compatible.')
-		if args.constrain_intercept:
-			args.constrain_intercept = args.constrain_intercept.replace('N','-')
-			if args.h2:
-				args.constrain_intercept = float(args.constrain_intercept)
-			elif args.rg:
-				args.constrain_intercept = [float(x) for x in args.constrain_intercept.split(',')]
-	
+		start_time = time.time()	
 		if args.n_blocks <= 1:
 			raise ValueError('--n-blocks must be an integer > 1.')
 		if args.bfile is not None:
@@ -618,17 +603,8 @@ if __name__ == '__main__':
 				raise ValueError('Must set both or neither of --samp-prev and --pop-prev.') 
 			
 			if args.rg:
-				if args.samp_prev is not None and args.pop_prev is not None:
-					if not (',' in args.samp_prev and ',' in args.pop_prev):
-						raise ValueError('For --rg, --samp-prev and --pop-prev must each have at least two numbers separated by a comma.')
-					else:
-						args.samp_prev, args.pop_prev = map(lambda x: map(float, x.split(',')), 
-							[args.samp_prev, args.pop_prev])
-
 				sumstats.estimate_rg(args, log)
 			elif args.h2:
-				if args.samp_prev is not None and args.pop_prev is not None:
-					args.samp_prev, args.pop_prev = map(float, [args.samp_prev, args.pop_prev])
 				sumstats.estimate_h2(args, log)
 
 			# bad flags

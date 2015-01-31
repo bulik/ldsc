@@ -24,7 +24,6 @@ class Mock(object):
 	
 	def log(self, x):
 		pass
-		#print >>open('testadsfasdf', 'w'), x
 		
 log = Mock()
 args = Mock()
@@ -169,7 +168,8 @@ class Test_RG_Statistical():
 		args.rg = ','.join((DIR+'/simulate_test/sumstats/'+str(i) for i in xrange(N_REP)))
 		args.out = DIR+'/simulate_test/1'
 		x = s.estimate_rg(args, log)
-		args.constrain_intercept = [1, 1, 0]
+		args.intercept_gencov = ','.join(('0' for _ in xrange(N_REP)))
+		args.intercept_h2 = ','.join(('1' for _ in xrange(N_REP)))
 		y = s.estimate_rg(args, log)
 		cls.rg = x
 		cls.rg_noint = y
@@ -223,11 +223,11 @@ class Test_H2_Statistical(unittest.TestCase):
 		args.w_ld = DIR+'/simulate_test/ldscore/w'
 		h2 = []; h2_noint = []
 		for i in xrange(N_REP):
-			args.constrain_intercept = None
+			args.intercept_h2 = None
 			args.h2 = DIR+'/simulate_test/sumstats/'+str(i)
 			args.out = DIR+'/simulate_test/1'
 			h2.append(s.estimate_h2(args, log))
-			args.constrain_intercept = 1
+			args.intercept_h2 = 1
 			h2_noint.append(s.estimate_h2(args, log))
 
 		cls.h2 = h2
@@ -341,6 +341,7 @@ class Test_Estimate(unittest.TestCase):
 		args.print_delete_vals = True
 		x = s.estimate_rg(args, log)[0]		
 		args.ref_ld = DIR+'/simulate_test/ldscore/twold_firstfile,'+DIR+'/simulate_test/ldscore/twold_secondfile'
+		print 'asdf', args.pop_prev
 		y = s.estimate_rg(args, log)[0]	
 		args.ref_ld_chr = DIR+'/simulate_test/ldscore/twold_firstfile,'+DIR+'/simulate_test/ldscore/twold_secondfile'
 		z = s.estimate_rg(args, log)[0]		

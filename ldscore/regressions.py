@@ -148,6 +148,7 @@ class LD_Score_Regression(object):
 			yp = y
 		else:
 			yp = y - intercept
+			self.intercept_se = 'NA'
 
 		update_func = lambda a: self._update_func(a, x_tot, w, N, M_tot, Nbar, intercept)
 		if (twostep is not None or first_step is not None) and self.constrain_intercept:	
@@ -314,8 +315,8 @@ class Hsq(LD_Score_Regression):
 			ratio_se = intercept_se / (mean_chisq - 1)
 			ratio = (intercept - 1) / (mean_chisq - 1)
 		else:
-			ratio = float('nan')
-			ratio_se = float('nan')
+			ratio = 'NA'
+			ratio_se = 'NA'
 
 		return ratio, ratio_se
 	
@@ -551,8 +552,8 @@ class RG(object):
 		self.hsq1, self.hsq2, self.gencov = hsq1, hsq2, gencov
 		if (hsq1.tot <= 0 or hsq2.tot <= 0):
 			self._negative_hsq = True
-			self.rg_ratio = float('nan'); self.rg = float('nan'); self.rg_se = float('nan')
-			self.p = float('nan'); self.z = float('nan')
+			self.rg_ratio = 'NA'; self.rg = 'NA'; self.rg_se = 'NA'
+			self.p = 'NA'; self.z = 'NA'
 		else:			
 			rg_ratio = np.array(gencov.tot / np.sqrt(hsq1.tot * hsq2.tot)).reshape((1,1))
 			denom_delete_values = np.sqrt(np.multiply(hsq1.tot_delete_values, hsq2.tot_delete_values))
