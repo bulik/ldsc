@@ -128,7 +128,7 @@ class LD_Score_Regression(object):
 					raise TypeError('Arguments must be 2D arrays.')
 			except AttributeError:
 				raise TypeError('Arguments must be arrays.')
-				
+		
 		n_snp, self.n_annot = x.shape
 		if any(i.shape != (n_snp, 1) for i in [y, w, N]):
 			raise ValueError('N, weights and response (z1z2 or chisq) must have shape (n_snp, 1).')
@@ -158,7 +158,7 @@ class LD_Score_Regression(object):
 			else:
 				yp1 = first_step
 				
-			step1_jknife = 	IRWLS(x, yp1, update_func, n_blocks, slow=slow, w=initial_w)
+			step1_jknife = IRWLS(x, yp1, update_func, n_blocks, slow=slow, w=initial_w)
 			step1_int, _ = self._intercept(step1_jknife)
 			yp = yp - step1_int
 			x = remove_intercept(x); x_tot = remove_intercept(x_tot)
@@ -292,7 +292,7 @@ class Hsq(LD_Score_Regression):
 		'''
 		hsq = M*x[0][0]/Nbar
 		if intercept is None:
-			intercept = x[0][1]
+			intercept = max(x[0][1]) # divide by zero error if intercept < 0
 		else:
 			if ref_ld_tot.shape[1] > 1:
 				raise ValueError('Design matrix has intercept column for constrained intercept regression!')

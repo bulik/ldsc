@@ -157,16 +157,16 @@ def test_strand_ambiguous():
  'TC': False,
  'TG': False}
 	assert_equal(m, s.STRAND_AMBIGUOUS)
-'''	
+
 @attr('slow')
 class Test_RG_Statistical():
 	
 	@classmethod
 	def setUpClass(cls):
 		args = parser.parse_args('')
-		args.ref_ld = DIR+'/simulate_test/ldscore/oneld_onefile'
+		args.ref_ld = DIR+'/simulate_test/ldscore/twold_onefile'
 		args.w_ld = DIR+'/simulate_test/ldscore/w'
-		args.rg = ','.join((DIR+'/simulate_test/sumstats/'+str(i) for i in xrange(400)))
+		args.rg = ','.join((DIR+'/simulate_test/sumstats/'+str(i) for i in xrange(N_REP)))
 		args.out = DIR+'/simulate_test/1'
 		x = s.estimate_rg(args, log)
 		args.constrain_intercept = [1, 1, 0]
@@ -175,8 +175,6 @@ class Test_RG_Statistical():
 		cls.rg_noint = y
 		
 	def test_rg_ratio(self):
-		print (map(t('rg_ratio'), self.rg))
-		print np.nanmean(map(t('rg_ratio'), self.rg))
 		assert_allclose(np.nanmean(map(t('rg_ratio'), self.rg)), 0, atol=0.02)
 	def test_rg_ratio_noint(self):
 		assert_allclose(np.nanmean(map(t('rg_ratio'), self.rg_noint)), 0, atol=0.02)
@@ -214,35 +212,24 @@ class Test_RG_Statistical():
 		assert_allclose(np.nanmean(map(t('intercept'), map(t('hsq2'), self.rg))), 1, atol=0.1)
 	def test_hsq_int_se(self):
 		assert_allclose(np.nanmean(map(t('intercept_se'), map(t('hsq2'), self.rg))), np.nanstd(map(t('intercept'), map(t('hsq2'), self.rg))), atol=0.1)
-'''
+
 @attr('slow')
 class Test_H2_Statistical(unittest.TestCase):
 	
 	@classmethod
 	def setUpClass(cls):
 		args = parser.parse_args('')
-		#args.ref_ld = DIR+'/simulate_test/ldscore/twold_onefile'
-		args.ref_ld = DIR+'/simulate_test/ldscore/oneld_onefile'
+		args.ref_ld = DIR+'/simulate_test/ldscore/twold_onefile'
 		args.w_ld = DIR+'/simulate_test/ldscore/w'
 		h2 = []; h2_noint = []
 		for i in xrange(N_REP):
 			args.constrain_intercept = None
-			args.two_step = False
 			args.h2 = DIR+'/simulate_test/sumstats/'+str(i)
 			args.out = DIR+'/simulate_test/1'
 			h2.append(s.estimate_h2(args, log))
-			#args.constrain_intercept = 1
-			args.two_step = True
+			args.constrain_intercept = 1
 			h2_noint.append(s.estimate_h2(args, log))
-		
-		print np.nanmean( map(t('tot'), h2))		
-		print np.nanstd( map(t('tot'), h2))		
-		print np.nanmean( map(t('tot_se'), h2))
-		print np.nanmean( map(t('tot'), h2_noint))		
-		print np.nanstd( map(t('tot'), h2_noint))		
-		print np.nanmean( map(t('tot_se'), h2_noint))
 
-		assert False
 		cls.h2 = h2
 		cls.h2_noint = h2_noint
 			
