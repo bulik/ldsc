@@ -361,3 +361,28 @@ class Test_Estimate(unittest.TestCase):
 		y = s.estimate_rg(args, log)[0]
 		assert_equal(x.rg_ratio, y.rg_ratio)
 		assert_equal(x.rg_se, y.rg_se)
+	
+	def test_twostep_h2(self):
+		# two-step and not two step should yield same estimate (but not same SE!) if the cutoff is really high)
+		args = parser.parse_args('')
+		args.ref_ld = DIR+'/simulate_test/ldscore/oneld_onefile'
+		args.w_ld = DIR+'/simulate_test/ldscore/w'
+		args.h2 = DIR+'/simulate_test/sumstats/1'
+		args.out = DIR+'/simulate_test/1'
+		x = s.estimate_h2(args, log)		
+		args.two_step = 99999
+		y = s.estimate_h2(args, log)		
+		assert_allclose(x.tot, y.tot, atol=1e-5)
+	
+	def test_twostep_rg(self):
+		# two-step and not two step should yield same estimate (but not same SE!) if the cutoff is really high)
+		args = parser.parse_args('')
+		args.ref_ld_chr = DIR+'/simulate_test/ldscore/oneld_onefile'
+		args.w_ld = DIR+'/simulate_test/ldscore/w'
+		args.rg = ','.join([DIR+'/simulate_test/sumstats/1' for _ in xrange(2)])
+		args.out = DIR+'/simulate_test/1'
+		x = s.estimate_rg(args, log)[0]		
+		args.two_step = 99999
+		y = s.estimate_rg(args, log)[0]		
+		assert_allclose(x.rg_ratio, y.rg_ratio, atol=1e-5)
+		assert_allclose(x.gencov.tot, y.gencov.tot, atol=1e-5)

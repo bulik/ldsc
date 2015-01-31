@@ -13,10 +13,19 @@ from scipy.stats import norm, chi2
 import jackknife as jk
 from irwls import IRWLS
 from collections import namedtuple
+import copy
 np.seterr(divide='raise', invalid='raise')
 
 s = lambda x : remove_brackets(str(np.matrix(x)))
 
+def update_separators(s, ii):
+	'''s are separators with ii masked. Returns unmasked separators.'''
+	maplist = np.arange(len(ii)+1)[np.squeeze(ii)]
+	mask_to_unmask = lambda i: maplist[i]
+	t = np.apply_along_axis(mask_to_unmask, 0, s[1:-1])
+	t = np.hstack(((0), t, (len(ii))))
+	return t
+		
 def p_z_norm(est, se):
 	'''Convert estimate and se to Z-score and P-value.'''
 	try:
@@ -28,7 +37,7 @@ def p_z_norm(est, se):
 	return P, Z
 
 def remove_brackets(x):
-	'''Get rid of brackets and trailing whitespace in numpy arrays.'''
+	'''Get rid of brackets and trailing whitespace in numpy arrays.'''	
 	return x.replace('[','').replace(']', '').strip()
 	
 def append_intercept(x):
@@ -120,8 +129,7 @@ def h2_obs_to_liab(h2_obs, P, K):
 
 class LD_Score_Regression(object):
 
-	def __init__(self, y, x, w, N, M, n_blocks, intercept=None, slow=False, twostep=None,
-		first_step=None):
+	def __init__(self, y, x, w, N, M, n_blocks, intercept=None, slow=False, step1_ii=None):
 		for i in [y, x, w, M, N]:
 			try:
 				if len(i.shape) != 2:
@@ -151,20 +159,19 @@ class LD_Score_Regression(object):
 			self.intercept_se = 'NA'
 
 		update_func = lambda a: self._update_func(a, x_tot, w, N, M_tot, Nbar, intercept)
-		if (twostep is not None or first_step is not None) and self.constrain_intercept:	
+		if step1_ii is not None and self.constrain_intercept:	
 			raise ValueError('twostep is not compatible with constrain_intercept.')
-		elif twostep is not None or first_step is not None: 		
-			if twostep is not None:
-				yp1 = np.fmin(np.fmax(yp, -twostep), twostep)
-			else:
-				yp1 = first_step
-				
-			step1_jknife = IRWLS(x, yp1, update_func, n_blocks, slow=slow, w=initial_w)
+		elif step1_ii is not None and self.n_annot > 1:
+			raise ValueError('twostep not compatible with partitioned LD Score yet.')
+		elif step1_ii is not None:
+			x1, yp1, initial_w1 = map(lambda x: x[step1_ii], (x, yp, initial_w))
+			step1_jknife = IRWLS(x, yp, update_func, n_blocks, slow=slow, w=initial_w)
 			step1_int, _ = self._intercept(step1_jknife)
 			yp = yp - step1_int
 			x = remove_intercept(x); x_tot = remove_intercept(x_tot)
 			update_func2 = lambda a: self._update_func(a, x_tot, w, N, M_tot, Nbar, step1_int)
-			step2_jknife = IRWLS(x, yp, update_func2, n_blocks, slow=slow, w=initial_w)
+			s = update_separators(step1_jknife.separators, step1_ii)
+			step2_jknife = IRWLS(x, yp, update_func2, n_blocks, slow=slow, w=initial_w, separators=s)
 			c = np.sum(np.multiply(initial_w, x))/np.sum(np.multiply(initial_w, np.square(x)))
 			jknife = self._combine_twostep_jknives(step1_jknife, step2_jknife, M_tot, c, Nbar)
 		else:	
@@ -274,7 +281,12 @@ class Hsq(LD_Score_Regression):
 	__null_intercept__ = 1
 	
 	def __init__(self, y, x, w, N, M, n_blocks=200, intercept=None, slow=False, twostep=None):
-		LD_Score_Regression.__init__(self, y, x, w, N, M, n_blocks, intercept, slow, twostep)
+		step1_ii = None
+		if twostep is not None:
+			step1_ii = y < twostep
+
+		LD_Score_Regression.__init__(self, y, x, w, N, M, n_blocks, intercept=intercept,
+			slow=slow, step1_ii=step1_ii)
 		self.mean_chisq, self.lambda_gc = self._summarize_chisq(y)
 		if not self.constrain_intercept:
 			self.ratio, self.ratio_se = self._ratio(self.intercept, self.intercept_se, self.mean_chisq)
@@ -407,20 +419,17 @@ class Gencov(LD_Score_Regression):
 	__null_intercept__ = 0
 	
 	def __init__(self, z1, z2, x, w, N1, N2, M, hsq1, hsq2, intercept_hsq1, intercept_hsq2,
-		n_blocks=200, intercept=None, slow=False, twostep=None):
+		n_blocks=200, intercept_gencov=None, slow=False, twostep=None):
 		self.intercept_hsq1 = intercept_hsq1;	self.intercept_hsq2 = intercept_hsq2
 		self.hsq1 = hsq1;	self.hsq2 = hsq2
 		self.N1 = N1;	self.N2 = N2
-		first_step = None
 		y = z1*z2
+		step1_ii = None
 		if twostep is not None:
-			ii = np.logical_or(z1**2 > twostep, z2**2 > twostep)
-			first_step = y
-			first_step[np.logical_and(ii, y>0)] = np.max(first_step[np.logical_not(ii)])
-			first_step[np.logical_and(ii, y<0)] = np.min(first_step[np.logical_not(ii)])
+			step1_ii = np.logical_and(z1**2 < twostep, z2**2 < twostep)
 			
 		LD_Score_Regression.__init__(self, y, x, w, np.sqrt(N1*N2), M, n_blocks, 
-			intercept, slow, first_step=first_step )
+			intercept=intercept_gencov, slow=slow, step1_ii = step1_ii )
 		self.p, self.z = p_z_norm(self.tot, self.tot_se)
 		self.mean_z1z2 = np.mean(np.multiply(z1, z2))
 	
@@ -478,7 +487,7 @@ class Gencov(LD_Score_Regression):
 		return w
 	
 	@classmethod
-	def weights(cls, ld, w_ld, N1, N2, M, h1, h2, rho_g, intercept_rg=None, 
+	def weights(cls, ld, w_ld, N1, N2, M, h1, h2, rho_g, intercept_gencov=None, 
 		intercept_hsq1=None, intercept_hsq2=None):
 		'''
 		Regression weights.
@@ -509,8 +518,8 @@ class Gencov(LD_Score_Regression):
 	
 		'''
 		M = float(M)
-		if intercept_rg is None:
-			intercept_rg = 0
+		if intercept_gencov is None:
+			intercept_gencov = 0
 		if intercept_hsq1 is None:	
 			intercept_hsq1 = 1
 		if intercept_hsq2 is None:
@@ -524,7 +533,7 @@ class Gencov(LD_Score_Regression):
 		a = np.multiply(N1, h1*ld) / M + intercept_hsq1
 		b = np.multiply(N2, h2*ld) / M + intercept_hsq2
 		sqrt_n1n2 = np.sqrt(np.multiply(N1, N2))
-		c = np.multiply(sqrt_n1n2, rho_g*ld) / M + intercept_rg
+		c = np.multiply(sqrt_n1n2, rho_g*ld) / M + intercept_gencov
 		try:
 			het_w = 1.0 / (np.multiply(a, b) + np.square(c))
 		except FloatingPointError:
@@ -548,7 +557,8 @@ class RG(object):
 		hsq2 = Hsq(np.square(z2), x, w, N1, M, n_blocks=n_blocks, intercept=intercept_hsq2, 
 			slow=slow, twostep=twostep)
 		gencov = Gencov(z1, z2, x, w, N1, N2, M, hsq1.tot, hsq2.tot, hsq1.intercept,
-			hsq2.intercept, n_blocks,	intercept=intercept_gencov, slow=slow, twostep=twostep)
+			hsq2.intercept, n_blocks,	intercept_gencov=intercept_gencov, slow=slow, 
+			twostep=twostep)
 		self.hsq1, self.hsq2, self.gencov = hsq1, hsq2, gencov
 		if (hsq1.tot <= 0 or hsq2.tot <= 0):
 			self._negative_hsq = True

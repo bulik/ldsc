@@ -4,9 +4,24 @@ import unittest
 import numpy as np
 import nose
 from numpy.testing import assert_array_equal, assert_array_almost_equal
-from nose.tools import assert_raises
+from nose.tools import assert_raises, assert_equal
 np.set_printoptions(precision=4)
 
+
+def test_update_separators():
+	ii1 = [True, True, False, True, True, False, True]
+	ii2 = [True, True, False, True, True, False, False]
+	ii3 = [False, True, False, True, True, False, False]	
+	ii4 = [False, True, False, True, True, False, True]
+	ii5 = [True, True, True, True, True, True, True]
+	iis = map(np.array, [ii1, ii2, ii3, ii4, ii5])
+	ids = np.arange(len(ii1))
+	for ii in iis:
+		s = np.arange(np.sum(ii)+1)
+		t = reg.update_separators(s, ii)
+		assert_equal(t[0], 0)
+		assert_equal(t[-1], len(ii))
+		assert_array_equal(ids[ii][(s[1:-2])], ids[(t[1:-2])])
 
 def test_p_z_norm():
 	est = 10
@@ -192,7 +207,7 @@ class Test_Gencov_1D(unittest.TestCase):
 		self.hsq1 = 0.5
 		self.hsq2 = 0.6
 		self.gencov = reg.Gencov(self.z1, self.z2, self.ld, self.w_ld, self.N1, self.N2, 
-			self.M, self.hsq1, self.hsq2, 1.0, 1.0, n_blocks=3, intercept=1)
+			self.M, self.hsq1, self.hsq2, 1.0, 1.0, n_blocks=3, intercept_gencov=1)
 
 	def test_weights(self):
 		# check that hsq weights = gencov weights when z1 = z2
@@ -204,7 +219,7 @@ class Test_Gencov_1D(unittest.TestCase):
 		N2 = N1
 		M = 10
 		h1, h2, rho_g = 0.5, 0.5, 0.5
-		wg = reg.Gencov.weights(ld, w_ld, N1, N2, M, h1, h2, rho_g, intercept_rg=1.0)
+		wg = reg.Gencov.weights(ld, w_ld, N1, N2, M, h1, h2, rho_g, intercept_gencov=1.0)
 		wh = reg.Hsq.weights(ld, w_ld, N1, M, h1, intercept=1.0)
 		assert_array_almost_equal(wg, wh)
 		
@@ -244,7 +259,7 @@ class Test_Gencov_2D(unittest.TestCase):
 		self.hsq1 = 0.5
 		self.hsq2 = 0.6
 		self.gencov = reg.Gencov(self.z1, self.z2, self.ld, self.w_ld, self.N1, self.N2, 
-			self.M, self.hsq1, self.hsq2, 1.0, 1.0, n_blocks=3, intercept=1)
+			self.M, self.hsq1, self.hsq2, 1.0, 1.0, n_blocks=3, intercept_gencov=1)
 	
 	def test_summary(self):
 		# not much to test; we can at least make sure no errors at runtime
@@ -261,7 +276,7 @@ class Test_Gencov_2D(unittest.TestCase):
 		self.ld = np.abs(np.random.normal(size=100).reshape((50,2)))+2
 		self.z1 = (np.sum(self.ld, axis=1) + 10).reshape((50,1))
 		gencov = reg.Gencov(self.z1, self.z1, self.ld, self.w_ld, self.N1, self.N1, 
-			self.M, 0, 0, 0, 0, n_blocks=3, intercept=1)
+			self.M, 0, 0, 0, 0, n_blocks=3, intercept_gencov=1)
 		hsq = reg.Hsq(np.square(self.z1), self.ld, self.w_ld, self.N1, self.M, n_blocks=3, intercept=1)
 		print gencov.summary(['asdf', 'asdf'])
 		print
@@ -311,8 +326,8 @@ class Test_RG_Bad(unittest.TestCase):
 		# check no runtime errors when _negative_hsq is True
 		print rg.summary()
 		print rg.summary(silly=True)
-		assert np.isnan(rg.rg_ratio)
-		assert np.isnan(rg.rg_se)
-		assert np.isnan(rg.rg)
-		assert np.isnan(rg.p)
-		assert np.isnan(rg.z)
+		assert rg.rg_ratio == 'NA'
+		assert rg.rg_se == 'NA'
+		assert rg.rg == 'NA'
+		assert rg.p == 'NA'
+		assert rg.z == 'NA'

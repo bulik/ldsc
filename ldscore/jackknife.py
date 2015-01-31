@@ -69,7 +69,6 @@ class Jackknife(object):
 		Dimensionality of the independent varianble 
 	N : int
 		Number of datapoints (equal to x.shape[0])
-		
 	
 	Methods
 	-------
