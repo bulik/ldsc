@@ -52,23 +52,24 @@ class IRWLS(object):
 		Weight x by w.
 		
 	'''
-	def __init__(self, x, y, update_func, n_blocks, w=None, slow=False):
+	def __init__(self, x, y, update_func, n_blocks, w=None, slow=False, separators=None):
 		n, p = jk._check_shape(x, y)
 		if w is None:
 			w = np.ones_like(y)
 		if w.shape != (n, 1):
 			raise ValueError('w has shape {S}. w must have shape ({N}, 1).'.format(S=w.shape, N=n))
 
-		jknife = self.irwls(x, y, update_func, n_blocks, w, slow)
+		jknife = self.irwls(x, y, update_func, n_blocks, w, slow=slow, separators=separators)
 		self.est = jknife.est
 		self.jknife_se = jknife.jknife_se
 		self.jknife_est = jknife.jknife_est
 		self.jknife_var = jknife.jknife_var 
 		self.jknife_cov = jknife.jknife_cov
 		self.delete_values = jknife.delete_values
+		self.separators = jknife.separators
 		
 	@classmethod
-	def irwls(cls, x, y, update_func, n_blocks, w, slow=False):
+	def irwls(cls, x, y, update_func, n_blocks, w, slow=False, separators=None):
 		'''
 		Iteratively re-weighted least squares (IRWLS).
 		
@@ -85,7 +86,9 @@ class IRWLS(object):
 		w : np.matrix with shape (n, 1)
 			Initial regression weights.
 		slow : bool
-			Use slow block jackknife? (Mostly for testing)		
+			Use slow block jackknife? (Mostly for testing)	
+		separators : list or None
+			Block jackknife block boundaries (optional).
 
 		Returns
 		-------
@@ -109,9 +112,9 @@ class IRWLS(object):
 		x = cls._weight(x, w)
 		y = cls._weight(y, w)
 		if slow:
-			jknife = jk.LstsqJackknifeSlow(x, y, n_blocks)
+			jknife = jk.LstsqJackknifeSlow(x, y, n_blocks, separators=separators)
 		else:
-			jknife = jk.LstsqJackknifeFast(x, y, n_blocks)
+			jknife = jk.LstsqJackknifeFast(x, y, n_blocks, separators=separators)
 
 		return jknife
 		

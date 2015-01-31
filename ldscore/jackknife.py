@@ -100,7 +100,7 @@ class Jackknife(object):
 			raise ValueError('More blocks than data points.')
 	
 	@classmethod
-	def jknife(self, pseudovalues):
+	def jknife(cls, pseudovalues):
 		'''
 		Converts pseudovalues to jackknife estimate and variance.
 		
@@ -128,7 +128,7 @@ class Jackknife(object):
 		return (jknife_est, jknife_var, jknife_se, jknife_cov)
 
 	@classmethod
-	def delete_values_to_pseudovalues(self, delete_values, est):
+	def delete_values_to_pseudovalues(cls, delete_values, est):
 		'''
 		Converts whole-data estimate and delete values to pseudovalues.
 		
@@ -157,7 +157,7 @@ class Jackknife(object):
 		return n_blocks*est - (n_blocks-1)*delete_values		
 	
 	@classmethod
-	def get_separators(self, N, n_blocks):
+	def get_separators(cls, N, n_blocks):
 		'''Define evenly-spaced block boundaries.'''
 		return np.floor(np.linspace(0, N, n_blocks+1)).astype(int)
 		
@@ -217,7 +217,7 @@ class LstsqJackknifeSlow(Jackknife):
 			self.jknife(self.pseudovalues)
 	
 	@classmethod
-	def delete_values(self, x, y, func, s):
+	def delete_values(cls, x, y, func, s):
 		'''
 		Compute delete values by deleting one block at a time.
 		
@@ -300,7 +300,7 @@ class LstsqJackknifeFast(Jackknife):
 			self.jknife(self.pseudovalues)		
 			
 	@classmethod
-	def block_values(self, x, y, s):
+	def block_values(cls, x, y, s):
 		'''
 		Compute block values.
 		
@@ -339,7 +339,7 @@ class LstsqJackknifeFast(Jackknife):
 		return (xty_block_values, xtx_block_values)
 	
 	@classmethod
-	def block_values_to_est(self, xty_block_values, xtx_block_values):
+	def block_values_to_est(cls, xty_block_values, xtx_block_values):
 		'''
 		Converts block values to the whole-data linear regression estimate.
 		
@@ -370,7 +370,7 @@ class LstsqJackknifeFast(Jackknife):
 		return np.linalg.solve(xtx, xty).reshape((1, p))
 
 	@classmethod
-	def block_values_to_delete_values(self, xty_block_values, xtx_block_values):
+	def block_values_to_delete_values(cls, xty_block_values, xtx_block_values):
 		'''
 		Converts block values to delete values.
 		
@@ -460,7 +460,7 @@ class RatioJackknife(Jackknife):
 			self.jknife(self.pseudovalues)
 	
 	@classmethod
-	def delete_values_to_pseudovalues(self, est, denom, numer):
+	def delete_values_to_pseudovalues(cls, est, denom, numer):
 		'''
 		Converts delete values to pseudovalues.
 		

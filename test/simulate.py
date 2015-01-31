@@ -35,9 +35,7 @@ M = np.sum(single_ldsc)
 ld = pd.DataFrame({
 	'CHR': np.ones(N_SNP),
 	'SNP': ['rs'+str(i) for i in xrange(1000)],
-	'BP': np.arange(N_SNP),
-	'CM': np.zeros(N_SNP),
-	'MAF': np.ones(N_SNP)/2})
+	'BP': np.arange(N_SNP)})
 		
 # 2 LD Scores 2 files
 split_ldsc = ld.copy()

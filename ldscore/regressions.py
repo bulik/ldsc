@@ -12,6 +12,7 @@ import numpy as np
 from scipy.stats import norm, chi2
 import jackknife as jk
 from irwls import IRWLS
+from collections import namedtuple
 np.seterr(divide='raise', invalid='raise')
 
 s = lambda x : remove_brackets(str(np.matrix(x)))
@@ -49,6 +50,11 @@ def append_intercept(x):
 	intercept = np.ones((n_row,1))
 	x_new = np.concatenate((x, intercept), axis=1)
 	return x_new
+	
+def remove_intercept(x):
+	'''Removes the last column.'''
+	n_col = x.shape[1]
+	return x[:,0:n_col-1]
 		
 def gencov_obs_to_liab(gencov_obs, P1, P2, K1, K2):
 	'''
@@ -114,7 +120,8 @@ def h2_obs_to_liab(h2_obs, P, K):
 
 class LD_Score_Regression(object):
 
-	def __init__(self, y, x, w, N, M, n_blocks, intercept=None, slow=False, twostep=False):
+	def __init__(self, y, x, w, N, M, n_blocks, intercept=None, slow=False, twostep=None,
+		first_step=None):
 		for i in [y, x, w, M, N]:
 			try:
 				if len(i.shape) != 2:
@@ -141,10 +148,24 @@ class LD_Score_Regression(object):
 			yp = y
 		else:
 			yp = y - intercept
-		
+
 		update_func = lambda a: self._update_func(a, x_tot, w, N, M_tot, Nbar, intercept)
-		if twostep:
-			raise NotImplementedError('Two-step estimator coming soon!')
+		if (twostep is not None or first_step is not None) and self.constrain_intercept:	
+			raise ValueError('twostep is not compatible with constrain_intercept.')
+		elif twostep is not None or first_step is not None: 		
+			if twostep is not None:
+				yp1 = np.fmin(np.fmax(yp, -twostep), twostep)
+			else:
+				yp1 = first_step
+				
+			step1_jknife = 	IRWLS(x, yp1, update_func, n_blocks, slow=slow, w=initial_w)
+			step1_int, _ = self._intercept(step1_jknife)
+			yp = yp - step1_int
+			x = remove_intercept(x); x_tot = remove_intercept(x_tot)
+			update_func2 = lambda a: self._update_func(a, x_tot, w, N, M_tot, Nbar, step1_int)
+			step2_jknife = IRWLS(x, yp, update_func2, n_blocks, slow=slow, w=initial_w)
+			c = np.sum(np.multiply(initial_w, x))/np.sum(np.multiply(initial_w, np.square(x)))
+			jknife = self._combine_twostep_jknives(step1_jknife, step2_jknife, M_tot, c, Nbar)
 		else:	
 			jknife = IRWLS(x, yp, update_func, n_blocks, slow=slow, w=initial_w)
 			
@@ -178,6 +199,7 @@ class LD_Score_Regression(object):
 		raise NotImplementedError
 	
 	def _delete_vals_tot(self, jknife, Nbar, M):
+		'''Get delete values for total h2 or gencov.'''
 		n_annot = self.n_annot
 		tot_delete_vals = jknife.delete_values[:, 0:n_annot] # shape (n_blocks, n_annot)
 		tot_delete_vals = np.dot(tot_delete_vals, M.T) / Nbar # shape (n_blocks, 1)
@@ -192,21 +214,21 @@ class LD_Score_Regression(object):
 		return coef, coef_cov, coef_se
 		
 	def _cat(self, jknife, M, Nbar, coef, coef_cov):
-		'''Convert coefficients to per-category h2.'''
+		'''Convert coefficients to per-category h2 or gencov.'''
 		cat = np.multiply(M, coef)
 		cat_cov = np.multiply(np.dot(M.T, M), coef_cov)
 		cat_se = np.sqrt(np.diag(cat_cov))	
 		return cat, cat_cov, cat_se
 	
 	def _tot(self, cat, cat_cov):
-		'''Convert per-category h2 to total h2.'''
+		'''Convert per-category h2 to total h2 or gencov.'''
 		tot = np.sum(cat)
 		tot_cov = np.sum(cat_cov)
 		tot_se = np.sqrt(tot_cov)
 		return tot, tot_cov, tot_se
 	
 	def _prop(self, jknife, M, Nbar, cat, tot):
-		'''Convert total h2 and per-category h2 to per-category proportion h2.'''
+		'''Convert total h2 and per-category h2 to per-category proportion h2 or gencov.'''
 		n_annot = self.n_annot
 		n_blocks = jknife.delete_values.shape[0]
 		numer_delete_vals = np.multiply(M, jknife.delete_values[:, 0:n_annot]) / Nbar # (n_blocks, n_annot)
@@ -216,7 +238,7 @@ class LD_Score_Regression(object):
 		return prop.est, prop.jknife_cov, prop.jknife_se
 	
 	def _enrichment(self, M, M_tot, cat, tot):
-		'''Compute proportion of SNPs per-category enrichment for h2.'''
+		'''Compute proportion of SNPs per-category enrichment for h2 or gencov.'''
 		M_prop = M / M_tot
 		enrichment = np.divide(cat, M) / (tot / M_tot)
 		return enrichment, M_prop
@@ -227,12 +249,30 @@ class LD_Score_Regression(object):
 		intercept = jknife.est[0, n_annot]
 		intercept_se = jknife.jknife_se[0, n_annot]
 		return intercept, intercept_se
+	
+	def _combine_twostep_jknives(self, step1_jknife, step2_jknife, M_tot, c, Nbar=1):
+		'''Combine free intercept and constrained intercept jackknives for --two-step.'''
+		n_blocks, n_annot = step1_jknife.delete_values.shape
+		n_annot -= 1
+		if n_annot > 2:
+			raise ValueError('twostep not yet implemented for partitioned LD Score.')
 
+		step1_int, _ = self._intercept(step1_jknife)
+		est = np.hstack((step2_jknife.est, np.array(step1_int).reshape((1,1))))
+		delete_values = np.zeros((n_blocks, n_annot+1))
+		delete_values[:,n_annot] = step1_jknife.delete_values[:,n_annot]
+ 		delete_values[:,0:n_annot] = step2_jknife.delete_values -\
+					c*(step1_jknife.delete_values[:,n_annot]-step1_int).reshape((n_blocks, n_annot)) # check this
+		pseudovalues = jk.Jackknife.delete_values_to_pseudovalues(delete_values, est)
+		jknife_est, jknife_var, jknife_se, jknife_cov = jk.Jackknife.jknife(pseudovalues)
+		jknife = namedtuple('jknife', 
+			['est','jknife_se','jknife_est','jknife_var','jknife_cov','delete_values'])		
+		return jknife(est, jknife_se, jknife_est, jknife_var, jknife_cov, delete_values)
 	
 class Hsq(LD_Score_Regression):
 	__null_intercept__ = 1
-
-	def __init__(self, y, x, w, N, M, n_blocks=200, intercept=None, slow=False, twostep=False):
+	
+	def __init__(self, y, x, w, N, M, n_blocks=200, intercept=None, slow=False, twostep=None):
 		LD_Score_Regression.__init__(self, y, x, w, N, M, n_blocks, intercept, slow, twostep)
 		self.mean_chisq, self.lambda_gc = self._summarize_chisq(y)
 		if not self.constrain_intercept:
@@ -246,11 +286,16 @@ class Hsq(LD_Score_Regression):
 		x[0] is the regression coefficients
 		x[0].shape is (# of dimensions, 1)
 		the last element of x[0] is the intercept.
-
+		
+		intercept is None --> free intercept
+		intercept is not None --> constrained intercept
 		'''
 		hsq = M*x[0][0]/Nbar
 		if intercept is None:
 			intercept = x[0][1]
+		else:
+			if ref_ld_tot.shape[1] > 1:
+				raise ValueError('Design matrix has intercept column for constrained intercept regression!')
 	
 		ld = ref_ld_tot[:,0].reshape(w_ld.shape) # remove intercept
 		w = self.weights(ld, w_ld, N, M, hsq, intercept)
@@ -361,11 +406,20 @@ class Gencov(LD_Score_Regression):
 	__null_intercept__ = 0
 	
 	def __init__(self, z1, z2, x, w, N1, N2, M, hsq1, hsq2, intercept_hsq1, intercept_hsq2,
-		n_blocks=200, intercept=None, slow=False):
+		n_blocks=200, intercept=None, slow=False, twostep=None):
 		self.intercept_hsq1 = intercept_hsq1;	self.intercept_hsq2 = intercept_hsq2
 		self.hsq1 = hsq1;	self.hsq2 = hsq2
 		self.N1 = N1;	self.N2 = N2
-		LD_Score_Regression.__init__(self, z1*z2, x, w, np.sqrt(N1*N2), M, n_blocks, intercept, slow)
+		first_step = None
+		y = z1*z2
+		if twostep is not None:
+			ii = np.logical_or(z1**2 > twostep, z2**2 > twostep)
+			first_step = y
+			first_step[np.logical_and(ii, y>0)] = np.max(first_step[np.logical_not(ii)])
+			first_step[np.logical_and(ii, y<0)] = np.min(first_step[np.logical_not(ii)])
+			
+		LD_Score_Regression.__init__(self, y, x, w, np.sqrt(N1*N2), M, n_blocks, 
+			intercept, slow, first_step=first_step )
 		self.p, self.z = p_z_norm(self.tot, self.tot_se)
 		self.mean_z1z2 = np.mean(np.multiply(z1, z2))
 	
@@ -381,8 +435,6 @@ class Gencov(LD_Score_Regression):
 			c = 1
 
 		out.append('Total '+T+' scale gencov: '+s(self.tot)+' ('+s(self.tot_se)+')')
-		#out.append('Z-score: '+s(self.z))
-		#out.append('P: '+s(self.p))		
 		if self.n_annot > 1:
 			out.append( 'Categories: '+ str(' '.join(ref_ld_colnames)))
 			out.append( T+' scale gencov: '+s(self.cat))
@@ -486,14 +538,16 @@ class Gencov(LD_Score_Regression):
 class RG(object):
 
 	def __init__(self, z1, z2, x, w, N1, N2, M, intercept_hsq1=None, intercept_hsq2=None, 
-		intercept_gencov=None, n_blocks=200, slow=False):
+		intercept_gencov=None, n_blocks=200, slow=False, twostep=None):
 
 		self._negative_hsq = None
 		n_snp, n_annot = x.shape
-		hsq1 = Hsq(np.square(z1), x, w, N1, M, n_blocks=n_blocks, intercept=intercept_hsq1, slow=slow)
-		hsq2 = Hsq(np.square(z2), x, w, N1, M, n_blocks=n_blocks, intercept=intercept_hsq2, slow=slow)
+		hsq1 = Hsq(np.square(z1), x, w, N1, M, n_blocks=n_blocks, intercept=intercept_hsq1, 
+			slow=slow, twostep=twostep)
+		hsq2 = Hsq(np.square(z2), x, w, N1, M, n_blocks=n_blocks, intercept=intercept_hsq2, 
+			slow=slow, twostep=twostep)
 		gencov = Gencov(z1, z2, x, w, N1, N2, M, hsq1.tot, hsq2.tot, hsq1.intercept,
-			hsq2.intercept, n_blocks,	intercept=intercept_gencov, slow=slow)
+			hsq2.intercept, n_blocks,	intercept=intercept_gencov, slow=slow, twostep=twostep)
 		self.hsq1, self.hsq2, self.gencov = hsq1, hsq2, gencov
 		if (hsq1.tot <= 0 or hsq2.tot <= 0):
 			self._negative_hsq = True

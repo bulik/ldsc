@@ -12,6 +12,7 @@ import ldscore.ldscore as ld
 import ldscore.parse as ps
 import ldscore.jackknife as jk
 import ldscore.sumstats as sumstats
+import ldscore.regressions as reg
 import numpy as np
 import pandas as pd
 from subprocess import call
@@ -105,7 +106,7 @@ def annot_sort_key(s):
 				
  	return s
 
-def ldscore(args, header=None):
+def ldscore(args, log):
 	'''
 	Wrapper function for estimating l1, l1^2, l2 and l4 (+ optionally standard errors) from
 	reference panel genotypes. 
@@ -114,10 +115,6 @@ def ldscore(args, header=None):
 	chr snp bp cm <annotations>
 	
 	'''
-	log = logger(args.out+'.log')
-	if header:
-		log.log(header)
-
 	if args.bfile:
 		snp_file, snp_obj = args.bfile+'.bim', ps.PlinkBIMFile
 		ind_file, ind_obj = args.bfile+'.fam', ps.PlinkFAMFile
@@ -297,20 +294,6 @@ def ldscore(args, header=None):
 		else:
 			annot_matrix = pq
 	
-	elif args.maf_exp is not None:
-		log.log('Computing LD with MAF ^ {S}.'.format(S=args.maf_exp))
-		msg = 'Note that LD Scores with MAF raised to a nonzero power are'
-		msg += 'not directly comparable to normal LD Scores.'
-		log.log(msg)
-		scale_suffix = '_S{S}'.format(S=args.maf_exp)
-		mf = np.matrix(geno_array.maf).reshape((geno_array.m,1))
-		mf = np.power(mf, args.maf_exp)
-
-		if annot_matrix is not None:
-			annot_matrix = np.multiply(annot_matrix, mf)
-		else:
-			annot_matrix = mf
-		
 	log.log("Estimating LD Score.")
 	lN = geno_array.ldScoreVarBlocks(block_left, args.chunk_size, annot=annot_matrix)
 	col_prefix = "L2"; file_suffix = "l2"
@@ -345,17 +328,11 @@ def ldscore(args, header=None):
 			msg = 'After merging with --print-snps, LD Scores for {N} SNPs will be printed.'
 			log.log(msg.format(N=len(df)))
 	
-	if not args.pickle:
-		l2_suffix = '.gz'
-		log.log("Writing LD Scores for {N} SNPs to {f}.gz".format(f=out_fname, N=len(df)))
-		df.to_csv(out_fname, sep="\t", header=True, index=False)	
-		call(['gzip', '-f', out_fname])
-	elif args.pickle:
-		l2_suffix = '.pickle'
-		log.log("Writing LD Scores for {N} SNPs to {f}.pickle".format(f=out_fname, N=len(df)))
-		df.set_index('SNP')
-		out_fname_pickle = out_fname+l2_suffix
-		df.reset_index(drop=True).to_pickle(out_fname_pickle)
+	l2_suffix = '.gz'
+	log.log("Writing LD Scores for {N} SNPs to {f}.gz".format(f=out_fname, N=len(df)))
+	df.drop(['CM','MAF'], axis=1).to_csv(out_fname, sep="\t", header=True, index=False, 
+		float_format='%.3f')	
+	call(['gzip', '-f', out_fname])
 		
 	# print .M
 	if annot_matrix is not None:
@@ -377,19 +354,15 @@ def ldscore(args, header=None):
 	fout_M_5_50.close()
 	
 	# print annot matrix
-	if (args.cts_bin is not None or args.cts_bin_add is not None) and not args.no_print_annot:
+	if (args.cts_bin is not None) and not args.no_print_annot:
 		out_fname_annot = args.out + '.annot'
 		new_colnames = geno_array.colnames + ldscore_colnames
 		annot_df = pd.DataFrame(np.c_[geno_array.df, annot_matrix])
 		annot_df.columns = new_colnames	
 		del annot_df['MAF']
 		log.log("Writing annot matrix produced by --cts-bin to {F}".format(F=out_fname+'.gz'))
-		if args.gzip:
-			annot_df.to_csv(out_fname_annot, sep="\t", header=True, index=False)	
-			call(['gzip', '-f', out_fname_annot])
-		else:
-			out_fname_annot_pickle = out_fname_annot + '.pickle'
-			annot_df.reset_index(drop=True).to_pickle(out_fname_annot_pickle)
+		annot_df.to_csv(out_fname_annot, sep="\t", header=True, index=False)	
+		call(['gzip', '-f', out_fname_annot])
 			
 	# print LD Score summary	
 	pd.set_option('display.max_rows', 200)
@@ -406,12 +379,11 @@ def ldscore(args, header=None):
 	if n_annot > 1: # condition number of a column vector w/ nonzero var is trivially one
 		log.log('\nLD Score Matrix Condition Number')
 		cond_num = np.linalg.cond(df.ix[:,5:])
-		log.log( jk.kill_brackets(str(np.matrix(cond_num))) )
+		log.log( reg.remove_brackets(str(np.matrix(cond_num))) )
 		if cond_num > 10000:
 			log.log('WARNING: ill-conditioned LD Score Matrix!')
 		
 	# summarize annot matrix if there is one
-	
 	if annot_matrix is not None:
 		# covariance matrix
 		x = pd.DataFrame(annot_matrix, columns=annot_colnames)
@@ -427,6 +399,7 @@ def ldscore(args, header=None):
 		row_sums = x.sum(axis=1).describe()
 		log.log(_remove_dtype(row_sums))
 
+
 parser = argparse.ArgumentParser()
 parser.add_argument('--out', default='ldsc', type=str,
 	help='Output filename prefix. If --out is not set, LDSC will use ldsc as the '
@@ -435,6 +408,8 @@ parser.add_argument('--out', default='ldsc', type=str,
 # Basic LD Score Estimation Flags'
 parser.add_argument('--bfile', default=None, type=str, 
 	help='Prefix for Plink .bed/.bim/.fam file')
+parser.add_argument('--l2', default=False, action='store_true',
+	help='Estimate l2. Compatible with both jackknife and non-jackknife.')
 
 # Filtering / Data Management for LD Score
 parser.add_argument('--extract', default=None, type=str, 
@@ -525,10 +500,6 @@ parser.add_argument('--overlap-annot', default=False, action='store_true',
 	help='This flag informs LDSC that the partitioned LD Scores were generates using an '
 	'annot matrix with overlapping categories (i.e., not all row sums equal 1), '
 	'and prevents LDSC from displaying output that is meaningless with overlapping categories.')
-parser.add_argument('--no-filter-chisq', default=False, action='store_true',
-	help='Don\'t remove SNPs with large chi-square.')
-parser.add_argument('--max-chisq', default=None, type=float,
-	help='Max chi^2 for SNPs in the regression.')
 parser.add_argument('--no-intercept', action='store_true',
 	help = 'If used with --h2, this constrains the LD Score regression intercept to equal '
 	'1. If used with --rg, this constrains the LD Score regression intercepts for the h2 '
@@ -542,7 +513,8 @@ parser.add_argument('--constrain-intercept', action='store', default=None,
 	'of (# of overlapping samples)*(phenotpyic correlation). ')
 parser.add_argument('--M', default=None, type=str,
 	help='# of SNPs (if you don\'t want to use the .l2.M files that came with your .l2.ldscore.gz files)')
-
+parser.add_argument('--two-step', default=None, type=float,
+	help='Test statistic bound for use with the two-step estimator. Not compatible with --no-intercept and --constrain-intercept.')
 # Flags for both LD Score estimation and h2/gencor estimation
 parser.add_argument('--print-cov', default=False, action='store_true',
 	help='For use with --h2/--rg. This flag tells LDSC to print the '
@@ -603,14 +575,15 @@ if __name__ == '__main__':
 		log.log('Beginning analysis at {T}'.format(T=time.ctime()))
 		start_time = time.time()
 		if args.no_intercept and args.h2:
-			args.constrain_intercept = 1
+			args.constrain_intercept = '1'
 		elif args.no_intercept and args.rg:
 			args.constrain_intercept = '1,1,0'
-	
+		if args.constrain_intercept and args.two_step:
+			raise ValueError('--constrain-intercept / --no-intercept and --two-step are not compatible.')
 		if args.constrain_intercept:
 			args.constrain_intercept = args.constrain_intercept.replace('N','-')
 			if args.h2:
-				args.constrain_intercept = float(args.h2)
+				args.constrain_intercept = float(args.constrain_intercept)
 			elif args.rg:
 				args.constrain_intercept = [float(x) for x in args.constrain_intercept.split(',')]
 	

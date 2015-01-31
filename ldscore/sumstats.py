@@ -239,7 +239,7 @@ def estimate_h2(args, log):
 	n_blocks = min(n_snp, args.n_blocks)
 	chisq = s(sumstats.Z**2)
 	hsqhat = reg.Hsq(chisq, ref_ld, s(sumstats[w_ld_cname]), s(sumstats.N), 
-		M_annot, n_blocks=n_blocks, intercept=args.constrain_intercept)
+		M_annot, n_blocks=n_blocks, intercept=args.constrain_intercept, twostep=args.two_step)
 
 	if args.print_cov:
 		_print_cov(hsqhat, args.out+'.cov', log)
@@ -367,8 +367,9 @@ def _rg(sumstats, args, log, M_annot, ref_ld_cnames, w_ld_cname):
 		intercepts = args.constrain_intercept
 
 	rghat = reg.RG(s(sumstats.Z1), s(sumstats.Z2), 
-		ref_ld, s(sumstats[w_ld_cname]), s(sumstats.N1), s(sumstats.N2), M_annot, intercept_hsq1=intercepts[0], 
-		intercept_hsq2=intercepts[1], intercept_gencov=intercepts[2], n_blocks=n_blocks) 
+		ref_ld, s(sumstats[w_ld_cname]), s(sumstats.N1), s(sumstats.N2), M_annot, 
+		intercept_hsq1=intercepts[0], intercept_hsq2=intercepts[1], 
+		intercept_gencov=intercepts[2], n_blocks=n_blocks, twostep=args.two_step) 
 	
 	return rghat
 

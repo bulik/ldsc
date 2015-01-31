@@ -97,7 +97,10 @@ def ldscore_fromlist(flist, num=None):
 
 def l2_parser(fh, compression):
 	'''Parse LD Score files'''
-	return read_csv(fh, header=0, compression=compression).drop(['MAF','CM'], axis=1)
+	x = read_csv(fh, header=0, compression=compression)
+	if 'MAF' in x.columns and 'CM' in x.columns: # for backwards compatibility w/ v<1.0.0
+		x = x.drop(['MAF','CM'], axis=1)
+	return x
 	
 def annot_parser(fh, compression, frqfile_full=None, compression_frq=None):
 	'''Parse annot files'''
