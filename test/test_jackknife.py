@@ -112,7 +112,6 @@ class Test_LstsqJackknifeSlow(unittest.TestCase):
 		y = 2*np.arange(10)
 		assert_raises(ValueError, jk.LstsqJackknifeSlow, x, y, 11)
 
-
 class Test_LsqtsqJackknifeFast(unittest.TestCase):
 
 	def test_block_values_1d(self):
