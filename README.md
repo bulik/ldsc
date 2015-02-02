@@ -7,7 +7,7 @@
 
 ## Getting Started
 
-First, you will need to install python as well as the packages listed under the requirements header below. The easiest way to do this is with the [Anaconda](https://store.continuum.io/cshop/anaconda/) python distribution. All of the required packages come standard with Ananconda
+First, you will need to install python as well as the packages listed under the requirements header below. The easiest way to do this is with the [Anaconda](https://store.continuum.io/cshop/anaconda/) python distribution. All of the required packages come standard with Ananconda.
 
 In order to download `ldsc`, you should clone this repository
 
