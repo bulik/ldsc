@@ -39,8 +39,8 @@ Please report bugs on the [issue tracker](https://github.com/bulik/ldsc/issues).
 
 If you use the software or the LD Score regression intercept, please cite
 
-Bulik-Sullivan, et al. LD Score Regression Distinguishes Confounding from Polygenicity in Genome-Wide Association Studies.
-Nature Genetics, 2015. ([Director's cut](http://biorxiv.org/content/early/2014/02/21/002931))
+[Bulik-Sullivan, et al. LD Score Regression Distinguishes Confounding from Polygenicity in Genome-Wide Association Studies.
+Nature Genetics, 2015.](http://www.nature.com/ng/journal/vaop/ncurrent/full/ng.3211.html) 
 
 For genetic correlation, please also cite
 
