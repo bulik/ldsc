@@ -192,11 +192,11 @@ class LD_Score_Regression(object):
 
         self.coef, self.coef_cov, self.coef_se = self._coef(jknife, Nbar)
         self.cat, self.cat_cov, self.cat_se =\
-             self._cat(jknife, M, Nbar, self.coef, self.coef_cov)
+            self._cat(jknife, M, Nbar, self.coef, self.coef_cov)
 
         self.tot, self.tot_cov, self.tot_se = self._tot(self.cat, self.cat_cov)
         self.prop, self.prop_cov, self.prop_se =\
-             self._prop(jknife, M, Nbar, self.cat, self.tot)
+            self._prop(jknife, M, Nbar, self.cat, self.tot)
 
         self.enrichment, self.M_prop = self._enrichment(M, M_tot, self.cat, self.tot)
         if not self.constrain_intercept:
@@ -580,8 +580,8 @@ class RG(object):
         self.hsq1, self.hsq2, self.gencov = hsq1, hsq2, gencov
         if (hsq1.tot <= 0 or hsq2.tot <= 0):
             self._negative_hsq = True
-            self.rg_ratio, self.rg, self.rg_se = 'NA'
-            self.p, self.z = 'NA'
+            self.rg_ratio = self.rg = self.rg_se = 'NA'
+            self.p = self.z = 'NA'
         else:
             rg_ratio = np.array(gencov.tot / np.sqrt(hsq1.tot * hsq2.tot)).reshape((1, 1))
             denom_delete_values = np.sqrt(np.multiply(hsq1.tot_delete_values, hsq2.tot_delete_values))
