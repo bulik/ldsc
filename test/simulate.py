@@ -15,17 +15,17 @@ h22 = 0.6
 def print_ld(x, fh, M):
 	l2 = '.l2.ldscore'
 	m = '.l2.M_5_50'
-	x.to_csv(fh+l2, sep='\t', index=False)
+	x.to_csv(fh+l2, sep='\t', index=False, float_format='%.3f')
 	print >>open(fh+m, 'wb'), '\t'.join(map(str, M))
 
 	# chr1
 	y = x.iloc[0:int(len(x)/2),]
-	y.to_csv(fh+'1'+l2, sep='\t', index=False)
+	y.to_csv(fh+'1'+l2, sep='\t', index=False, float_format='%.3f')
 	print >>open(fh+'1'+m, 'wb'), '\t'.join((str(x/2) for x in M))
 	
 	# chr2
 	y = x.iloc[int(len(x)/2):len(x),]
-	y.to_csv(fh+'2'+l2, sep='\t', index=False)
+	y.to_csv(fh+'2'+l2, sep='\t', index=False, float_format='%.3f')
 	print >>open(fh+'2'+m, 'wb'), '\t'.join((str(x/2) for x in M))
 
 two_ldsc = np.abs(100*np.random.normal(size=2*N_SNP)).reshape((N_SNP, 2))
@@ -35,9 +35,7 @@ M = np.sum(single_ldsc)
 ld = pd.DataFrame({
 	'CHR': np.ones(N_SNP),
 	'SNP': ['rs'+str(i) for i in xrange(1000)],
-	'BP': np.arange(N_SNP),
-	'CM': np.zeros(N_SNP),
-	'MAF': np.ones(N_SNP)/2})
+	'BP': np.arange(N_SNP)})
 		
 # 2 LD Scores 2 files
 split_ldsc = ld.copy()
@@ -61,7 +59,7 @@ print_ld(ldsc, 'simulate_test/ldscore/twold_onefile', M_two)
 # Weight LD Scores
 w_ld = ld.copy()
 w_ld['LD'] = np.ones(N_SNP)
-w_ld.to_csv('simulate_test/ldscore/w.l2.ldscore', index=False, sep='\t')
+w_ld.to_csv('simulate_test/ldscore/w.l2.ldscore', index=False, sep='\t', float_format='%.3f')
 # split across chromosomes
 df = pd.DataFrame({
 	'SNP': ['rs'+str(i) for i in xrange(1000)],
@@ -76,4 +74,4 @@ for i in xrange(N_SIMS):
 	dfi = df.copy()
 	dfi['Z'] = z
 	dfi.reindex(np.random.permutation(dfi.index))
-	dfi.to_csv('simulate_test/sumstats/'+str(i), sep='\t', index=False)
+	dfi.to_csv('simulate_test/sumstats/'+str(i), sep='\t', index=False, float_format='%.3f')

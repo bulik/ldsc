@@ -24,8 +24,7 @@ class Mock(object):
 		pass
 	
 	def log(self, x):
-		#pass
-		print >>open('testadsfasdf', 'w'), x
+		pass
 		
 log = Mock()
 args = Mock()
@@ -173,26 +172,25 @@ def test_strand_ambiguous():
  'TC': False,
  'TG': False}
 	assert_equal(m, s.STRAND_AMBIGUOUS)
-	
+
 @attr('slow')
 class Test_RG_Statistical():
 	
 	@classmethod
 	def setUpClass(cls):
 		args = parser.parse_args('')
-		args.ref_ld = DIR+'/simulate_test/ldscore/oneld_onefile'
+		args.ref_ld = DIR+'/simulate_test/ldscore/twold_onefile'
 		args.w_ld = DIR+'/simulate_test/ldscore/w'
-		args.rg = ','.join((DIR+'/simulate_test/sumstats/'+str(i) for i in xrange(400)))
-		args.out = DIR+'/simulate_test/log/1'
+		args.rg = ','.join((DIR+'/simulate_test/sumstats/'+str(i) for i in xrange(N_REP)))
+		args.out = DIR+'/simulate_test/1'
 		x = s.estimate_rg(args, log)
-		args.constrain_intercept = [1, 1, 0]
+		args.intercept_gencov = ','.join(('0' for _ in xrange(N_REP)))
+		args.intercept_h2 = ','.join(('1' for _ in xrange(N_REP)))
 		y = s.estimate_rg(args, log)
 		cls.rg = x
 		cls.rg_noint = y
 		
 	def test_rg_ratio(self):
-		print (map(t('rg_ratio'), self.rg))
-		print np.nanmean(map(t('rg_ratio'), self.rg))
 		assert_allclose(np.nanmean(map(t('rg_ratio'), self.rg)), 0, atol=0.02)
 	def test_rg_ratio_noint(self):
 		assert_allclose(np.nanmean(map(t('rg_ratio'), self.rg_noint)), 0, atol=0.02)
@@ -230,8 +228,7 @@ class Test_RG_Statistical():
 		assert_allclose(np.nanmean(map(t('intercept'), map(t('hsq2'), self.rg))), 1, atol=0.1)
 	def test_hsq_int_se(self):
 		assert_allclose(np.nanmean(map(t('intercept_se'), map(t('hsq2'), self.rg))), np.nanstd(map(t('intercept'), map(t('hsq2'), self.rg))), atol=0.1)
-	
-'''
+
 @attr('slow')
 class Test_H2_Statistical(unittest.TestCase):
 	
@@ -242,13 +239,13 @@ class Test_H2_Statistical(unittest.TestCase):
 		args.w_ld = DIR+'/simulate_test/ldscore/w'
 		h2 = []; h2_noint = []
 		for i in xrange(N_REP):
-			args.constrain_intercept = None
+			args.intercept_h2 = None
 			args.h2 = DIR+'/simulate_test/sumstats/'+str(i)
-			args.out = DIR+'/simulate_test/log/1'
+			args.out = DIR+'/simulate_test/1'
 			h2.append(s.estimate_h2(args, log))
-			args.constrain_intercept = 1
+			args.intercept_h2 = 1
 			h2_noint.append(s.estimate_h2(args, log))
-		
+
 		cls.h2 = h2
 		cls.h2_noint = h2_noint
 			
@@ -297,7 +294,7 @@ class Test_H2_Statistical(unittest.TestCase):
 		
 	def test_int_se(self):
 		assert_allclose(np.nanstd( map(t('intercept'), self.h2)), np.nanmean(map(t('intercept_se'), self.h2)), atol=0.1)
-'''	
+
 class Test_Estimate(unittest.TestCase):
 		
 	def test_h2_M(self): # check --M works
@@ -305,7 +302,7 @@ class Test_Estimate(unittest.TestCase):
 		args.ref_ld = DIR+'/simulate_test/ldscore/oneld_onefile'
 		args.w_ld = DIR+'/simulate_test/ldscore/w'
 		args.h2 = DIR+'/simulate_test/sumstats/1'
-		args.out = DIR+'/simulate_test/log/1'
+		args.out = DIR+'/simulate_test/1'
 		args.print_cov = True # right now just check no runtime errors
 		args.print_delete_vals = True
 		x = s.estimate_h2(args, log)	
@@ -323,7 +320,7 @@ class Test_Estimate(unittest.TestCase):
 		args.ref_ld_chr = DIR+'/simulate_test/ldscore/twold_onefile'
 		args.w_ld = DIR+'/simulate_test/ldscore/w'
 		args.h2 = DIR+'/simulate_test/sumstats/1'
-		args.out = DIR+'/simulate_test/log/1'
+		args.out = DIR+'/simulate_test/1'
 		x = s.estimate_h2(args, log)		
 		args.ref_ld = DIR+'/simulate_test/ldscore/twold_firstfile,'+DIR+'/simulate_test/ldscore/twold_secondfile'
 		y = s.estimate_h2(args, log)		
@@ -339,7 +336,7 @@ class Test_Estimate(unittest.TestCase):
 		args.ref_ld = DIR+'/simulate_test/ldscore/oneld_onefile'
 		args.w_ld = DIR+'/simulate_test/ldscore/w'
 		args.rg = ','.join([DIR+'/simulate_test/sumstats/1' for _ in xrange(2)])
-		args.out = DIR+'/simulate_test/log/1'
+		args.out = DIR+'/simulate_test/1'
 		x = s.estimate_rg(args, log)[0]
 		args.M = open(DIR+'/simulate_test/ldscore/oneld_onefile.l2.M_5_50', 'rb').read().rstrip('\n')
 		y = s.estimate_rg(args, log)[0]		
@@ -355,11 +352,12 @@ class Test_Estimate(unittest.TestCase):
 		args.ref_ld_chr = DIR+'/simulate_test/ldscore/twold_onefile'
 		args.w_ld = DIR+'/simulate_test/ldscore/w'
 		args.rg = ','.join([DIR+'/simulate_test/sumstats/1' for _ in xrange(2)])
-		args.out = DIR+'/simulate_test/log/1'
+		args.out = DIR+'/simulate_test/1'
 		args.print_cov = True # right now just check no runtime errors
 		args.print_delete_vals = True
 		x = s.estimate_rg(args, log)[0]		
 		args.ref_ld = DIR+'/simulate_test/ldscore/twold_firstfile,'+DIR+'/simulate_test/ldscore/twold_secondfile'
+		print 'asdf', args.pop_prev
 		y = s.estimate_rg(args, log)[0]	
 		args.ref_ld_chr = DIR+'/simulate_test/ldscore/twold_firstfile,'+DIR+'/simulate_test/ldscore/twold_secondfile'
 		z = s.estimate_rg(args, log)[0]		
@@ -373,9 +371,34 @@ class Test_Estimate(unittest.TestCase):
 		args.ref_ld = DIR+'/simulate_test/ldscore/oneld_onefile'
 		args.w_ld = DIR+'/simulate_test/ldscore/w'
 		args.rg = ','.join([DIR+'/simulate_test/sumstats/1' for _ in xrange(2)])
-		args.out = DIR+'/simulate_test/log/1'
+		args.out = DIR+'/simulate_test/1'
 		x = s.estimate_rg(args, log)[0]
 		args.no_check_alleles = True
 		y = s.estimate_rg(args, log)[0]
 		assert_equal(x.rg_ratio, y.rg_ratio)
 		assert_equal(x.rg_se, y.rg_se)
+	
+	def test_twostep_h2(self):
+		# two-step and not two step should yield same estimate (but not same SE!) if the cutoff is really high)
+		args = parser.parse_args('')
+		args.ref_ld = DIR+'/simulate_test/ldscore/oneld_onefile'
+		args.w_ld = DIR+'/simulate_test/ldscore/w'
+		args.h2 = DIR+'/simulate_test/sumstats/1'
+		args.out = DIR+'/simulate_test/1'
+		x = s.estimate_h2(args, log)		
+		args.two_step = 99999
+		y = s.estimate_h2(args, log)		
+		assert_allclose(x.tot, y.tot, atol=1e-5)
+	
+	def test_twostep_rg(self):
+		# two-step and not two step should yield same estimate (but not same SE!) if the cutoff is really high)
+		args = parser.parse_args('')
+		args.ref_ld_chr = DIR+'/simulate_test/ldscore/oneld_onefile'
+		args.w_ld = DIR+'/simulate_test/ldscore/w'
+		args.rg = ','.join([DIR+'/simulate_test/sumstats/1' for _ in xrange(2)])
+		args.out = DIR+'/simulate_test/1'
+		x = s.estimate_rg(args, log)[0]		
+		args.two_step = 99999
+		y = s.estimate_rg(args, log)[0]		
+		assert_allclose(x.rg_ratio, y.rg_ratio, atol=1e-5)
+		assert_allclose(x.gencov.tot, y.gencov.tot, atol=1e-5)
