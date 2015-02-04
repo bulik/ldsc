@@ -9,6 +9,7 @@ Last column = intercept.
 '''
 from __future__ import division
 import numpy as np
+import pandas as pd
 from scipy.stats import norm, chi2
 import jackknife as jk
 from irwls import IRWLS
@@ -273,8 +274,42 @@ class Hsq(LD_Score_Regression):
 			ratio_se = float('nan')
 
 		return ratio, ratio_se
+
 	
-	def summary(self, ref_ld_colnames=None, P=None, K=None):
+	def _overlap_output(self, args, category_names, overlap_matrix, M_annot, M_tot):
+		for i in range(self.n_annot):
+			overlap_matrix[i,:] = overlap_matrix[i,:]/M_annot
+		
+		prop_hsq_overlap = np.dot(overlap_matrix,self.prop.T).reshape((1,self.n_annot))
+		prop_hsq_overlap_var = np.diag(np.dot(np.dot(overlap_matrix,self.prop_cov),overlap_matrix.T))
+		prop_hsq_overlap_se = np.sqrt(np.maximum(0,prop_hsq_overlap_var)).reshape((1,self.n_annot))
+		one_d_convert = lambda x : np.array(x)[0]
+		prop_M_overlap = M_annot/M_tot
+		enrichment = prop_hsq_overlap/prop_M_overlap
+		enrichment_se = prop_hsq_overlap_se/prop_M_overlap
+		df = pd.DataFrame({
+			'Category':category_names,
+			'Prop._SNPs':one_d_convert(prop_M_overlap),
+			'Prop._h2':one_d_convert(prop_hsq_overlap),
+			'Prop._h2_std_error': one_d_convert(prop_hsq_overlap_se),
+			'Enrichment': one_d_convert(enrichment),
+			'Enrichment_std_error': one_d_convert(enrichment_se),
+			'Coefficient' : one_d_convert(self.coef),
+			'Coefficient_std_error' : self.coef_se,
+			'Coefficient_z-score' : one_d_convert(self.coef/self.coef_se)
+			})
+		df = df[np.logical_not(df['Prop._SNPs'] > .9999)]
+		df['Enrichment_p'] = chi2.sf(one_d_convert((df.Enrichment-1)/df.Enrichment_std_error)**2, 1)
+		if args.print_coefficients:
+			df = df[['Category','Prop._SNPs','Prop._h2','Prop._h2_std_error','Enrichment',
+			'Enrichment_std_error','Enrichment_p','Coefficient','Coefficient_std_error','Coefficient_z-score']]
+		else:
+			df = df[['Category','Prop._SNPs','Prop._h2','Prop._h2_std_error','Enrichment',
+			'Enrichment_std_error','Enrichment_p']]
+		df.to_csv(args.out+'.results',sep="\t",index=False)	
+	
+	def summary(self, ref_ld_colnames=None, P=None, K=None, args=None, overlap_matrix=None,
+		M_annot=None, M_tot= None):
 		'''Print summary of the LD Score Regression.'''
 		if P is not None and K is not None:
 			T = 'Liability'
@@ -284,7 +319,7 @@ class Hsq(LD_Score_Regression):
 			c = 1
 			
 		out = ['Total '+T+' scale h2: '+s(c*self.tot)+' ('+s(c*self.tot_se)+')']
-		if self.n_annot > 1:
+		if self.n_annot > 1 and (args is None or not args.overlap_annot):
 			if ref_ld_colnames is None:
 				ref_ld_colnames = ['CAT_'+str(i) for i in xrange(self.n_annot)]
 
@@ -296,6 +331,11 @@ class Hsq(LD_Score_Regression):
 			out.append( 'Enrichment: ' + s(self.enrichment))
 			out.append( 'Coefficients: ' + s(self.coef))
 			out.append( 'Coefficient SE: ' + s(self.coef_se))
+
+		elif args is not None:
+			if args.overlap_annot:
+				self._overlap_output(args, ref_ld_colnames, overlap_matrix, M_annot, M_tot)
+				out.append('Results printed to '+args.out+'.results')
 				
 		out.append( 'Lambda GC: '+ s(self.lambda_gc))
 		out.append( 'Mean Chi^2: '+ s(self.mean_chisq))

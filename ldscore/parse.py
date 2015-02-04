@@ -91,6 +91,8 @@ def ldscore_fromlist(flist, num=None):
 			else: # keep SNP column from only the first file
 				y = y.drop(['SNP'], axis=1)
 		
+		new_col_dict = {c: c+'_'+str(i) for c in y.columns if c != 'SNP'}
+		y.rename(columns=new_col_dict, inplace=True)
 		ldscore_array.append(y) 
 			
 	return pd.concat(ldscore_array, axis=1) 
@@ -105,13 +107,15 @@ def annot_parser(fh, compression, frqfile_full=None, compression_frq=None):
 	df_annot.iloc[:,1:] = df_annot.iloc[:,1:].astype(float)
 	if frqfile_full is not None:
 		df_frq = frq_parser(frqfile_full, compression_frq) 
-		df_annot = df_annot[0.95 > df_frq.FRQ > 0.05]
-
+		df_annot = df_annot[(.95 > df_frq.FRQ) & (df_frq.FRQ > 0.05)]
 	return df_annot
 
 def frq_parser(fh, compression):
 	'''Parse frequency files.'''
-	return read_csv(fh, header=0,	compression=compression)
+	df = read_csv(fh, header=0,	compression=compression)
+	if 'MAF' in df.columns:
+		df.rename(columns={'MAF':'FRQ'},inplace=True)
+	return df[['SNP','FRQ']]
 				
 def ldscore(fh, num=None):
 	'''Parse .l2.ldscore files, split across num chromosomes. See docs/file_formats_ld.txt.'''						
@@ -194,6 +198,7 @@ def annot(fh_list, num=None, frqfile=None):
 			frq_suffix = '.frq'
 			frq_s, frq_compression = which_compression(frqfile+frq_suffix)
 			frq_suffix += frq_s 
+
 			df_annot_list = [annot_parser(fh + annot_suffix[i], annot_compression[i], 
 				frqfile+frq_suffix, frq_compression) for i, fh in enumerate(fh_list)]
 									
@@ -205,6 +210,7 @@ def annot(fh_list, num=None, frqfile=None):
 		annot_matrix = np.hstack(annot_matrix_list)
 		x = np.dot(annot_matrix.T, annot_matrix)
 		M_tot = len(df_annot_list[0])
+
 
 	return x, M_tot
 	

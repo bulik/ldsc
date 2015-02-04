@@ -577,6 +577,8 @@ parser.add_argument('--print-coefficients',default=False,action='store_true',
 parser.add_argument('--frqfile', type=str, 
 	help='For use with --overlap-annot. Provides allele frequencies to prune to common '
 	'snps if --not-M-5-50 is not set.')
+parser.add_argument('--frqfile-chr', type=str,
+	help='Prefix for --frqfile files split over chromosome.')
 
 # transform to liability scale
 parser.add_argument('--samp-prev',default=None,
@@ -643,7 +645,15 @@ if __name__ == '__main__':
 				raise ValueError('Cannot set both --w-ld and --w-ld-chr.')
 			if (args.samp_prev is not None) != (args.pop_prev is not None):
 				raise ValueError('Must set both or neither of --samp-prev and --pop-prev.') 
-			
+			if not args.overlap_annot or args.not_M_5_50:
+				if args.frqfile is not None or args.frqfile_chr is not None:
+					log.log('The frequency file is unnecessary and is being ignored.')
+					args.frqfile = None
+					args.frqfile_chr = None
+			if args.overlap_annot and not args.not_M_5_50:
+				if not (args.frqfile and args.ref_ld) or (args.frqfile_chr and args.ref_ld_chr):
+					raise ValueError ('Must set either --frqfile and --ref-ld or --frqfile-chr and --ref-ld-chr')
+
 			if args.rg:
 				if args.samp_prev is not None and args.pop_prev is not None:
 					if not (',' in args.samp_prev and ',' in args.pop_prev):

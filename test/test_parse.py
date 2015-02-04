@@ -34,6 +34,16 @@ def test_read_sumstats():
 	assert_array_equal(x.SNP, 'rs1')
 	assert_raises(ValueError, ps.sumstats, os.path.join(DIR, 'parse_test/test.l2.ldscore.gz'))
 
+def test_frq_parser():
+	x = ps.frq_parser(os.path.join(DIR,'parse_test/test1.frq'),compression=None)
+	assert_array_equal(x.columns, ['SNP','FRQ'])
+	assert_array_equal(x.SNP,['rs_'+str(i) for i in range(8)])
+	assert_array_equal(x.FRQ,[.01,.1,.7,.2,.2,.2,.99,.03])
+	x = ps.frq_parser(os.path.join(DIR,'parse_test/test2.frq.gz'),compression='gzip')
+	assert_array_equal(x.columns, ['SNP','FRQ'])
+	assert_array_equal(x.SNP,['rs_'+str(i) for i in range(8)])
+	assert_array_equal(x.FRQ,[.01,.1,.3,.2,.2,.2,.01,.03])
+
 	
 class Test_ldscore(unittest.TestCase):
 
