@@ -349,8 +349,7 @@ class Hsq(LD_Score_Regression):
         return ratio, ratio_se
 
 
-    def _overlap_output(self, args, category_names, overlap_matrix, M_annot, M_tot):
-		#TODO move to_csv to sumstats, take out args.
+    def _overlap_output(self, category_names, overlap_matrix, M_annot, M_tot, print_coefficients):
 
 		for i in range(self.n_annot):
 			overlap_matrix[i,:] = overlap_matrix[i,:]/M_annot
@@ -375,16 +374,16 @@ class Hsq(LD_Score_Regression):
 			})
 		df = df[np.logical_not(df['Prop._SNPs'] > .9999)]
 		df['Enrichment_p'] = chi2.sf(one_d_convert((df.Enrichment-1)/df.Enrichment_std_error)**2, 1)
-		if args.print_coefficients:
+		if print_coefficients:
 			df = df[['Category','Prop._SNPs','Prop._h2','Prop._h2_std_error','Enrichment',
 			'Enrichment_std_error','Enrichment_p','Coefficient','Coefficient_std_error','Coefficient_z-score']]
 		else:
 			df = df[['Category','Prop._SNPs','Prop._h2','Prop._h2_std_error','Enrichment',
 			'Enrichment_std_error','Enrichment_p']]
-		df.to_csv(args.out+'.results',sep="\t",index=False,float_format='%.6f')	
+
+		return df
 	
     def summary(self, ref_ld_colnames=None, P=None, K=None):
-    	#TODO input out, move "Restuls printed to" to sumstats
 
         '''Print summary of the LD Score Regression.'''
         if P is not None and K is not None:
@@ -422,9 +421,6 @@ class Hsq(LD_Score_Regression):
         return remove_brackets('\n'.join(out))
 
 
-		# elif overlap_matrix is not None:
-		# 	self._overlap_output(args, ref_ld_colnames, overlap_matrix, M_annot, M_tot)
-		# 	out.append('Results printed to '+out+'.results')
 			
 
     def _update_weights(self, ld, w_ld, N, M, hsq, intercept):
