@@ -78,3 +78,7 @@ docs/_build/
 *asdf*
 *qwer*
 *M_5_50*
+
+# sublime text
+*.idea*
+*sublime*

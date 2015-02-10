@@ -69,7 +69,7 @@ def read_cts(fh, match_snps):
 
 def sumstats(fh, alleles=False, dropna=True):
     '''Parses .sumstats files. See docs/file_formats_sumstats.txt.'''
-    dtype_dict = {'SNP': str,	'Z': float, 'N': float,	'A1': str, 'A2': str}
+    dtype_dict = {'SNP': str,   'Z': float, 'N': float, 'A1': str, 'A2': str}
     compression = get_compression(fh)
     usecols = ['SNP', 'Z', 'N']
     if alleles:
@@ -87,22 +87,22 @@ def sumstats(fh, alleles=False, dropna=True):
 
 
 def ldscore_fromlist(flist, num=None):
+    '''Sideways concatenation of a list of LD Score files.'''
+    ldscore_array = []
+    for i, fh in enumerate(flist):
+        y = ldscore(fh, num)
+        if i > 0:
+            if not series_eq(y.SNP, ldscore_array[0].SNP):
+                raise ValueError('LD Scores for concatenation must have identical SNP columns.')
+            else:  # keep SNP column from only the first file
+                y = y.drop(['SNP'], axis=1)
 
-	'''Sideways concatenation of a list of LD Score files.'''
-	ldscore_array = []
-	for i, fh in enumerate(flist):						
-		y = ldscore(fh, num)
-		if i > 0: 
-			if not series_eq(y.SNP, ldscore_array[0].SNP):
-				raise ValueError('LD Scores for concatenation must have identical SNP columns.')
-			else: # keep SNP column from only the first file
-				y = y.drop(['SNP'], axis=1)
-		
-		new_col_dict = {c: c+'_'+str(i) for c in y.columns if c != 'SNP'}
-		y.rename(columns=new_col_dict, inplace=True)
-		ldscore_array.append(y) 
-			
-	return pd.concat(ldscore_array, axis=1) 
+        new_col_dict = {c: c + '_' + str(i) for c in y.columns if c != 'SNP'}
+        y.rename(columns=new_col_dict, inplace=True)
+        ldscore_array.append(y)
+
+    return pd.concat(ldscore_array, axis=1)
+
 
 def l2_parser(fh, compression):
     '''Parse LD Score files'''
@@ -113,21 +113,22 @@ def l2_parser(fh, compression):
 
 
 def annot_parser(fh, compression, frqfile_full=None, compression_frq=None):
+    '''Parse annot files'''
+    df_annot = read_csv(fh, header=0, compression=compression).drop(['CHR', 'BP', 'CM'], axis=1)
+    df_annot.iloc[:, 1:] = df_annot.iloc[:, 1:].astype(float)
+    if frqfile_full is not None:
+        df_frq = frq_parser(frqfile_full, compression_frq)
+        df_annot = df_annot[(.95 > df_frq.FRQ) & (df_frq.FRQ > 0.05)]
+    return df_annot
 
-	'''Parse annot files'''
-	df_annot = read_csv(fh, header=0, compression=compression).drop(['CHR','BP','CM'], axis=1)
-	df_annot.iloc[:,1:] = df_annot.iloc[:,1:].astype(float)
-	if frqfile_full is not None:
-		df_frq = frq_parser(frqfile_full, compression_frq) 
-		df_annot = df_annot[(.95 > df_frq.FRQ) & (df_frq.FRQ > 0.05)]
-	return df_annot
 
 def frq_parser(fh, compression):
-	'''Parse frequency files.'''
-	df = read_csv(fh, header=0,	compression=compression)
-	if 'MAF' in df.columns:
-		df.rename(columns={'MAF':'FRQ'},inplace=True)
-	return df[['SNP','FRQ']]
+    '''Parse frequency files.'''
+    df = read_csv(fh, header=0, compression=compression)
+    if 'MAF' in df.columns:
+        df.rename(columns={'MAF': 'FRQ'}, inplace=True)
+    return df[['SNP', 'FRQ']]
+
 
 def ldscore(fh, num=None):
     '''Parse .l2.ldscore files, split across num chromosomes. See docs/file_formats_ld.txt.'''
@@ -167,69 +168,68 @@ def M_fromlist(flist, num=None, N=2, common=False):
 
 
 def annot(fh_list, num=None, frqfile=None):
+    '''
+    Parses .annot files and returns an overlap matrix. See docs/file_formats_ld.txt.
+    If num is not None, parses .annot files split across [num] chromosomes (e.g., the
+    output of parallelizing ldsc.py --l2 across chromosomes).
 
-	'''
-	Parses .annot files and returns an overlap matrix. See docs/file_formats_ld.txt.
-	If num is not None, parses .annot files split across [num] chromosomes (e.g., the 
-	output of parallelizing ldsc.py --l2 across chromosomes).
+    '''
+    annot_suffix = ['.annot' for fh in fh_list]
+    annot_compression = []
+    if num is not None:  # 22 files, one for each chromosome
+        for i, fh in enumerate(fh_list):
+            first_fh = sub_chr(fh, 1) + annot_suffix[i]
+            annot_s, annot_comp_single = which_compression(first_fh)
+            annot_suffix[i] += annot_s
+            annot_compression.append(annot_comp_single)
 
-	'''		
-	annot_suffix = ['.annot' for fh in fh_list]
-	annot_compression = []
-	if num is not None: # 22 files, one for each chromosome
-		for i, fh in enumerate(fh_list):
-			first_fh = sub_chr(fh, 1)+annot_suffix[i]
-			annot_s, annot_comp_single = which_compression(first_fh)
-			annot_suffix[i] += annot_s 
-			annot_compression.append(annot_comp_single)
+        if frqfile is not None:
+            frq_suffix = '.frq'
+            first_frqfile = sub_chr(frqfile, 1) + frq_suffix
+            frq_s, frq_compression = which_compression(first_frqfile)
+            frq_suffix += frq_s
 
-		if frqfile is not None:
-			frq_suffix = '.frq'
-			first_frqfile = sub_chr(frqfile, 1)+frq_suffix
-			frq_s, frq_compression = which_compression(first_frqfile)
-			frq_suffix += frq_s			
-		
-		y = []; M_tot = 0
-		for chr in xrange(1, num+1):
-			if frqfile is not None:
-				df_annot_chr_list = [annot_parser(sub_chr(fh, i)+annot_suffix[i], annot_compression[i],
-					sub_chr(frqfile, i)+frq_suffix,frq_compression) for i, fh in enumerate(fh_list)]
-			else:
-				df_annot_chr_list = [annot_parser(sub_chr(fh, i)+annot_suffix[i], annot_compression[i])
-					for i, fh in enumerate(fh_list)]
-			
-			annot_matrix_chr_list = [np.matrix(df_annot_chr.ix[:,1:]) for df_annot_chr in df_annot_chr_list]
-			annot_matrix_chr = np.hstack(annot_matrix_chr_list)
-			y.append(np.dot(annot_matrix_chr.T, annot_matrix_chr))
-			M_tot += len(df_annot_chr_list[0])
+        y = []
+        M_tot = 0
+        for chr in xrange(1, num + 1):
+            if frqfile is not None:
+                df_annot_chr_list = [annot_parser(sub_chr(fh, i) + annot_suffix[i], annot_compression[i],
+                                                  sub_chr(frqfile, i) + frq_suffix, frq_compression)
+                                     for i, fh in enumerate(fh_list)]
+            else:
+                df_annot_chr_list = [annot_parser(sub_chr(fh, i) + annot_suffix[i], annot_compression[i])
+                                     for i, fh in enumerate(fh_list)]
 
-		x = sum(y)
-	else: # just one file
-		for i, fh in enumerate(fh_list):
-			annot_s, annot_comp_single = which_compression(fh+annot_suffix[i])
-			annot_suffix[i] += annot_s 
-			annot_compression.append(annot_comp_single)
+            annot_matrix_chr_list = [np.matrix(df_annot_chr.ix[:, 1:]) for df_annot_chr in df_annot_chr_list]
+            annot_matrix_chr = np.hstack(annot_matrix_chr_list)
+            y.append(np.dot(annot_matrix_chr.T, annot_matrix_chr))
+            M_tot += len(df_annot_chr_list[0])
 
-		if frqfile is not None:
-			frq_suffix = '.frq'
-			frq_s, frq_compression = which_compression(frqfile+frq_suffix)
-			frq_suffix += frq_s 
+        x = sum(y)
+    else:  # just one file
+        for i, fh in enumerate(fh_list):
+            annot_s, annot_comp_single = which_compression(fh + annot_suffix[i])
+            annot_suffix[i] += annot_s
+            annot_compression.append(annot_comp_single)
 
-			df_annot_list = [annot_parser(fh + annot_suffix[i], annot_compression[i], 
-				frqfile+frq_suffix, frq_compression) for i, fh in enumerate(fh_list)]
-									
-		else:
-			df_annot_list = [annot_parser(fh + annot_suffix[i], annot_compression[i]) 
-				for i, fh in enumerate(fh_list)]
+        if frqfile is not None:
+            frq_suffix = '.frq'
+            frq_s, frq_compression = which_compression(frqfile + frq_suffix)
+            frq_suffix += frq_s
 
-		annot_matrix_list = [np.matrix(y.ix[:,1:]) for y in df_annot_list]
-		annot_matrix = np.hstack(annot_matrix_list)
-		x = np.dot(annot_matrix.T, annot_matrix)
-		M_tot = len(df_annot_list[0])
+            df_annot_list = [annot_parser(fh + annot_suffix[i], annot_compression[i],
+                                          frqfile + frq_suffix, frq_compression) for i, fh in enumerate(fh_list)]
 
+        else:
+            df_annot_list = [annot_parser(fh + annot_suffix[i], annot_compression[i])
+                             for i, fh in enumerate(fh_list)]
 
-	return x, M_tot
-	
+        annot_matrix_list = [np.matrix(y.ix[:, 1:]) for y in df_annot_list]
+        annot_matrix = np.hstack(annot_matrix_list)
+        x = np.dot(annot_matrix.T, annot_matrix)
+        M_tot = len(df_annot_list[0])
+
+    return x, M_tot
 
 
 def __ID_List_Factory__(colnames, keepcol, fname_end, header=None, usecols=None):
