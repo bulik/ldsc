@@ -3,7 +3,7 @@ LDSC (LD SCore) v 0.0.1 (alpha)
 
 Copyright (c) 2014 Brendan Bulik-Sullivan & Hilary Finucane
 
-(Warning: we're still working on it. Documented beta release coming soon. To report bugs, please either raise an issue on github or email us with LDSC in the subject line and the log file copied into the body of your message).
+(Warning: we're still working on it. Documented beta release coming soon. To report bugs, please either raise an issue on github or email us with LDSC in the subject line and the log file copied into the body of your message. Note that the in-progress tutorials on the wiki refer to the dev branch).
 
 What can I do with LDSC?
 ---------------------
