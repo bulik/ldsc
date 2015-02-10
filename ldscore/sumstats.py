@@ -86,14 +86,16 @@ def _read_M(args, log, n_annot):
             M_annot = [float(x) for x in args.M.split(',')]
         except ValueError as e:
             raise ValueError('Could not cast --M to float: ' + str(e.args))
-        if len(M_annot) != n_annot:
-            raise ValueError('# terms in --M must match # of LD Scores in --ref-ld.')
-        M_annot = np.array(M_annot).reshape((1, n_annot))
     else:
         if args.ref_ld:
             M_annot = ps.M_fromlist(args.ref_ld.split(','), common=(not args.not_M_5_50))
         elif args.ref_ld_chr:
             M_annot = ps.M_fromlist(args.ref_ld_chr.split(','), _N_CHR, common=(not args.not_M_5_50))
+
+    try:
+        M_annot = np.array(M_annot).reshape((1, n_annot))
+    except ValueError as e:
+        raise ValueError('# terms in --M must match # of LD Scores in --ref-ld.\n'+str(e.args))
 
     return M_annot
 

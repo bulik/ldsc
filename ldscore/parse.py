@@ -123,7 +123,7 @@ def annot_parser(fh, compression, frqfile_full=None, compression_frq=None):
 
 def frq_parser(fh, compression):
     '''Parse frequency files.'''
-    return read_csv(fh, header=0,	compression=compression)
+    return read_csv(fh, header=0, compression=compression)
 
 
 def ldscore(fh, num=None):
