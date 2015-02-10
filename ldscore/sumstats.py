@@ -242,10 +242,8 @@ def estimate_h2(args, log):
     if args.overlap_annot:
         overlap_matrix, M_tot = _read_annot(args, log)
         #overlap_matrix = overlap_matrix[np.array(~novar_cols), np.array(~novar_cols)]#np.logical_not
-        log.log(hsqhat.summary(ref_ld_cnames, P=args.samp_prev, K=args.pop_prev, args=args,
-            overlap_matrix = overlap_matrix, M_annot = M_annot, M_tot = M_tot))
-        df_results = hsqhat._overlap_output(ref_ld_colnames, overlap_matrix, M_annot, M_tot,args.print_coefficients)
-        df_results.to_csv(args.out+'.results',sep="\t",index=False,float_format='%.6f') 
+        df_results = hsqhat._overlap_output(ref_ld_cnames, overlap_matrix, M_annot, M_tot,args.print_coefficients)
+        df_results.to_csv(args.out+'.results',sep="\t",index=False) 
         log.log('Results printed to '+args.out+'.results')
 
     return hsqhat

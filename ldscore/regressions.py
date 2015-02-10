@@ -357,7 +357,7 @@ class Hsq(LD_Score_Regression):
 		prop_hsq_overlap = np.dot(overlap_matrix,self.prop.T).reshape((1,self.n_annot))
 		prop_hsq_overlap_var = np.diag(np.dot(np.dot(overlap_matrix,self.prop_cov),overlap_matrix.T))
 		prop_hsq_overlap_se = np.sqrt(np.maximum(0,prop_hsq_overlap_var)).reshape((1,self.n_annot))
-		one_d_convert = lambda x: np.array(x)[0]
+		one_d_convert = lambda x: np.array(x).reshape(np.prod(x.shape))
 		prop_M_overlap = M_annot/M_tot
 		enrichment = prop_hsq_overlap/prop_M_overlap
 		enrichment_se = prop_hsq_overlap_se/prop_M_overlap
@@ -370,7 +370,7 @@ class Hsq(LD_Score_Regression):
 			'Enrichment_std_error': one_d_convert(enrichment_se),
 			'Coefficient' : one_d_convert(self.coef),
 			'Coefficient_std_error' : self.coef_se,
-			'Coefficient_z-score' : one_d_convert(self.coef/self.coef_se)
+			'Coefficient_z-score' : one_d_convert(self.coef)/one_d_convert(self.coef_se)
 			})
 		df = df[np.logical_not(df['Prop._SNPs'] > .9999)]
 		df['Enrichment_p'] = chi2.sf(one_d_convert((df.Enrichment-1)/df.Enrichment_std_error)**2, 1)
@@ -380,8 +380,8 @@ class Hsq(LD_Score_Regression):
 		else:
 			df = df[['Category','Prop._SNPs','Prop._h2','Prop._h2_std_error','Enrichment',
 			'Enrichment_std_error','Enrichment_p']]
-
 		return df
+
 	
     def summary(self, ref_ld_colnames=None, P=None, K=None):
 
