@@ -221,8 +221,6 @@ class Test_Gencov_1D(unittest.TestCase):
 
     def test_weights(self):
         # check that hsq weights = gencov weights when z1 = z2
-        z1 = np.random.normal(size=100).reshape((100, 1))
-        chisq = z1 ** 2
         ld = np.abs(np.random.normal(size=100)).reshape((100, 1))
         w_ld = np.abs(np.random.normal(size=100)).reshape((100, 1))
         N1 = np.abs(np.random.normal(size=100)).reshape((100, 1))

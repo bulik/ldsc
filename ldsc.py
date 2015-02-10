@@ -544,6 +544,8 @@ parser.add_argument('--print-coefficients',default=False,action='store_true',
 parser.add_argument('--frqfile', type=str,
     help='For use with --overlap-annot. Provides allele frequencies to prune to common '
     'snps if --not-M-5-50 is not set.')
+parser.add_argument('--frqfile-chr', type=str,
+    help='Prefix for --frqfile files split over chromosome.')
 # transform to liability scale
 parser.add_argument('--samp-prev',default=None,
     help='Sample prevalence of binary phenotype (for conversion to liability scale).')
@@ -551,6 +553,7 @@ parser.add_argument('--pop-prev',default=None,
     help='Population prevalence of binary phenotype (for conversion to liability scale).')
 
 if __name__ == '__main__':
+
     args = parser.parse_args()
     if args.out is None:
         raise ValueError('--out is required.')
@@ -584,6 +587,15 @@ if __name__ == '__main__':
                 raise ValueError('Cannot set both --per-allele and --pq-exp (--per-allele is equivalent to --pq-exp 1).')
             if args.per_allele:
                 args.pq_exp = 1
+            if not args.overlap_annot or args.not_M_5_50:
+                if args.frqfile is not None or args.frqfile_chr is not None:
+                    log.log('The frequency file is unnecessary and is being ignored.')
+                    args.frqfile = None
+                    args.frqfile_chr = None
+            if args.overlap_annot and not args.not_M_5_50:
+                if not (args.frqfile and args.ref_ld) or (args.frqfile_chr and args.ref_ld_chr):
+                    raise ValueError ('Must set either --frqfile and --ref-ld or --frqfile-chr and --ref-ld-chr')
+
 
             ldscore(args, log)
         # summary statistics

@@ -1,5 +1,6 @@
 from __future__ import division
 import ldscore.sumstats as s
+import ldscore.parse as ps
 import unittest
 import numpy as np
 import pandas as pd
@@ -43,6 +44,7 @@ def test_check_condnum():
 
 
 def test_check_variance():
+<<<<<<< HEAD
     ld = pd.DataFrame(np.vstack((np.ones(3), np.arange(3))).T)
     M_annot = np.array([[1, 2]])
     M_annot, ld = s._check_variance(log, M_annot, ld)
@@ -51,6 +53,16 @@ def test_check_variance():
     assert_series_equal(ld.iloc[:, 0], pd.Series([0.0, 1, 2]))
 
 
+=======
+	ld = pd.DataFrame(np.vstack((np.ones(3),np.arange(3))).T)
+	M_annot = np.array([[1,2]])
+	M_annot, ld, novar_cols = s._check_variance(log, M_annot, ld)
+	assert_array_equal(M_annot.shape, (1, 1))
+	assert_array_equal(M_annot, [[2]])
+	assert_series_equal(ld.iloc[:,0], pd.Series([0.0,1,2]))
+	assert_array_equal(novar_cols,[True,False])
+	
+>>>>>>> e2761618996529fcc084dbae865178f5888cb559
 def test_align_alleles():
     beta = pd.Series(np.ones(6))
     alleles = pd.Series(['ACAC', 'TGTG', 'GTGT', 'AGCT', 'AGTC', 'TCTC'])
@@ -59,12 +71,34 @@ def test_align_alleles():
 
 
 def test_filter_bad_alleles():
+<<<<<<< HEAD
     alleles = pd.Series(['ATAT', 'ATAG', 'DIID', 'ACAC'])
     bad_alleles = s._filter_alleles(alleles)
     print bad_alleles
     assert_series_equal(bad_alleles, pd.Series([False, False, False, True]))
 
 
+=======
+	alleles = pd.Series(['ATAT','ATAG','DIID','ACAC'])
+	bad_alleles = s._filter_alleles(alleles)
+	print bad_alleles
+	assert_series_equal(bad_alleles, pd.Series([False, False, False, True]))
+
+def test_read_annot():
+	ref_ld_chr = None
+	ref_ld = os.path.join(DIR,'annot_test/test')
+	overlap_matrix, M_tot = s._read_chr_split_files(ref_ld_chr,ref_ld,log,'annot matrix',
+		ps.annot,frqfile=None)
+	assert_array_equal(overlap_matrix,[[1,0,0],[0,2,2],[0,2,2]])
+	assert_array_equal(M_tot,3)
+	
+	frqfile = os.path.join(DIR,'annot_test/test1')
+	overlap_matrix, M_tot = s._read_chr_split_files(ref_ld_chr,ref_ld,log,'annot matrix',
+		ps.annot,frqfile=frqfile)
+	assert_array_equal(overlap_matrix,[[1,0,0],[0,1,1],[0,1,1]])
+	assert_array_equal(M_tot,2)
+	
+>>>>>>> e2761618996529fcc084dbae865178f5888cb559
 def test_valid_snps():
     x = {'AC', 'AG', 'CA', 'CT', 'GA', 'GT', 'TC', 'TG'}
     assert_equal(x, s.VALID_SNPS)

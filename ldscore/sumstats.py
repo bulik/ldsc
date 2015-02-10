@@ -52,7 +52,6 @@ def _select_and_log(x, ii, log, msg):
         log.log(msg.format(N=new_len))
     return x
 
-
 def smart_merge(x, y):
     '''Check if SNP columns are equal. If so, save time by using concat instead of merge.'''
     if len(x) == len(y) and (x.SNP == y.SNP).all():
@@ -62,22 +61,23 @@ def smart_merge(x, y):
     else:
         out = pd.merge(x, y, how='inner', on='SNP')
     return out
-
-
-def _read_ref_ld(args, log):
+        
+def _read_ref_ld( args, log):
     '''Read reference LD Scores.'''
     ref_ld = _read_chr_split_files(args.ref_ld_chr, args.ref_ld, log,
          'reference panel LD Score', ps.ldscore_fromlist)
     log.log('Read reference panel LD Scores for {N} SNPs.'.format(N=len(ref_ld)))
     return ref_ld
 
-
-def _read_annot(args, log):
-    '''Read annot matrix.'''
-    overlap_matrix, M_tot = _read_chr_split_files(args.ref_ld_chr, args.ref_ld, log,
-        'annot matrix', ps.annot, frqfile=args.frqfile)
+def _read_annot(args,log):
+    '''Read annot matrix.'''    
+    if args.ref_ld is not None:
+        overlap_matrix, M_tot = _read_chr_split_files(args.ref_ld_chr, args.ref_ld, log, 
+            'annot matrix', ps.annot, frqfile=args.frqfile)
+    elif args.ref_ld_chr is not None:
+        overlap_matrix, M_tot = _read_chr_split_files(args.ref_ld_chr, args.ref_ld, log, 
+            'annot matrix', ps.annot, frqfile=args.frqfile_chr)     
     return overlap_matrix, M_tot
-
 
 def _read_M(args, log, n_annot):
     '''Read M (--M, --M-file, etc).'''
@@ -113,22 +113,21 @@ def _read_w_ld(args, log):
     return w_ld
 
 
-def _read_chr_split_files(chr_arg, not_chr_arg, log, noun, parsefunc, *kwargs):
+def _read_chr_split_files(chr_arg, not_chr_arg, log, noun, parsefunc, **kwargs):
     '''Read files split across 22 chromosomes (annot, ref_ld, w_ld).'''
     try:
         if not_chr_arg:
             log.log('Reading {N} from {F} ...'.format(F=not_chr_arg, N=noun))
-            out = parsefunc(not_chr_arg.split(','))
+            out = parsefunc(not_chr_arg.split(','),**kwargs)
         elif chr_arg:
             f = ps.sub_chr(chr_arg, '[1-22]')
             log.log('Reading {N} from {F} ...'.format(F=f, N=noun))
-            out = parsefunc(chr_arg.split(','), _N_CHR)
+            out = parsefunc(chr_arg.split(','), _N_CHR,**kwargs)
     except ValueError as e:
         log.log('Error parsing {N}.'.format(N=noun))
         raise e
-
+        
     return out
-
 
 def _read_sumstats(args, log, fh, alleles=False, dropna=False):
     '''Parse summary statistics.'''
@@ -161,16 +160,16 @@ def _check_ld_condnum(args, log, ref_ld):
 
 def _check_variance(log, M_annot, ref_ld):
     '''Remove zero-variance LD Scores.'''
+    ### TODO is there a SNP column here?
     ii = ref_ld.var(axis=0) == 0
     if ii.all():
         raise ValueError('All LD Scores have zero variance.')
     elif ii.any():
         log.log('Removing partitioned LD Scores with zero variance.')
-        ref_ld = ref_ld.ix[:, ~ii]
-        M_annot = M_annot[:, np.array(~ii)]
+        ref_ld = ref_ld.ix[:,~ii]
+        M_annot = M_annot[:,np.array(~ii)]
 
-    return M_annot, ref_ld
-
+    return M_annot, ref_ld, ii
 
 def _warn_length(log, sumstats):
     if len(sumstats) < 200000:
@@ -188,37 +187,6 @@ def _print_delete_values(ldscore_reg, ofh, log):
     log.log('Printing block jackknife delete values to {F}.'.format(F=ofh))
     np.savetxt(ofh, ldscore_reg.tot_delete_values)
 
-
-def _overlap_output(args, overlap_matrix, M_annot, n_annot, hsqhat, category_names, M_tot):
-        for i in range(n_annot):
-            overlap_matrix[i, :] = overlap_matrix[i, :]/M_annot
-
-        prop_hsq_overlap = np.dot(overlap_matrix, hsqhat.prop_hsq.T).reshape((1, n_annot))
-        prop_hsq_overlap_var = np.diag(np.dot(np.dot(overlap_matrix, hsqhat.prop_hsq_cov), overlap_matrix.T))
-        prop_hsq_overlap_se = np.sqrt(prop_hsq_overlap_var).reshape((1, n_annot))
-        one_d_convert = lambda x: np.array(x)[0]
-        prop_M_overlap = M_annot/M_tot
-        enrichment = prop_hsq_overlap/prop_M_overlap
-        enrichment_se = prop_hsq_overlap_se/prop_M_overlap
-        enrichment_p = stats.chi2.sf(one_d_convert((enrichment-1)/enrichment_se)**2, 1)
-        df = pd.DataFrame({
-            'Category': category_names,
-            'Prop._SNPs': one_d_convert(prop_M_overlap),
-            'Prop._h2': one_d_convert(prop_hsq_overlap),
-            'Prop._h2_std_error': one_d_convert(prop_hsq_overlap_se),
-            'Enrichment': one_d_convert(enrichment),
-            'Enrichment_std_error': one_d_convert(enrichment_se),
-            'Enrichment_p': enrichment_p
-            })
-        df = df[['Category', 'Prop._SNPs', 'Prop._h2', 'Prop._h2_std_error', 'Enrichment',
-            'Enrichment_std_error', 'Enrichment_p']]
-        if args.print_coefficients:
-            df['Coefficient'] = one_d_convert(hsqhat.coef)
-            df['Coefficient_std_error'] = hsqhat.coef_se
-            df['Coefficient_z-score'] = one_d_convert(hsqhat.coef/hsqhat.coef_se)
-
-        df = df[np.logical_not(df['Prop._SNPs'] > .9999)]
-        df.to_csv(args.out+'.results', sep="\t", index=False)
 
 
 def _merge_and_log(ld, sumstats, noun, log):
@@ -238,14 +206,13 @@ def _read_ld_sumstats(args, log, fh, alleles=False, dropna=True):
     ref_ld = _read_ref_ld(args, log)
     n_annot = len(ref_ld.columns) - 1
     M_annot = _read_M(args, log, n_annot)
-    M_annot, ref_ld = _check_variance(log, M_annot, ref_ld)
+    M_annot, ref_ld, novar_cols = _check_variance(log, M_annot, ref_ld)
     w_ld = _read_w_ld(args, log)
     sumstats = _merge_and_log(ref_ld, sumstats, 'reference panel LD', log)
     sumstats = _merge_and_log(sumstats, w_ld, 'regression SNP LD', log)
     w_ld_cname = sumstats.columns[-1]
-    ref_ld_cnames = ref_ld.columns[1:len(ref_ld.columns)]
-    return M_annot, w_ld_cname, ref_ld_cnames, sumstats
-
+    ref_ld_cnames = ref_ld.columns[1:len(ref_ld.columns)]   
+    return M_annot, w_ld_cname, ref_ld_cnames, sumstats, novar_cols
 
 def estimate_h2(args, log):
     '''Estimate h2 and partitioned h2.'''
@@ -256,12 +223,11 @@ def estimate_h2(args, log):
         args.intercept_h2 = float(args.intercept_h2)
     if args.no_intercept:
         args.intercept_h2 = 1
-    M_annot, w_ld_cname, ref_ld_cnames, sumstats = _read_ld_sumstats(args, log, args.h2)
-    ref_ld = sumstats.as_matrix(columns=ref_ld_cnames)
+    M_annot, w_ld_cname, ref_ld_cnames, sumstats, novar_cols = _read_ld_sumstats(args, log, args.h2)
+    ref_ld = np.array(sumstats[ref_ld_cnames])
     _check_ld_condnum(args, log, ref_ld_cnames)
     _warn_length(log, sumstats)
-    n_snp = len(sumstats)
-    n_annot = len(ref_ld_cnames)
+    n_snp = len(sumstats); n_annot = len(ref_ld_cnames)
     s = lambda x: np.array(x).reshape((n_snp, 1))
     n_blocks = min(n_snp, args.n_blocks)
     chisq = s(sumstats.Z**2)
@@ -271,14 +237,21 @@ def estimate_h2(args, log):
     if args.print_cov:
         _print_cov(hsqhat, args.out+'.cov', log)
     if args.print_delete_vals:
-        _print_delete_values(hsqhat, args.out+'.delete', log)
+        _print_delete_values(hsqhat, args.out+'.delete', log)   
+    
+    log.log(hsqhat.summary(ref_ld_cnames, P=args.samp_prev, K=args.pop_prev))
+    
     if args.overlap_annot:
         overlap_matrix, M_tot = _read_annot(args, log)
-        _overlap_output(args, overlap_matrix, M_annot, n_annot, hsqhat, ref_ld_cnames, M_tot)
+        #overlap_matrix = overlap_matrix[np.array(~novar_cols), np.array(~novar_cols)]#np.logical_not
+        log.log(hsqhat.summary(ref_ld_cnames, P=args.samp_prev, K=args.pop_prev, args=args,
+            overlap_matrix = overlap_matrix, M_annot = M_annot, M_tot = M_tot))
+        df_results = hsqhat._overlap_output(ref_ld_colnames, overlap_matrix, M_annot, M_tot,args.print_coefficients)
+        df_results.to_csv(args.out+'.results',sep="\t",index=False,float_format='%.6f') 
+        log.log('Results printed to '+args.out+'.results')
 
-    log.log(hsqhat.summary(ref_ld_cnames, P=args.samp_prev,
-        K=args.pop_prev))  # should have args.overlap_annot
     return hsqhat
+
 
 
 def estimate_rg(args, log):
@@ -297,7 +270,7 @@ def estimate_rg(args, log):
         args.intercept_gencov = [0 for _ in xrange(n_pheno)]
     p1 = rg_paths[0]
     out_prefix = args.out + rg_files[0]
-    M_annot, w_ld_cname, ref_ld_cnames, sumstats = _read_ld_sumstats(args, log, p1,
+    M_annot, w_ld_cname, ref_ld_cnames, sumstats, _ = _read_ld_sumstats(args, log, p1,
         alleles=True, dropna=True)
     RG = []
     for i, p2 in enumerate(rg_paths[1:n_pheno]):
@@ -339,7 +312,6 @@ def _read_other_sumstats(args, log, p2, sumstats, ref_ld_cnames):
     _check_ld_condnum(args, log, loop[ref_ld_cnames])
     _warn_length(log, loop)
     return loop
-
 
 def _get_rg_table(rg_paths, RG, args):
     '''Print a table of genetic correlations.'''
