@@ -28,8 +28,7 @@ STRAND_AMBIGUOUS = {''.join(x): x[0] == COMPLEMENT[x[1]]
 # SNPS we want to keep (pairs of alleles)
 VALID_SNPS = {x for x in map(lambda y: ''.join(y), it.product(BASES, BASES))
               if x[0] != x[1] and not STRAND_AMBIGUOUS[x]}
-# True iff SNP 1 has the same alleles as SNP 2 (possibly w/ strand or ref
-# allele flip)
+# T iff SNP 1 has the same alleles as SNP 2 (allowing for strand or ref allele flip).
 MATCH_ALLELES = {x for x in map(lambda y: ''.join(y), it.product(VALID_SNPS, VALID_SNPS))
                  # strand and ref match
                  if ((x[0] == x[2]) and (x[1] == x[3])) or
@@ -38,8 +37,7 @@ MATCH_ALLELES = {x for x in map(lambda y: ''.join(y), it.product(VALID_SNPS, VAL
                  # ref flip, strand match
                  ((x[0] == x[3]) and (x[1] == x[2])) or
                  ((x[0] == COMPLEMENT[x[3]]) and (x[1] == COMPLEMENT[x[2]]))}  # strand and ref flip
-# True iff SNP 1 has the same alleles as SNP 2 w/ ref allele flip (strand
-# flip optional)
+# T iff SNP 1 has the same alleles as SNP 2 w/ ref allele flip.
 FLIP_ALLELES = {''.join(x):
                 ((x[0] == x[3]) and (x[1] == x[2])) or  # strand match
                 # strand flip
@@ -250,9 +248,28 @@ def estimate_h2(args, log):
     _check_ld_condnum(args, log, ref_ld_cnames)
     _warn_length(log, sumstats)
     n_snp = len(sumstats)
-    s = lambda x: np.array(x).reshape((n_snp, 1))
     n_blocks = min(n_snp, args.n_blocks)
-    chisq = s(sumstats.Z ** 2)
+    n_annot = len(ref_ld_cnames)
+    chisq_max = args.chisq_max
+    if n_annot == 1 and args.two_step is None:
+        args.two_step = 30
+    if n_annot > 1 and args.chisq_max is None:
+        chisq_max = max(0.001*sumstats.N.max(), 80)
+
+    s = lambda x: np.array(x).reshape((n_snp, 1))
+    chisq = s(sumstats.Z**2)
+    if chisq_max is not None:
+        ii = chisq < chisq_max
+        sumstats = sumstats[ii]
+        log.log('Removed {M} SNPs with chi^2 > {C} ({N} SNPs remain)'.format(
+                C=chisq_max, M=np.sum(ii), N=n_snp-np.sum(ii)))
+        n_snp = np.sum(ii)  # lambdas are late-binding, so this works
+        ref_ld = np.array(sumstats[ref_ld_cnames])
+        chisq = chisq[ii].reshape((n_snp, 1))
+
+    if args.two_step is not None:
+        log.log('Using two-step estimator with cutoff at {M}.'.format(M=args.two_step))
+
     hsqhat = reg.Hsq(chisq, ref_ld, s(sumstats[w_ld_cname]), s(sumstats.N),
                      M_annot, n_blocks=n_blocks, intercept=args.intercept_h2, twostep=args.two_step)
 
@@ -265,11 +282,10 @@ def estimate_h2(args, log):
     if args.overlap_annot:
         overlap_matrix, M_tot = _read_annot(args, log)
 
-        #overlap_matrix = overlap_matrix[np.array(~novar_cols), np.array(~novar_cols)]#np.logical_not
-        df_results = hsqhat._overlap_output(ref_ld_cnames, overlap_matrix, M_annot, M_tot,args.print_coefficients)
-        df_results.to_csv(args.out+'.results',sep="\t",index=False) 
+        # overlap_matrix = overlap_matrix[np.array(~novar_cols), np.array(~novar_cols)]#np.logical_not
+        df_results = hsqhat._overlap_output(ref_ld_cnames, overlap_matrix, M_annot, M_tot, args.print_coefficients)
+        df_results.to_csv(args.out+'.results', sep="\t", index=False)
         log.log('Results printed to '+args.out+'.results')
-
 
     return hsqhat
 
@@ -283,8 +299,8 @@ def estimate_rg(args, log):
     args.intercept_h2, args.intercept_gencov, args.samp_prev, args.pop_prev = map(f,
         (args.intercept_h2, args.intercept_gencov, args.samp_prev, args.pop_prev))
     map(lambda x: _check_arg_len(x, n_pheno), ((args.intercept_h2, '--intercept-h2'),
-                                               (args.intercept_gencov,
-                                                '--intercept-gencov'), (args.samp_prev, '--samp-prev'),
+                                               (args.intercept_gencov, '--intercept-gencov'),
+                                               (args.samp_prev, '--samp-prev'),
                                                (args.pop_prev, '--pop-prev')))
     if args.no_intercept:
         args.intercept_h2 = [1 for _ in xrange(n_pheno)]
@@ -294,6 +310,15 @@ def estimate_rg(args, log):
     M_annot, w_ld_cname, ref_ld_cnames, sumstats, _ = _read_ld_sumstats(args, log, p1,
                                                                         alleles=True, dropna=True)
     RG = []
+    n_annot = M_annot.shape[1]
+    if n_annot == 1 and args.two_step is None:
+        args.two_step = 30
+    if args.two_step is not None:
+        log.log('Using two-step estimator with cutoff at {M}.'.format(M=args.two_step))
+
+    if n_annot == 1 and args.two_step is None:
+        args.two_step = 30
+
     for i, p2 in enumerate(rg_paths[1:n_pheno]):
         log.log(
             'Computing rg for phenotype {I}/{N}'.format(I=i + 2, N=len(rg_paths)))
@@ -408,6 +433,11 @@ def _rg(sumstats, args, log, M_annot, ref_ld_cnames, w_ld_cname, i):
     '''Run the regressions.'''
     n_snp = len(sumstats)
     s = lambda x: np.array(x).reshape((n_snp, 1))
+    if args.chisq_max is not None:
+        ii = sumstats.Z1**2*sumstats.Z2**2 < args.chisq_max**2
+        n_snp = np.sum(ii)  # lambdas are late binding, so this works
+        sumstats = sumstats[ii]
+
     n_blocks = min(args.n_blocks, n_snp)
     ref_ld = sumstats.as_matrix(columns=ref_ld_cnames)
     intercepts = [args.intercept_h2[0], args.intercept_h2[

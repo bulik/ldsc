@@ -17,7 +17,6 @@ s._N_CHR = 2  # having to mock 22 files is annoying
 
 
 class Mock(object):
-
     '''
     Dumb object for mocking args and log
     '''
@@ -26,7 +25,8 @@ class Mock(object):
         pass
 
     def log(self, x):
-        pass
+        #pass
+        print x
 
 log = Mock()
 args = Mock()
@@ -280,6 +280,7 @@ class Test_H2_Statistical(unittest.TestCase):
         args = parser.parse_args('')
         args.ref_ld = DIR + '/simulate_test/ldscore/twold_onefile'
         args.w_ld = DIR + '/simulate_test/ldscore/w'
+        args.chisq_max = 99999
         h2 = []
         h2_noint = []
         for i in xrange(N_REP):
@@ -430,7 +431,6 @@ class Test_Estimate(unittest.TestCase):
         x = s.estimate_rg(args, log)[0]
         args.ref_ld = DIR + '/simulate_test/ldscore/twold_firstfile,' + \
             DIR + '/simulate_test/ldscore/twold_secondfile'
-        print 'asdf', args.pop_prev
         y = s.estimate_rg(args, log)[0]
         args.ref_ld_chr = DIR + '/simulate_test/ldscore/twold_firstfile,' + \
             DIR + '/simulate_test/ldscore/twold_secondfile'
@@ -454,27 +454,29 @@ class Test_Estimate(unittest.TestCase):
         assert_equal(x.rg_se, y.rg_se)
 
     def test_twostep_h2(self):
-        # two-step and not two step should yield same estimate (but not same
-        # SE!) if the cutoff is really high)
+        # make sure two step isn't going crazy
         args = parser.parse_args('')
         args.ref_ld = DIR + '/simulate_test/ldscore/oneld_onefile'
         args.w_ld = DIR + '/simulate_test/ldscore/w'
         args.h2 = DIR + '/simulate_test/sumstats/1'
         args.out = DIR + '/simulate_test/1'
+        args.chisq_max = 9999999
+        args.two_step = 999
         x = s.estimate_h2(args, log)
+        args.chisq_max = 9999
         args.two_step = 99999
         y = s.estimate_h2(args, log)
         assert_allclose(x.tot, y.tot, atol=1e-5)
 
     def test_twostep_rg(self):
-        # two-step and not two step should yield same estimate (but not same
-        # SE!) if the cutoff is really high)
+        # make sure two step isn't going crazy
         args = parser.parse_args('')
         args.ref_ld_chr = DIR + '/simulate_test/ldscore/oneld_onefile'
         args.w_ld = DIR + '/simulate_test/ldscore/w'
         args.rg = ','.join(
             [DIR + '/simulate_test/sumstats/1' for _ in xrange(2)])
-        args.out = DIR + '/simulate_test/1'
+        args.out = DIR + '/simulate_test/rg'
+        args.two_step = 999
         x = s.estimate_rg(args, log)[0]
         args.two_step = 99999
         y = s.estimate_rg(args, log)[0]

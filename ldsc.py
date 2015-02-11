@@ -510,6 +510,8 @@ parser.add_argument('--M', default=None, type=str,
     help='# of SNPs (if you don\'t want to use the .l2.M files that came with your .l2.ldscore.gz files)')
 parser.add_argument('--two-step', default=None, type=float,
     help='Test statistic bound for use with the two-step estimator. Not compatible with --no-intercept and --constrain-intercept.')
+parser.add_argument('--chisq-max', default=None, type=float,
+    help='Max chi^2.')
 # Flags for both LD Score estimation and h2/gencor estimation
 parser.add_argument('--print-cov', default=False, action='store_true',
     help='For use with --h2/--rg. This flag tells LDSC to print the '
