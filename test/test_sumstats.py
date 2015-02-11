@@ -25,7 +25,7 @@ class Mock(object):
         pass
 
     def log(self, x):
-        #pass
+        # pass
         print x
 
 log = Mock()

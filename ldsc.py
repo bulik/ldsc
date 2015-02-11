@@ -117,6 +117,7 @@ def ldscore(args, log):
     chr snp bp cm <annotations>
 
     '''
+
     if args.bfile:
         snp_file, snp_obj = args.bfile+'.bim', ps.PlinkBIMFile
         ind_file, ind_obj = args.bfile+'.fam', ps.PlinkFAMFile
@@ -126,33 +127,31 @@ def ldscore(args, log):
     array_snps = snp_obj(snp_file)
     m = len(array_snps.IDList)
     log.log('Read list of {m} SNPs from {f}'.format(m=m, f=snp_file))
+    if args.annot is not None:  # read --annot
+        try:
+            annot = ps.AnnotFile(args.annot)
+            n_annot, ma = len(annot.df.columns) - 4, len(annot.df)
+            log.log("Read {A} annotations for {M} SNPs from {f}".format(f=args.annot,
+                A=n_annot, M=ma))
+            annot_matrix = np.array(annot.df.iloc[:,4:])
+            annot_colnames = annot.df.columns[4:]
+            keep_snps = None
+            if np.any(annot.df.SNP.values != array_snps.df.SNP.values):
+                raise ValueError('The .annot file must contain the same SNPs in the same'+\
+                    ' order as the .bim file.')
+        except Exception:
+            log.log('Error parsing .annot file')
+            raise
 
-    # read --annot
-    if args.annot is not None:
-        annot = ps.AnnotFile(args.annot)
-        n_annot, ma = len(annot.df.columns) - 4, len(annot.df)
-        log.log("Read {A} annotations for {M} SNPs from {f}".format(f=args.annot,
-            A=n_annot, M=ma))
-        annot_matrix = np.array(annot.df.iloc[:,4:])
-        annot_colnames = annot.df.columns[4:]
-        keep_snps = None
-        if np.any(annot.df.SNP.values != array_snps.df.SNP.values):
-            raise ValueError('The .annot file must contain the same SNPs in the same'+\
-                ' order as the .bim file.')
-    # read --extract
-    elif args.extract is not None:
+    elif args.extract is not None:  # --extract
         keep_snps = __filter__(args.extract, 'SNPs', 'include', array_snps)
         annot_matrix, annot_colnames, n_annot = None, None, 1
 
-    # read --cts-bin plus --cts-breaks
-    elif args.cts_bin is not None and args.cts_breaks is not None:
-        # read filenames
-        cts_fnames = args.cts_bin.split(',')
-        # read breaks
-        # replace N with negative sign
-        args.cts_breaks = args.cts_breaks.replace('N','-')
-        # split on x
-        try:
+
+    elif args.cts_bin is not None and args.cts_breaks is not None:  # --cts-bin
+        cts_fnames = args.cts_bin.split(',')  # read filenames
+        args.cts_breaks = args.cts_breaks.replace('N','-')  # replace N with negative sign
+        try:  # split on x
             breaks = [[float(x) for x in y.split(',')] for y in args.cts_breaks.split('x')]
         except ValueError as e:
             raise ValueError('--cts-breaks must be a comma-separated list of numbers: '
@@ -305,7 +304,7 @@ def ldscore(args, log):
     else:
         ldscore_colnames =  [y+col_prefix+scale_suffix for y in annot_colnames]
 
-    # print .ldscore. Output columns: CHR, BP, CM, RS, MAF, [LD Scores]
+    # print .ldscore. Output columns: CHR, BP, RS, [LD Scores]
     out_fname = args.out + '.' + file_suffix + '.ldscore'
     new_colnames = geno_array.colnames + ldscore_colnames
     df = pd.DataFrame.from_records(np.c_[geno_array.df, lN])
@@ -335,8 +334,6 @@ def ldscore(args, log):
     df.drop(['CM','MAF'], axis=1).to_csv(out_fname, sep="\t", header=True, index=False,
         float_format='%.3f')
     call(['gzip', '-f', out_fname])
-
-    # print .M
     if annot_matrix is not None:
         M = np.atleast_1d(np.squeeze(np.asarray(np.sum(annot_matrix, axis=0))))
         ii = geno_array.maf > 0.05

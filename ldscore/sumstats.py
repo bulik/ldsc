@@ -78,12 +78,17 @@ def _read_ref_ld(args, log):
 
 def _read_annot(args, log):
     '''Read annot matrix.'''
-    if args.ref_ld is not None:
-        overlap_matrix, M_tot = _read_chr_split_files(args.ref_ld_chr, args.ref_ld, log,
-                                                      'annot matrix', ps.annot, frqfile=args.frqfile)
-    elif args.ref_ld_chr is not None:
-        overlap_matrix, M_tot = _read_chr_split_files(args.ref_ld_chr, args.ref_ld, log,
+    try:
+        if args.ref_ld is not None:
+            overlap_matrix, M_tot = _read_chr_split_files(args.ref_ld_chr, args.ref_ld, log,
+                                                          'annot matrix', ps.annot, frqfile=args.frqfile)
+        elif args.ref_ld_chr is not None:
+            overlap_matrix, M_tot = _read_chr_split_files(args.ref_ld_chr, args.ref_ld, log,
                                                       'annot matrix', ps.annot, frqfile=args.frqfile_chr)
+    except Exception:
+        log.log('Error parsing .annot file.')
+        raise
+
     return overlap_matrix, M_tot
 
 
