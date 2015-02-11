@@ -256,7 +256,7 @@ def estimate_h2(args, log):
     n_blocks = min(n_snp, args.n_blocks)
     n_annot = len(ref_ld_cnames)
     chisq_max = args.chisq_max
-    if n_annot == 1 and args.two_step is None and args.constrain_intercept is None:
+    if n_annot == 1 and args.two_step is None and args.intercept_h2 is None:
         args.two_step = 30
     if n_annot > 1 and args.chisq_max is None:
         chisq_max = max(0.001*sumstats.N.max(), 80)
@@ -321,7 +321,6 @@ def estimate_rg(args, log):
     if args.two_step is not None:
         log.log('Using two-step estimator with cutoff at {M}.'.format(M=args.two_step))
 
-
     for i, p2 in enumerate(rg_paths[1:n_pheno]):
         log.log(
             'Computing rg for phenotype {I}/{N}'.format(I=i + 2, N=len(rg_paths)))
@@ -373,6 +372,7 @@ def _get_rg_table(rg_paths, RG, args):
     x['p2'] = rg_paths[1:len(rg_paths)]
     x['rg'] = map(t('rg_ratio'), RG)
     x['se'] = map(t('rg_se'), RG)
+    x['p'] = map(t('z'), RG)
     x['p'] = map(t('p'), RG)
     if args.samp_prev is not None and args.pop_prev is not None and\
             all((i is not None for i in args.samp_prev)) and all((i is not None for it in args.pop_prev)):
