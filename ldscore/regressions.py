@@ -138,7 +138,7 @@ def h2_obs_to_liab(h2_obs, P, K):
 
 class LD_Score_Regression(object):
 
-    def __init__(self, y, x, w, N, M, n_blocks, intercept=None, slow=False, step1_ii=None):
+    def __init__(self, y, x, w, N, M, n_blocks, intercept=None, slow=False, step1_ii=None, old_weights=False):
         for i in [y, x, w, M, N]:
             try:
                 if len(i.shape) != 2:
@@ -199,6 +199,11 @@ class LD_Score_Regression(object):
                 np.sum(np.multiply(initial_w, np.square(x)))
             jknife = self._combine_twostep_jknives(
                 step1_jknife, step2_jknife, M_tot, c, Nbar)
+        elif old_weights:
+            initial_w = np.sqrt(initial_w)
+            x = IRWLS._weight(x, initial_w)
+            y = IRWLS._weight(y, initial_w)
+            jknife = jk.LstsqJackknifeFast(x, y, n_blocks)
         else:
             update_func = lambda a: self._update_func(
                 a, x_tot, w, N, M_tot, Nbar, intercept)
@@ -324,13 +329,13 @@ class Hsq(LD_Score_Regression):
 
     __null_intercept__ = 1
 
-    def __init__(self, y, x, w, N, M, n_blocks=200, intercept=None, slow=False, twostep=None):
+    def __init__(self, y, x, w, N, M, n_blocks=200, intercept=None, slow=False, twostep=None, old_weights=False):
         step1_ii = None
         if twostep is not None:
             step1_ii = y < twostep
 
         LD_Score_Regression.__init__(self, y, x, w, N, M, n_blocks, intercept=intercept,
-                                     slow=slow, step1_ii=step1_ii)
+                                     slow=slow, step1_ii=step1_ii, old_weights=old_weights)
         self.mean_chisq, self.lambda_gc = self._summarize_chisq(y)
         if not self.constrain_intercept:
             self.ratio, self.ratio_se = self._ratio(

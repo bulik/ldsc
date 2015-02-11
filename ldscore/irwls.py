@@ -108,6 +108,7 @@ class IRWLS(object):
             raise ValueError(
                 'w has shape {S}. w must have shape ({N}, 1).'.format(S=w.shape, N=n))
 
+        w = np.sqrt(w)
         for i in xrange(2):  # update this later
             new_w = np.sqrt(update_func(cls.wls(x, y, w)))
             if new_w.shape != w.shape:
@@ -139,7 +140,7 @@ class IRWLS(object):
         y : np.matrix with shape (n, 1)
             Dependent variable.
         w : np.matrix with shape (n, 1)
-            Regression weights.
+            Regression weights (1/CVF scale).
 
         Returns
         -------
@@ -170,7 +171,7 @@ class IRWLS(object):
         x : np.matrix with shape (n, p)
             Rows are observations.
         w : np.matrix with shape (n, 1)
-            Regression weights.
+            Regression weights (1 / sqrt(CVF) scale).
 
         Returns
         -------

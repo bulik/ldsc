@@ -72,7 +72,7 @@ docs/_build/
 *.cts
 *.log
 *.delete
-*.cov
+*cov
 *.sumstats
 *.delete_k
 *asdf*

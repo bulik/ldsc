@@ -256,10 +256,14 @@ def estimate_h2(args, log):
     n_blocks = min(n_snp, args.n_blocks)
     n_annot = len(ref_ld_cnames)
     chisq_max = args.chisq_max
-    if n_annot == 1 and args.two_step is None and args.intercept_h2 is None:
-        args.two_step = 30
-    if n_annot > 1 and args.chisq_max is None:
-        chisq_max = max(0.001*sumstats.N.max(), 80)
+    old_weights = False
+    if n_annot == 1:
+        if args.two_step is None and args.intercept_h2 is None:
+            args.two_step = 30
+    else:
+        old_weights = True
+        if args.chisq_max is None:
+            chisq_max = max(0.001*sumstats.N.max(), 80)
 
     s = lambda x: np.array(x).reshape((n_snp, 1))
     chisq = s(sumstats.Z**2)
@@ -267,7 +271,7 @@ def estimate_h2(args, log):
         ii = chisq < chisq_max
         sumstats = sumstats[ii]
         log.log('Removed {M} SNPs with chi^2 > {C} ({N} SNPs remain)'.format(
-                C=chisq_max, M=np.sum(ii), N=n_snp-np.sum(ii)))
+                C=chisq_max, N=np.sum(ii), M=n_snp-np.sum(ii)))
         n_snp = np.sum(ii)  # lambdas are late-binding, so this works
         ref_ld = np.array(sumstats[ref_ld_cnames])
         chisq = chisq[ii].reshape((n_snp, 1))
@@ -276,7 +280,8 @@ def estimate_h2(args, log):
         log.log('Using two-step estimator with cutoff at {M}.'.format(M=args.two_step))
 
     hsqhat = reg.Hsq(chisq, ref_ld, s(sumstats[w_ld_cname]), s(sumstats.N),
-                     M_annot, n_blocks=n_blocks, intercept=args.intercept_h2, twostep=args.two_step)
+                     M_annot, n_blocks=n_blocks, intercept=args.intercept_h2,
+                     twostep=args.two_step, old_weights=old_weights)
 
     if args.print_cov:
         _print_cov(hsqhat, args.out + '.cov', log)
