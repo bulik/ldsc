@@ -4,7 +4,6 @@ import ldscore.parse as ps
 import unittest
 import numpy as np
 import pandas as pd
-import nose
 from pandas.util.testing import assert_series_equal, assert_frame_equal
 from nose.tools import *
 from numpy.testing import assert_array_equal, assert_array_almost_equal, assert_allclose
@@ -189,6 +188,7 @@ def test_strand_ambiguous():
     assert_equal(m, s.STRAND_AMBIGUOUS)
 
 
+@attr('rg')
 @attr('slow')
 class Test_RG_Statistical():
 
@@ -271,6 +271,7 @@ class Test_RG_Statistical():
             map(t('intercept'), map(t('hsq2'), self.rg))), atol=0.1)
 
 
+@attr('h2')
 @attr('slow')
 class Test_H2_Statistical(unittest.TestCase):
 
@@ -327,15 +328,24 @@ class Test_H2_Statistical(unittest.TestCase):
         y = np.nanstd(map(t('cat'), self.h2_noint), axis=0).reshape(x.shape)
         assert_allclose(x, y, atol=0.05)
 
+    def test_coef(self):
+        # should be h^2/M = [[0.3, 0.9]] / M
+        coef = np.array(((0.3, 0.9))) / self.h2[0].M
+        for h in [self.h2, self.h2_noint]:
+            assert np.all(np.abs(np.nanmean(map(t('coef'), h), axis=0) - coef) < 1e6)
+
+    def test_coef_se(self):
+        for h in [self.h2, self.h2_noint]:
+            assert_array_almost_equal(np.nanmean(map(t('coef_se'), h), axis=0),
+                                      np.nanstd(map(t('coef'), h), axis=0))
+
     def test_prop(self):
         for h in [self.h2, self.h2_noint]:
-            # assert np.all(np.nanmean( map(t('prop'), h), axis=0) - [1/3, 2/3] <  0.05)
-            pass
+            assert np.all(np.nanmean(map(t('prop'), h), axis=0) - [1/3, 2/3] < 0.02)
 
     def test_prop_se(self):
         for h in [self.h2, self.h2_noint]:
-            # assert np.all(np.nanmean( map(t('prop_se'), h), axis=0) - np.nanstd( map(t('prop'), h), axis=0) < 0.05)
-            pass
+            assert np.all(np.nanmean(map(t('prop_se'), h), axis=0) - np.nanstd(map(t('prop'), h), axis=0) < 0.02)
 
     def test_int(self):
         assert_allclose(np.nanmean(map(t('intercept'), self.h2)), 1, atol=0.1)
@@ -370,8 +380,8 @@ class Test_Estimate(unittest.TestCase):
         args = parser.parse_args('')
         args.ref_ld_chr = DIR + '/simulate_test/ldscore/twold_onefile'
         args.w_ld = DIR + '/simulate_test/ldscore/w'
-        args.h2 = DIR + '/simulate_test/sumstats/1'
-        args.out = DIR + '/simulate_test/1'
+        args.h2 = DIR + '/simulate_test/sumstats/555'
+        args.out = DIR + '/simulate_test/'
         x = s.estimate_h2(args, log)
         args.ref_ld = DIR + '/simulate_test/ldscore/twold_firstfile,' + \
             DIR + '/simulate_test/ldscore/twold_secondfile'
@@ -380,9 +390,14 @@ class Test_Estimate(unittest.TestCase):
             DIR + '/simulate_test/ldscore/twold_secondfile'
         z = s.estimate_h2(args, log)
         assert_almost_equal(x.tot, y.tot)
-        assert_almost_equal(y.tot, z.tot)
-        assert_almost_equal(x.tot_se, y.tot_se)
-        assert_almost_equal(y.tot_se, z.tot_se)
+        assert_array_almost_equal(y.cat, z.cat)
+        assert_array_almost_equal(x.prop, y.prop)
+        assert_array_almost_equal(y.coef, z.coef)
+
+        assert_array_almost_equal(x.tot_se, y.tot_se)
+        assert_array_almost_equal(y.cat_se, z.cat_se)
+        assert_array_almost_equal(x.prop_se, y.prop_se)
+        assert_array_almost_equal(y.coef_se, z.coef_se)
 
     # test statistical properties (constrain intercept here)
     def test_rg_M(self):
@@ -421,9 +436,8 @@ class Test_Estimate(unittest.TestCase):
             DIR + '/simulate_test/ldscore/twold_secondfile'
         z = s.estimate_rg(args, log)[0]
         assert_almost_equal(x.rg_ratio, y.rg_ratio)
-        assert_almost_equal(y.rg_ratio, z.rg_ratio)
+        assert_almost_equal(y.rg_jknife, z.rg_jknife)
         assert_almost_equal(x.rg_se, y.rg_se)
-        assert_almost_equal(y.rg_se, z.rg_se)
 
     def test_no_check_alleles(self):
         args = parser.parse_args('')
@@ -436,6 +450,7 @@ class Test_Estimate(unittest.TestCase):
         args.no_check_alleles = True
         y = s.estimate_rg(args, log)[0]
         assert_equal(x.rg_ratio, y.rg_ratio)
+        assert_almost_equal(x.rg_jknife, y.rg_jknife)
         assert_equal(x.rg_se, y.rg_se)
 
     def test_twostep_h2(self):

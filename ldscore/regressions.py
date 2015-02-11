@@ -208,6 +208,8 @@ class LD_Score_Regression(object):
         if not self.constrain_intercept:
             self.intercept_delete_values = jknife.delete_values[:, self.n_annot]
 
+        self.M = M
+
     @classmethod
     def aggregate(cls, y, x, N, M, intercept=None):
         if intercept is None:
@@ -353,7 +355,7 @@ class Hsq(LD_Score_Regression):
 
 		for i in range(self.n_annot):
 			overlap_matrix[i,:] = overlap_matrix[i,:]/M_annot
-		
+
 		prop_hsq_overlap = np.dot(overlap_matrix,self.prop.T).reshape((1,self.n_annot))
 		prop_hsq_overlap_var = np.diag(np.dot(np.dot(overlap_matrix,self.prop_cov),overlap_matrix.T))
 		prop_hsq_overlap_se = np.sqrt(np.maximum(0,prop_hsq_overlap_var)).reshape((1,self.n_annot))
@@ -382,7 +384,7 @@ class Hsq(LD_Score_Regression):
 			'Enrichment_std_error','Enrichment_p']]
 		return df
 
-	
+
     def summary(self, ref_ld_colnames=None, P=None, K=None):
 
         '''Print summary of the LD Score Regression.'''
@@ -421,7 +423,7 @@ class Hsq(LD_Score_Regression):
         return remove_brackets('\n'.join(out))
 
 
-			
+
 
     def _update_weights(self, ld, w_ld, N, M, hsq, intercept):
         if intercept is None:
