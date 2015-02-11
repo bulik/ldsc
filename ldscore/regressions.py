@@ -638,8 +638,7 @@ class Gencov(LD_Score_Regression):
         c = np.multiply(sqrt_n1n2, rho_g * ld) / M + intercept_gencov
         try:
             het_w = 1.0 / (np.multiply(a, b) + np.square(c))
-        except FloatingPointError:
-            # bizarre error; should never happen in practice
+        except FloatingPointError:  # bizarre error; should never happen
             raise FloatingPointError('Why did you set hsq intercept <= 0?')
 
         oc_w = 1.0 / w_ld
@@ -661,6 +660,8 @@ class RG(object):
         gencov = Gencov(z1, z2, x, w, N1, N2, M, hsq1.tot, hsq2.tot, hsq1.intercept,
                         hsq2.intercept, n_blocks, intercept_gencov=intercept_gencov, slow=slow,
                         twostep=twostep)
+        gencov.N1 = None  # save memory
+        gencov.N2 = None
         self.hsq1, self.hsq2, self.gencov = hsq1, hsq2, gencov
         if (hsq1.tot <= 0 or hsq2.tot <= 0):
             self._negative_hsq = True
