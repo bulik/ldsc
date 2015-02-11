@@ -256,7 +256,7 @@ def estimate_h2(args, log):
     n_blocks = min(n_snp, args.n_blocks)
     n_annot = len(ref_ld_cnames)
     chisq_max = args.chisq_max
-    if n_annot == 1 and args.two_step is None:
+    if n_annot == 1 and args.two_step is None and args.constrain_intercept is None:
         args.two_step = 30
     if n_annot > 1 and args.chisq_max is None:
         chisq_max = max(0.001*sumstats.N.max(), 80)
@@ -316,13 +316,11 @@ def estimate_rg(args, log):
                                                                         alleles=True, dropna=True)
     RG = []
     n_annot = M_annot.shape[1]
-    if n_annot == 1 and args.two_step is None:
+    if n_annot == 1 and args.two_step is None and args.intercept_h2 is None:
         args.two_step = 30
     if args.two_step is not None:
         log.log('Using two-step estimator with cutoff at {M}.'.format(M=args.two_step))
 
-    if n_annot == 1 and args.two_step is None:
-        args.two_step = 30
 
     for i, p2 in enumerate(rg_paths[1:n_pheno]):
         log.log(
@@ -384,7 +382,7 @@ def _get_rg_table(rg_paths, RG, args):
             lambda x: c * x, map(t('tot_se'), map(t('hsq2'), RG)))
     else:
         x['h2_obs'] = map(t('tot'), map(t('hsq2'), RG))
-        x['h2_obs_se'] = map(t('tot_se '), map(t('hsq2'), RG))
+        x['h2_obs_se'] = map(t('tot_se'), map(t('hsq2'), RG))
 
     x['h2_int'] = map(t('intercept'), map(t('hsq2'), RG))
     x['h2_int_se'] = map(t('intercept_se'), map(t('hsq2'), RG))

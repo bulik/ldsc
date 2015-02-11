@@ -108,7 +108,7 @@ class IRWLS(object):
             raise ValueError(
                 'w has shape {S}. w must have shape ({N}, 1).'.format(S=w.shape, N=n))
 
-        for i in xrange(3):  # update this later
+        for i in xrange(2):  # update this later
             new_w = np.sqrt(update_func(cls.wls(x, y, w)))
             if new_w.shape != w.shape:
                 print 'IRWLS update:', new_w.shape, w.shape

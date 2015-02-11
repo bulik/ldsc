@@ -450,8 +450,12 @@ class Hsq(LD_Score_Regression):
             out.append(
                 'Intercept: ' + s(self.intercept) + ' (' + s(self.intercept_se) + ')')
             if self.mean_chisq > 1:
-                out.append(
-                    'Ratio: ' + s(self.ratio) + ' (' + s(self.ratio_se) + ')')
+                if self.ratio < 0:
+                    out.append(
+                      'Ratio < 0 (ususally indicates GC correction).')
+                else:
+                    out.append(
+                      'Ratio: ' + s(self.ratio) + ' (' + s(self.ratio_se) + ')')
             else:
                 out.append('Ratio: NA (mean chi^2 < 1)')
 
@@ -655,7 +659,7 @@ class RG(object):
         n_snp, n_annot = x.shape
         hsq1 = Hsq(np.square(z1), x, w, N1, M, n_blocks=n_blocks, intercept=intercept_hsq1,
                    slow=slow, twostep=twostep)
-        hsq2 = Hsq(np.square(z2), x, w, N1, M, n_blocks=n_blocks, intercept=intercept_hsq2,
+        hsq2 = Hsq(np.square(z2), x, w, N2, M, n_blocks=n_blocks, intercept=intercept_hsq2,
                    slow=slow, twostep=twostep)
         gencov = Gencov(z1, z2, x, w, N1, N2, M, hsq1.tot, hsq2.tot, hsq1.intercept,
                         hsq2.intercept, n_blocks, intercept_gencov=intercept_gencov, slow=slow,
