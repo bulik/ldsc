@@ -377,7 +377,7 @@ def _get_rg_table(rg_paths, RG, args):
     x['p2'] = rg_paths[1:len(rg_paths)]
     x['rg'] = map(t('rg_ratio'), RG)
     x['se'] = map(t('rg_se'), RG)
-    x['p'] = map(t('z'), RG)
+    x['z'] = map(t('z'), RG)
     x['p'] = map(t('p'), RG)
     if args.samp_prev is not None and args.pop_prev is not None and\
             all((i is not None for i in args.samp_prev)) and all((i is not None for it in args.pop_prev)):
