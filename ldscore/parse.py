@@ -193,11 +193,11 @@ def annot(fh_list, num=None, frqfile=None):
         M_tot = 0
         for chr in xrange(1, num + 1):
             if frqfile is not None:
-                df_annot_chr_list = [annot_parser(sub_chr(fh, i) + annot_suffix[i], annot_compression[i],
-                                                  sub_chr(frqfile, i) + frq_suffix, frq_compression)
+                df_annot_chr_list = [annot_parser(sub_chr(fh, chr) + annot_suffix[i], annot_compression[i],
+                                                  sub_chr(frqfile, chr) + frq_suffix, frq_compression)
                                      for i, fh in enumerate(fh_list)]
             else:
-                df_annot_chr_list = [annot_parser(sub_chr(fh, i) + annot_suffix[i], annot_compression[i])
+                df_annot_chr_list = [annot_parser(sub_chr(fh, chr) + annot_suffix[i], annot_compression[i])
                                      for i, fh in enumerate(fh_list)]
 
             annot_matrix_chr_list = [np.matrix(df_annot_chr.ix[:, 1:]) for df_annot_chr in df_annot_chr_list]
