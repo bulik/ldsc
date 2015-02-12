@@ -19,7 +19,7 @@ will print a list of all command-line options. Short tutorials describing the fo
 
 ## Where Can I Get LD Scores?
 
-You can download LD Scores that are suitable for basic LD Score analyses (the LD Score regression intercept, heritability, partitioned heritability with the baseline model, genetic correlation) from $URL_GOES_HERE.
+You can download LD Scores that are suitable for basic LD Score analyses (the LD Score regression intercept, heritability, genetic correlation) [here](http://www.broadinstitute.org/~bulik/eur_ldscores/).
 
 
 ##Support
