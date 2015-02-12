@@ -29,9 +29,9 @@ Before contacting us, please try the following:
 1. The [tutorials](tutorials/) have basic advice on running `ldsc` and interpreting the output
 2. Common issues are described in the [FAQ](docs/FAQ)
 2. The methods are described in the papers (citations below)
-3. Search the [issue tracker](https://github.com/bulik/ldsc/issues)
 
-Please report bugs on the [issue tracker](https://github.com/bulik/ldsc/issues).
+If that doesn't work, you can get in touch with us via the [google group](https://groups.google.com/forum/?hl=en#!forum/ldsc_users).
+
 
 ##Citation
 
