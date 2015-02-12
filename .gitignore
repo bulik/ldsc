@@ -70,3 +70,16 @@ docs/_build/
 *.extract
 *.gz
 *.cts
+*.log
+*.delete
+*cov
+*.sumstats
+*.delete_k
+*asdf*
+*qwer*
+*M_5_50*
+*.results
+
+# sublime text
+*.idea*
+*sublime*

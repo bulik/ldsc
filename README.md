@@ -1,45 +1,70 @@
-LDSC (LD SCore) v 0.0.1 (alpha)
-==============================
 
-Copyright (c) 2014 Brendan Bulik-Sullivan & Hilary Finucane
+#LDSC (LD SCore) `v1.0.0`
 
-(NB We're still working on it. The dev branch is going to become v1.0.0 any day now. To report bugs, please either raise an issue on github or email us with LDSC in the subject line and the log file copied into the body of your message. Note that the in-progress tutorials on the wiki refer to the dev branch).
+`ldsc` is a command line tool for estimating heritability and genetic correlation from GWAS summary statistics. `ldsc` also computes LD Scores.
 
-What can I do with LDSC?
----------------------
+## Getting Started
 
-1. Estimate LD Score
-2. Quantify the inflation in GWAS test statistics from confounding bias.
-3. Estimate heritability from GWAS summary statistics.
-4. Estimate partitioned heritability from GWAS summary statistcs.
-5. Estimate genetic covariance and correlation from GWAS summary statistics.
+First, you will need to install python as well as the packages listed under the requirements header below. The easiest way to do this is with the [Anaconda](https://store.continuum.io/cshop/anaconda/) python distribution. All of the required packages come standard with Ananconda.
 
-Contact
--------
+In order to download `ldsc`, you should clone this repository
 
-Brendan Bulik-Sullivan, bulik@broadinstitute.org
+  git clone https://github.com/bulik/ldsc.git
 
-Hilary Finucane, hilaryf@mit.edu
+Once you have installed `ldsc` as well as the required packages, typing
+```
+$ python ldsc.py -h
+```
+will print a list of all command-line options. Short tutorials describing the four basic functions of `ldsc` (estimating LD Scores, h2 and partitioned h2, genetic correlation, the LD Score regression intercept) can be found in the wiki. If you would like to run the tests, please see the wiki.
 
-Citations
----------
+## Where Can I Get LD Scores?
 
-For now, please cite
+You can download LD Scores that are suitable for basic LD Score analyses (the LD Score regression intercept, heritability, partitioned heritability with the baseline model, genetic correlation) from $URL_GOES_HERE.
 
-Bulik-Sullivan, et al. LD Score Regression Distinguishes Confounding from Polygenicity in Genome-Wide Association Studies.
-In Press at Nature Genetics.
 
-(preprint: http://biorxiv.org/content/early/2014/02/21/002931)
+##Support
 
-We are currently preparing manuscripts describing the methods for estimating partitioned h2 and rg.
+Before contacting us, please try the following:
 
-Requirements
-------------
+1. The [tutorials](tutorials/) have basic advice on running `ldsc` and interpreting the output
+2. Common issues are described in the [FAQ](docs/FAQ)
+2. The methods are described in the papers (citations below)
+3. Search the [issue tracker](https://github.com/bulik/ldsc/issues)
 
-1. Python 2.7
-2. argparse 1.2.1
-3. bitarray 0.8.1
-4. numpy 1.8.0
-5. pandas 0.15.0
-6. scipy 0.10.1
+Please report bugs on the [issue tracker](https://github.com/bulik/ldsc/issues).
 
+##Citation
+
+If you use the software or the LD Score regression intercept, please cite
+
+[Bulik-Sullivan, et al. LD Score Regression Distinguishes Confounding from Polygenicity in Genome-Wide Association Studies.
+Nature Genetics, 2015.](http://www.nature.com/ng/journal/vaop/ncurrent/full/ng.3211.html)
+
+For genetic correlation, please also cite
+
+Bulik-Sullivan, et al. An Atlas of Genetic Correlations across Human Diseases and Traits. bioRxiv doi: http://dx.doi.org/10.1101/014498
+
+For partitioned heritability, please also cite
+
+Finucane, HK, et al. Partitioning Heritability by Functional Category using GWAS Summary Statistics. bioRxiv doi: http://dx.doi.org/10.1101/014241
+
+
+##Requirements
+
+1. `Python 2.7`
+2. `argparse 1.2.1`
+3. `bitarray 0.8.1`
+4. `numpy 1.8.0`
+5. `pandas 0.15.0`
+6. `scipy 0.10.1`
+
+##License
+
+This project is licensed under GNU GPL v3.
+
+
+##Authors
+
+Brendan Bulik-Sullivan (Broad Institute of MIT and Harvard)
+
+Hilary Finucane (MIT Department of Mathematics)
