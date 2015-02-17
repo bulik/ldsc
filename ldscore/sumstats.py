@@ -15,6 +15,7 @@ import regressions as reg
 import sys
 import traceback
 import copy
+import os
 
 _N_CHR = 22
 # complementary bases
@@ -43,6 +44,12 @@ FLIP_ALLELES = {''.join(x):
                 # strand flip
                 ((x[0] == COMPLEMENT[x[3]]) and (x[1] == COMPLEMENT[x[2]]))
                 for x in MATCH_ALLELES}
+
+
+def _splitp(fstr):
+    flist = fstr.split(',')
+    flist = [os.path.expanduser(os.path.expandvars(x)) for x in flist]
+    return flist
 
 
 def _select_and_log(x, ii, log, msg):
@@ -96,16 +103,16 @@ def _read_M(args, log, n_annot):
     '''Read M (--M, --M-file, etc).'''
     if args.M:
         try:
-            M_annot = [float(x) for x in args.M.split(',')]
+            M_annot = [float(x) for x in _splitp(args.M)]
         except ValueError as e:
             raise ValueError('Could not cast --M to float: ' + str(e.args))
     else:
         if args.ref_ld:
             M_annot = ps.M_fromlist(
-                args.ref_ld.split(','), common=(not args.not_M_5_50))
+                _splitp(args.ref_ld), common=(not args.not_M_5_50))
         elif args.ref_ld_chr:
             M_annot = ps.M_fromlist(
-                args.ref_ld_chr.split(','), _N_CHR, common=(not args.not_M_5_50))
+                _splitp(args.ref_ld_chr), _N_CHR, common=(not args.not_M_5_50))
 
     try:
         M_annot = np.array(M_annot).reshape((1, n_annot))
@@ -136,11 +143,11 @@ def _read_chr_split_files(chr_arg, not_chr_arg, log, noun, parsefunc, **kwargs):
     try:
         if not_chr_arg:
             log.log('Reading {N} from {F} ...'.format(F=not_chr_arg, N=noun))
-            out = parsefunc(not_chr_arg.split(','), **kwargs)
+            out = parsefunc(_splitp(not_chr_arg), **kwargs)
         elif chr_arg:
             f = ps.sub_chr(chr_arg, '[1-22]')
             log.log('Reading {N} from {F} ...'.format(F=f, N=noun))
-            out = parsefunc(chr_arg.split(','), _N_CHR, **kwargs)
+            out = parsefunc(_splitp(chr_arg), _N_CHR, **kwargs)
     except ValueError as e:
         log.log('Error parsing {N}.'.format(N=noun))
         raise e
@@ -376,8 +383,8 @@ def _get_rg_table(rg_paths, RG, args):
     x['p1'] = [rg_paths[0] for i in xrange(1, len(rg_paths))]
     x['p2'] = rg_paths[1:len(rg_paths)]
     x['rg'] = map(t('rg_ratio'), RG)
-    x['se'] = map(lambda y: round(y, 3), map(t('rg_se'), RG))
-    x['z'] = map(lambda y: round(y, 3), map(t('z'), RG))
+    x['se'] = map(t('rg_se'), RG)
+    x['z'] = map(t('z'), RG)
     x['p'] = map(t('p'), RG)
     if args.samp_prev is not None and args.pop_prev is not None and\
             all((i is not None for i in args.samp_prev)) and all((i is not None for it in args.pop_prev)):
@@ -461,7 +468,7 @@ def _rg(sumstats, args, log, M_annot, ref_ld_cnames, w_ld_cname, i):
 
 def _parse_rg(rg):
     '''Parse args.rg.'''
-    rg_paths = rg.split(',')
+    rg_paths = _splitp(rg)
     rg_files = [x.split('/')[-1] for x in rg_paths]
     if len(rg_paths) < 2:
         raise ValueError(

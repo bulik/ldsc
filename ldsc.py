@@ -99,7 +99,7 @@ def annot_sort_key(s):
     if type(s) == tuple:
         s = [x.split('_')[0] for x in s]
         s = map(lambda x: float(x) if x != 'min' else -float('inf'), s)
-    else: #type(s) = str:
+    else:  # type(s) = str:
         s = s.split('_')[0]
         if s == 'min':
             s = float('-inf')
@@ -149,7 +149,7 @@ def ldscore(args, log):
 
 
     elif args.cts_bin is not None and args.cts_breaks is not None:  # --cts-bin
-        cts_fnames = args.cts_bin.split(',')  # read filenames
+        cts_fnames = sumstats._splitp(args.cts_bin)  # read filenames
         args.cts_breaks = args.cts_breaks.replace('N','-')  # replace N with negative sign
         try:  # split on x
             breaks = [[float(x) for x in y.split(',')] for y in args.cts_breaks.split('x')]
@@ -369,6 +369,7 @@ def ldscore(args, log):
     t = df.ix[:,4:].describe()
     log.log( t.ix[1:,:] )
 
+    np.seterr(divide='ignore', invalid='ignore')  # print NaN instead of weird errors
     # print correlation matrix including all LD Scores and sample MAF
     log.log('')
     log.log('MAF/LD Score Correlation Matrix')
@@ -397,6 +398,8 @@ def ldscore(args, log):
         log.log('\nSummary of Annotation Matrix Row Sums')
         row_sums = x.sum(axis=1).describe()
         log.log(_remove_dtype(row_sums))
+
+    np.seterr(divide='raise', invalid='raise')
 
 
 parser = argparse.ArgumentParser()
