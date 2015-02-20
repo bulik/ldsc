@@ -525,7 +525,7 @@ def munge_sumstats(args, p=True):  # set p = False for testing in order to preve
         cname_translation = {x: cname_map[clean_header(x)] for x in file_cnames if
             clean_header(x) in cname_map}  # note keys not cleaned
         cname_description = {x: describe_cname[cname_translation[x]] for x in cname_translation}
-        if args.signed_sumstats is None:
+        if args.signed_sumstats is None and not args.a1_inc:
             sign_cnames = [x for x in cname_translation if cname_translation[x] in null_values]
             if len(sign_cnames) > 1:
                 raise ValueError('Too many signed sumstat columns. Specify which to ignore with the --ignore flag.')
@@ -537,7 +537,12 @@ def munge_sumstats(args, p=True):  # set p = False for testing in order to preve
             sign_cname = 'SIGNED_SUMSTATS'
 
         # check that we have all the columns we need
-        for c in ['SNP', 'P', 'SIGNED_SUMSTAT']:
+        if not args.a1_inc:
+            req_cols = ['SNP', 'P', 'SIGNED_SUMSTAT']
+        else:
+            req_cols = ['SNP', 'P']
+
+        for c in req_cols:
             if c not in cname_translation.values():
                 raise ValueError('Could not find {C} column.'.format(C=c))
 

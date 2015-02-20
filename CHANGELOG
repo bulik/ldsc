@@ -1,2 +1,3 @@
+20.2.15 Fix --a1-inc flag in munge_sumstats.py
 17.2.15 Fix bug where ~ was not expanded in comma-separated lists of files
 12.2.15 v1.0.0 released
