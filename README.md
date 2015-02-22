@@ -26,8 +26,8 @@ You can download LD Scores that are suitable for basic LD Score analyses (the LD
 
 Before contacting us, please try the following:
 
-1. The [tutorials](tutorials/) have basic advice on running `ldsc` and interpreting the output
-2. Common issues are described in the [FAQ](docs/FAQ)
+1. The [wiki](https://github.com/bulik/ldsc/wiki) has tutorials on [estimating LD Score](https://github.com/bulik/ldsc/wiki/LD-Score-Estimation-Tutorial), [genetic correlation](https://github.com/bulik/ldsc/wiki/Genetic-Correlation) and [partitioned heritability](https://github.com/bulik/ldsc/wiki/Partitioned-Heritability).
+2. Common issues are described in the [FAQ](https://github.com/bulik/ldsc/wiki/FAQ)
 2. The methods are described in the papers (citations below)
 
 If that doesn't work, you can get in touch with us via the [google group](https://groups.google.com/forum/?hl=en#!forum/ldsc_users).
