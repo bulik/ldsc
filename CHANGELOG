@@ -1,3 +1,5 @@
+2.3.15 Fix bug where munge sumstats said many SNPs removed for invalid p-values with --merge-alleles
 20.2.15 Fix --a1-inc flag in munge_sumstats.py
 17.2.15 Fix bug where ~ was not expanded in comma-separated lists of files
 12.2.15 v1.0.0 released
+

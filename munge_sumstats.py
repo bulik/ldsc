@@ -252,6 +252,7 @@ def parse_dat(dat_gen, convert_colname, merge_alleles, log, args):
             drops['FRQ'] += old-new
             old = new
 
+        old = ii.sum()
         dat.drop([x for x in ['INFO', 'FRQ'] if x in dat.columns], inplace=True, axis=1)
         ii &= filter_pvals(dat.P, log, args)
         new = ii.sum()
