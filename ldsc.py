@@ -18,6 +18,12 @@ from subprocess import call
 from itertools import product
 import time, sys, traceback, argparse
 
+try:
+    x = pd.DataFrame({'A': [1, 2, 3]})
+    x.drop_duplicates(subset='A')
+except TypeError:
+    raise ImportError('LDSC requires pandas version > 0.15.2')
+
 __version__ = '1.0.0'
 MASTHEAD = "*********************************************************************\n"
 MASTHEAD += "* LD Score Regression (LDSC)\n"
