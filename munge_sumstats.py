@@ -83,6 +83,7 @@ default_cnames = {
     'GC_ZSCORE': 'Z',
     'Z': 'Z',
     'OR': 'OR',
+    'B': 'BETA',
     'BETA': 'BETA',
     'LOG_ODDS': 'LOG_ODDS',
     'EFFECTS': 'BETA',
@@ -263,8 +264,12 @@ def parse_dat(dat_gen, convert_colname, merge_alleles, log, args):
             old = new
 
         old = ii.sum()
-        dat.drop(
-            [x for x in ['INFO', 'FRQ'] if x in dat.columns], inplace=True, axis=1)
+        if args.keep_maf:
+            dat.drop(
+                [x for x in ['INFO'] if x in dat.columns], inplace=True, axis=1)
+        else:
+            dat.drop(
+                [x for x in ['INFO', 'FRQ'] if x in dat.columns], inplace=True, axis=1)
         ii &= filter_pvals(dat.P, log, args)
         new = ii.sum()
         drops['P'] += old - new
@@ -273,6 +278,7 @@ def parse_dat(dat_gen, convert_colname, merge_alleles, log, args):
             dat.A1 = dat.A1.str.upper()
             dat.A2 = dat.A2.str.upper()
             ii &= filter_alleles(dat.A1 + dat.A2)
+            new = ii.sum()
             drops['A'] += old - new
             old = new
 
@@ -496,6 +502,8 @@ parser.add_argument('--ignore', default=None, type=str,
                     help='Comma-separated list of column names to ignore.')
 parser.add_argument('--a1-inc', default=False, action='store_true',
                     help='A1 is the increasing allele.')
+parser.add_argument('--keep-maf', default=False, action='store_true',
+                    help='Keep the MAF column (if one exists).')
 
 
 # set p = False for testing in order to prevent printing
@@ -653,6 +661,8 @@ def munge_sumstats(args, p=True):
         out_fname = args.out + '.sumstats'
         print_colnames = [
             c for c in dat.columns if c in ['SNP', 'N', 'Z', 'A1', 'A2']]
+        if args.keep_maf and 'FRQ' in dat.columns:
+            print_colnames.append('FRQ')
         msg = 'Writing summary statistics for {M} SNPs ({N} with nonmissing beta) to {F}.'
         log.log(
             msg.format(M=len(dat), F=out_fname + '.gz', N=dat.N.notnull().sum()))
