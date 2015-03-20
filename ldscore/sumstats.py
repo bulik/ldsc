@@ -452,7 +452,6 @@ def _rg(sumstats, args, log, M_annot, ref_ld_cnames, w_ld_cname, i):
         ii = sumstats.Z1**2*sumstats.Z2**2 < args.chisq_max**2
         n_snp = np.sum(ii)  # lambdas are late binding, so this works
         sumstats = sumstats[ii]
-
     n_blocks = min(args.n_blocks, n_snp)
     ref_ld = sumstats.as_matrix(columns=ref_ld_cnames)
     intercepts = [args.intercept_h2[0], args.intercept_h2[
