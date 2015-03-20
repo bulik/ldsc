@@ -36,7 +36,7 @@ class Progress(object):
     bar_len : int, optional
         Progress bar length.
     desc : str (optional)
-        Description.
+        Optional progressbar description prepended to left of printout.
 
     Attributes
     ----------
@@ -81,13 +81,12 @@ class Progress(object):
         return eta
 
     def update_progress(self, progress, bar_length=40):
-        '''Update progressbar'''
+        '''Update progressbar.'''
         if self.start_time is None:
             self.start_time = time.time()
             self.current_time = self.start_time
         self.progress = float(progress)
         sys.stdout.write('\r'' '*(self.last_len+2))
-        sys.stdout.flush()
         if self.progress < 0:
             raise ValueError('progress must be > 0.')
         block = int(bar_length*self.progress/self.end)
