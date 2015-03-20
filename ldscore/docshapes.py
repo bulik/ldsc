@@ -1,29 +1,10 @@
+'''
+A decorator that parses docstrings and checks the shapes of array arguments.
+
+'''
 import re
 import itertools as it
 import inspect
-
-'''
-Rules
------
-
-Array arguments
-
-----------
-Each argument should be a tuple (variable, string), where variable
-is a variable passed to the parent argument and string defines the
-shape of a numpy array. Shapes can be defined with the following syntax:
-(a, ) 1D array with length a
-(a, b) 2D array with dimensions a, b
-(1, b) 2D array with shape (1, b)
-* is interpreted as a free dimension
-... represents 0+ dimensions
-letters are interpreted as variables, and are assigned values according
-to the shapes of the arguments, from left to right.
-### TODO add support for ellipses
-(a, b, ...) n-D array with first two dimensions equal to a, b
-    (the ellipsis must come at either the beginning or the end)
-### TODO add support for optional arguments e.g., shape (a, b) or None
-'''
 
 array_re = re.compile(' : np.ndarray with shape \(.*,.*\)')
 
