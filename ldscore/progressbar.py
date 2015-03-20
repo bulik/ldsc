@@ -15,13 +15,13 @@ def sec_to_str(t):
         lambda ll, b: divmod(ll[0], b) + ll[1:], [(t, 1), 60, 60, 24])
     f = ''
     if d > 0:
-        f += '{D}d:'.format(D=int(d))
+        f += '%dd:' % int(d)
     if h > 0:
-        f += '{H}h:'.format(H=int(h))
+        f += '%dh:' % int(h)
     if m > 0:
-        f += '{M}m:'.format(M=int(m))
+        f += '%dm:' % int(m)
 
-    f += '{S}s'.format(S=round(s, 1))
+    f += '%0.2fs' % s
     return f
 
 
@@ -80,7 +80,7 @@ class Progress(object):
         eta = time_per_unit * units_remaining
         return eta
 
-    def update_progress(self, progress, bar_length=40):
+    def update_progress(self, progress):
         '''Update progressbar.'''
         if self.start_time is None:
             self.start_time = time.time()
@@ -89,9 +89,9 @@ class Progress(object):
         sys.stdout.write('\r'' '*(self.last_len+2))
         if self.progress < 0:
             raise ValueError('progress must be > 0.')
-        block = int(bar_length*self.progress/self.end)
+        block = int(self.bar_len*self.progress/self.end)
         text = '\r'+self.desc+' %s%%|' % str(int(self.progress/self.end*100))
-        text += '%s|' % ('#'*block+' '*(bar_length-block))
+        text += '%s|' % ('#'*block+' '*(self.bar_len-block))
         if self.progress > 0:
             text += ' ETA %s ' % sec_to_str(self._eta())
             text += 'Elapsed %s ' % sec_to_str(self.time_elapsed)
