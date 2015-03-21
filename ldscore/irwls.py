@@ -7,6 +7,7 @@ Iterativey re-weighted least squares.
 from __future__ import division
 import numpy as np
 import jackknife as jk
+from docshapes import docshapes
 
 
 class IRWLS(object):
@@ -16,15 +17,15 @@ class IRWLS(object):
 
     Parameters
     ----------
-    x : np.matrix with shape (n, p)
+    x np.ndarray with shape (n, p)
         Independent variable.
-    y : np.matrix with shape (n, 1)
+    y np.ndarray with shape (n, 1)
         Dependent variable.
     update_func : function
         Transforms output of np.linalg.lstsq to new weights.
     n_blocks : int
         Number of jackknife blocks (for estimating SE via block jackknife).
-    w : np.matrix with shape (n, 1)
+    w np.ndarray with shape (n, 1)
         Initial regression weights (default is the identity matrix). These should be on the
         inverse CVF scale.
     slow : bool
@@ -32,17 +33,17 @@ class IRWLS(object):
 
     Attributes
     ----------
-    est : np.matrix with shape (1, p)
+    est np.ndarray with shape (1, p)
         IRWLS estimate.
-    jknife_est : np.matrix with shape (1, p)
+    jknife_est np.ndarray with shape (1, p)
         Jackknifed estimate.
-    jknife_var : np.matrix with shape (1, p)
+    jknife_var np.ndarray with shape (1, p)
         Variance of jackknifed estimate.
-    jknife_se : np.matrix with shape (1, p)
+    jknife_se np.ndarray with shape (1, p)
         Standard error of jackknifed estimate, equal to sqrt(jknife_var).
-    jknife_cov : np.matrix with shape (p, p)
+    jknife_cov np.ndarray with shape (p, p)
         Covariance matrix of jackknifed estimate.
-    delete_values : np.matrix with shape (n_blocks, p)
+    delete_values np.ndarray with shape (n_blocks, p)
         Jackknife delete values.
 
     Methods
@@ -53,9 +54,9 @@ class IRWLS(object):
         Weight x by w.
 
     '''
-
+    @docshapes(init=True)
     def __init__(self, x, y, update_func, n_blocks, w=None, slow=False, separators=None):
-        n, p = jk._check_shape(x, y)
+        n, p = x.shape
         if w is None:
             w = np.ones_like(y)
         if w.shape != (n, 1):
@@ -73,21 +74,22 @@ class IRWLS(object):
         self.separators = jknife.separators
 
     @classmethod
+    @docshapes
     def irwls(cls, x, y, update_func, n_blocks, w, slow=False, separators=None):
         '''
         Iteratively re-weighted least squares (IRWLS).
 
         Parameters
         ----------
-        x : np.matrix with shape (n, p)
+        x np.ndarray with shape (n, p)
             Independent variable.
-        y : np.matrix with shape (n, 1)
+        y np.ndarray with shape (n, 1)
             Dependent variable.
         update_func: function
             Transforms output of np.linalg.lstsq to new weights.
         n_blocks : int
             Number of jackknife blocks (for estimating SE via block jackknife).
-        w : np.matrix with shape (n, 1)
+        w np.ndarray with shape (n, 1)
             Initial regression weights.
         slow : bool
             Use slow block jackknife? (Mostly for testing)
@@ -100,7 +102,7 @@ class IRWLS(object):
             Block jackknife regression with the final IRWLS weights.
 
         '''
-        (n, p) = x.shape
+        n, p = x.shape
         if y.shape != (n, 1):
             raise ValueError(
                 'y has shape {S}. y must have shape ({N}, 1).'.format(S=y.shape, N=n))
@@ -129,17 +131,18 @@ class IRWLS(object):
         return jknife
 
     @classmethod
+    @docshapes
     def wls(cls, x, y, w):
         '''
         Weighted least squares.
 
         Parameters
         ----------
-        x : np.matrix with shape (n, p)
+        x np.ndarray with shape (n, p)
             Independent variable.
-        y : np.matrix with shape (n, 1)
+        y np.ndarray with shape (n, 1)
             Dependent variable.
-        w : np.matrix with shape (n, 1)
+        w np.ndarray with shape (n, 1)
             Regression weights (1/CVF scale).
 
         Returns
@@ -148,7 +151,7 @@ class IRWLS(object):
             Output of np.linalg.lstsq
 
         '''
-        (n, p) = x.shape
+        n, p = x.shape
         if y.shape != (n, 1):
             raise ValueError(
                 'y has shape {S}. y must have shape ({N}, 1).'.format(S=y.shape, N=n))
@@ -162,20 +165,21 @@ class IRWLS(object):
         return coef
 
     @classmethod
+    @docshapes
     def _weight(cls, x, w):
         '''
         Weight x by w.
 
         Parameters
         ----------
-        x : np.matrix with shape (n, p)
+        x np.ndarray with shape (n, p)
             Rows are observations.
-        w : np.matrix with shape (n, 1)
+        w np.ndarray with shape (n, 1)
             Regression weights (1 / sqrt(CVF) scale).
 
         Returns
         -------
-        x_new : np.matrix with shape (n, p)
+        x_new np.ndarray with shape (n, p)
             x_new[i,j] = x[i,j] * w'[i], where w' is w normalized to have sum 1.
 
         Raises
@@ -186,7 +190,7 @@ class IRWLS(object):
         '''
         if np.any(w <= 0):
             raise ValueError('Weights must be > 0')
-        (n, p) = x.shape
+        n, p = x.shape
         if w.shape != (n, 1):
             raise ValueError(
                 'w has shape {S}. w must have shape (n, 1).'.format(S=w.shape))

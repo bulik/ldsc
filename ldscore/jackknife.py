@@ -127,7 +127,7 @@ class Jackknife(object):
 
         Raises
         ------
-        ValueError :
+        TypeError :
             If est.shape != (1, delete_values.shape[1])
 
         '''
@@ -225,7 +225,7 @@ class LstsqJackknifeSlow(Jackknife):
 
         Raises
         ------
-        ValueError :
+        TypeError :
             If x.shape[0] does not equal y.shape[0] or x and y are not 2D.
 
         '''
@@ -316,7 +316,7 @@ class LstsqJackknifeFast(Jackknife):
 
         Raises
         ------
-        ValueError :
+        TypeError :
             If x.shape[0] does not equal y.shape[0] or x and y are not 2D.
 
         '''
@@ -354,7 +354,7 @@ class LstsqJackknifeFast(Jackknife):
         ------
         LinAlgError :
             If design matrix is singular.
-        ValueError :
+        TypeError :
             If the last two dimensions of xtx_block_values are not equal or if the first two
         dimensions of xtx_block_values do not equal the shape of xty_block_values.
 
@@ -388,7 +388,7 @@ class LstsqJackknifeFast(Jackknife):
         ------
         LinAlgError :
             If delete design matrix is singular.
-        ValueError :
+        TypeError :
             If the last two dimensions of xtx_block_values are not equal or if the first two
         dimensions of xtx_block_values do not equal the shape of xty_block_values.
 

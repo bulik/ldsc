@@ -14,6 +14,7 @@ from scipy.stats import norm, chi2
 import jackknife as jk
 from irwls import IRWLS
 from collections import namedtuple
+from docshapes import docshapes
 np.seterr(divide='raise', invalid='raise')
 
 s = lambda x: remove_brackets(str(np.matrix(x)))
@@ -50,18 +51,19 @@ def append_intercept(x):
 
     Parameters
     ----------
-    x : np.matrix with shape (n_row, n_col)
+    x np.ndarray with shape (n_row, n_col)
         Design matrix. Columns are predictors; rows are observations.
 
     Returns
     -------
-    x_new : np.matrix with shape (n_row, n_col+1)
+    x_new np.ndarray with shape (n_row, n_col+1)
         Design matrix with intercept term appended.
 
     '''
-    n_row = x.shape[0]
+    n_row, n_col = x.shape
     intercept = np.ones((n_row, 1))
     x_new = np.concatenate((x, intercept), axis=1)
+    assert np.all(x_new.shape == (n_row, n_col+1))
     return x_new
 
 
@@ -80,9 +82,9 @@ def gencov_obs_to_liab(gencov_obs, P1, P2, K1, K2):
     ----------
     gencov_obs : float
         Genetic covariance on the observed scale in an ascertained sample.
-    P1, P2 : float in (0,1)
+    P1, P2 : float in (0, 1)
         Prevalences of phenotypes 1,2 in the sample.
-    K1, K2 : float in (0,1)
+    K1, K2 : float in (0, 1)
         Prevalences of phenotypes 1,2 in the population.
 
     Returns
@@ -112,9 +114,9 @@ def h2_obs_to_liab(h2_obs, P, K):
     ----------
     h2_obs : float
         Heritability on the observed scale in an ascertained sample.
-    P : float in (0,1)
+    P : float in (0, 1)
         Prevalence of the phenotype in the sample.
-    K : float in (0,1)
+    K : float in (0, 1)
         Prevalence of the phenotype in the population.
 
     Returns
@@ -326,9 +328,43 @@ class LD_Score_Regression(object):
 
 
 class Hsq(LD_Score_Regression):
-
     __null_intercept__ = 1
+    '''
+    h^2 LD Score regression.
 
+    Parameters
+    ----------
+    y : np.ndarray with shape (n_snp, 1)
+        chi^2 statistics.
+    x : np.ndarray with shape (n_snp, p)
+        LD Scores.
+    w : np.ndarray with shape (n_snp, 1)
+        Regression weights LD Scores.
+    N : np.ndarray with shape (n_snp, 1)
+        Sample sizes (for each SNP).
+    M : np.ndarray with shape (1, p)
+        # of SNPs per category.
+    n_blocks : int
+        Number of jackknife blocks.
+    intercept : optional float
+        Value to which to constrain the intercept.
+    slow : bool
+        Use slow block jackknife?
+    twostep : bool
+        Use the two step estimator?
+    old_weights : bool
+        Use pre-v1.0.0 regression weights?
+
+    Attributes
+    ---------
+    ...
+
+    Methods
+    -------
+    ...
+
+    '''
+    #@docshapes(init=True)
     def __init__(self, y, x, w, N, M, n_blocks=200, intercept=None, slow=False, twostep=None, old_weights=False):
         step1_ii = None
         if twostep is not None:
@@ -341,17 +377,38 @@ class Hsq(LD_Score_Regression):
             self.ratio, self.ratio_se = self._ratio(
                 self.intercept, self.intercept_se, self.mean_chisq)
 
+    @docshapes
     def _update_func(self, x, ref_ld_tot, w_ld, N, M, Nbar, intercept=None, ii=None):
         '''
         Update function for IRWLS
 
-        x is the output of np.linalg.lstsq.
-        x[0] is the regression coefficients
-        x[0].shape is (# of dimensions, 1)
-        the last element of x[0] is the intercept.
+        Parameters
+        ----------
+        x :  output of np.linalg.lstsq
+            x[0] is the regression coefficients
+            x[0].shape is (# of dimensions, 1)
+            the last element of x[0] is the intercept.
+        ref_ld_tot : np.ndarray with shape (n_snp, i)
+            Column sums of ref LD Scores. If intercept is constrained, i should
+            be 1, otherwise 2.
+        w_ld : np.ndarray with shape (n_snp, 1)
+            Regression weight LD Scores
+        N : np.ndarray with shape (n_snp, 1)
+            Sample sizes (for each SNP).
+        M : float
+            # of SNPs.
+        Nbar : float
+            Mean N (for numerical stability).
+        intercept : float (optional)
+            Constrain the intercept.
+        ii : np.ndarray with shape (n_snp, 1)
+            Boolean array of SNPs to keep (e.g., for 2-step estimator).
 
-        intercept is None --> free intercept
-        intercept is not None --> constrained intercept
+        Returns
+        -------
+        w : np.ndarray with shape (n_snp, 1)
+            Updated weights.
+
         '''
         hsq = M * x[0][0] / Nbar
         if intercept is None:
@@ -360,7 +417,6 @@ class Hsq(LD_Score_Regression):
             if ref_ld_tot.shape[1] > 1:
                 raise ValueError(
                     'Design matrix has intercept column for constrained intercept regression!')
-
         ld = ref_ld_tot[:, 0].reshape(w_ld.shape)  # remove intercept
         w = self.weights(ld, w_ld, N, M, hsq, intercept, ii)
         return w
@@ -473,15 +529,16 @@ class Hsq(LD_Score_Regression):
         return self.weights(ld, w_ld, N, M, hsq, intercept, ii)
 
     @classmethod
+    @docshapes
     def weights(cls, ld, w_ld, N, M, hsq, intercept=None, ii=None):
         '''
         Regression weights.
 
         Parameters
         ----------
-        ld : np.matrix with shape (n_snp, 1)
+        ld np.ndarray with shape (n_snp, 1)
             LD Scores (non-partitioned).
-        w_ld : np.matrix with shape (n_snp, 1)
+        w_ld np.ndarray with shape (n_snp, 1)
             LD Scores (non-partitioned) computed with sum r^2 taken over only those SNPs included
             in the regression.
         N :  np.matrix of ints > 0 with shape (n_snp, 1)
@@ -494,7 +551,7 @@ class Hsq(LD_Score_Regression):
 
         Returns
         -------
-        w : np.matrix with shape (n_snp, 1)
+        w np.ndarray with shape (n_snp, 1)
             Regression weights. Approx equal to reciprocal of conditional variance function.
 
         '''
@@ -568,16 +625,38 @@ class Gencov(LD_Score_Regression):
     def _update_func(self, x, ref_ld_tot, w_ld, N, M, Nbar, intercept=None, ii=None):
         '''
         Update function for IRWLS
-        x is the output of np.linalg.lstsq.
-        x[0] is the regression coefficients
-        x[0].shape is (# of dimensions, 1)
-        the last element of x[0] is the intercept.
+
+        Parameters
+        ----------
+        x :  output of np.linalg.lstsq
+            x[0] is the regression coefficients
+            x[0].shape is (# of dimensions, 1)
+            the last element of x[0] is the intercept.
+        ref_ld_tot : np.ndarray with shape (n_snp, i)
+            Column sums of ref LD Scores. If intercept is constrained, i should
+            be 1, otherwise 2.
+        w_ld : np.ndarray with shape (n_snp, 1)
+            Regression weight LD Scores
+        N : np.ndarray with shape (n_snp, 1)
+            Sample sizes (for each SNP).
+        M : float
+            # of SNPs.
+        Nbar : float
+            Mean N (for numerical stability).
+        intercept : float (optional)
+            Constrain the intercept.
+        ii : np.ndarray with shape (n_snp, 1)
+            Boolean array of SNPs to keep (e.g., for 2-step estimator).
+
+        Returns
+        -------
+        w : np.ndarray with shape (n_snp, 1)
+            Updated weights.
 
         '''
         rho_g = M * x[0][0] / Nbar
         if intercept is None:  # if the regression includes an intercept
             intercept = x[0][1]
-
         # remove intercept if we have one
         ld = ref_ld_tot[:, 0].reshape(w_ld.shape)
         if ii is not None:
@@ -586,9 +665,8 @@ class Gencov(LD_Score_Regression):
         else:
             N1 = self.N1
             N2 = self.N2
-
         return self.weights(ld, w_ld, N1, N2, np.sum(M), self.hsq1, self.hsq2, rho_g,
-                         intercept, self.intercept_hsq1, self.intercept_hsq2, ii)
+                            intercept, self.intercept_hsq1, self.intercept_hsq2, ii)
 
     def _update_weights(self, ld, w_ld, sqrt_n1n2, M, rho_g, intercept, ii=None):
         '''Weight function with the same signature for Hsq and Gencov.'''
@@ -597,6 +675,7 @@ class Gencov(LD_Score_Regression):
         return w
 
     @classmethod
+    @docshapes
     def weights(cls, ld, w_ld, N1, N2, M, h1, h2, rho_g, intercept_gencov=None,
                 intercept_hsq1=None, intercept_hsq2=None, ii=None):
         '''
@@ -604,9 +683,9 @@ class Gencov(LD_Score_Regression):
 
         Parameters
         ----------
-        ld : np.matrix with shape (n_snp, 1)
+        ld np.ndarray with shape (n_snp, 1)
             LD Scores (non-partitioned)
-        w_ld : np.matrix with shape (n_snp, 1)
+        w_ld np.ndarray with shape (n_snp, 1)
             LD Scores (non-partitioned) computed with sum r^2 taken over only those SNPs included
             in the regression.
         M : float > 0
@@ -623,7 +702,7 @@ class Gencov(LD_Score_Regression):
 
         Returns
         -------
-        w : np.matrix with shape (n_snp, 1)
+        w np.ndarray with shape (n_snp, 1)
             Regression weights. Approx equal to reciprocal of conditional variance function.
 
         '''
@@ -656,7 +735,50 @@ class Gencov(LD_Score_Regression):
 
 
 class RG(object):
+    '''
+    Genetic correlation estimator.
 
+    Parameters
+    ----------
+    z1 : np.ndarray with shape (n_snp, 1)
+        Z-scores for first trait
+    z2 : np.ndarray with shape (n_snp, 1)
+        Z-scores for second trait
+    x : np.ndarray with shape (n_snp, p)
+        LD Scores.
+    w : np.ndarray with shape (n_snp, 1)
+        Regression weights LD Scores.
+    N1 : np.ndarray with shape (n_snp, 1)
+        Sample sizes for first trait (for each SNP).
+    N2 : np.ndarray with shape (n_snp, 1)
+        Sample sizes for second trait (for each SNP).
+    M : np.ndarray with shape (1, p)
+        # of SNPs per category.
+    n_blocks : int
+        Number of jackknife blocks.
+    intercept_hsq1 : optional float
+        Value to which to constrain the intercept for first h2 estimate.
+    intercept_hsq2 : optional float
+        Value to which to constrain the intercept for second h2 estimate.
+    intercept_gencov : optional float
+        Value to which to constrain the intercept for gencov estimate.
+    slow : bool
+        Use slow block jackknife?
+    twostep : bool
+        Use the two step estimator?
+
+
+    Attributes
+    ----------
+    ...
+
+    Methods
+    -------
+    ...
+
+    '''
+
+    @docshapes(init=True)
     def __init__(self, z1, z2, x, w, N1, N2, M, intercept_hsq1=None, intercept_hsq2=None,
                  intercept_gencov=None, n_blocks=200, slow=False, twostep=None):
 
