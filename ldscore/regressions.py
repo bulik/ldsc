@@ -139,22 +139,47 @@ def h2_obs_to_liab(h2_obs, P, K):
 
 
 class LD_Score_Regression(object):
+    '''
+    Base class for LD Score regression.
 
-    def __init__(self, y, x, w, N, M, n_blocks, intercept=None, slow=False, step1_ii=None, old_weights=False):
-        for i in [y, x, w, M, N]:
-            try:
-                if len(i.shape) != 2:
-                    raise TypeError('Arguments must be 2D arrays.')
-            except AttributeError:
-                raise TypeError('Arguments must be arrays.')
+    Parameters
+    ----------
+    y : np.ndarray with shape (n_snp, 1)
+        chi^2 statistics.
+    x : np.ndarray with shape (n_snp, n_annot)
+        LD Scores.
+    w : np.ndarray with shape (n_snp, 1)
+        Regression weight LD Scores.
+    N : np.ndarray with shape (n_snp, 1)
+        Sample sizes (for each SNP).
+    M : np.ndarray with shape (1, n_annot)
+        # of SNPs per category.
+    n_blocks : int
+        Number of jackknife blocks.
+    intercept : optional float
+        Value to which to constrain the intercept.
+    slow : bool
+        Use slow block jackknife?
+    step1_ii : np.ndarray with shape (n_snp, 1)
+        Array of bools indicating which SNPs to use in the first stage of the
+        2-step estimator.
+    old_weights : bool
+        Use pre-v1.0.0 regression weights?
 
+    Attributes
+    ---------
+    ...
+
+    Methods
+    -------
+    ...
+
+    '''
+
+    # docshapes is confused by inheritance/composition, so no docshapes here
+    def __init__(self, y, x, w, N, M, n_blocks, intercept=None, slow=False,
+                 step1_ii=None, old_weights=False):
         n_snp, self.n_annot = x.shape
-        if any(i.shape != (n_snp, 1) for i in [y, w, N]):
-            raise ValueError(
-                'N, weights and response (z1z2 or chisq) must have shape (n_snp, 1).')
-        if M.shape != (1, self.n_annot):
-            raise ValueError('M must have shape (1, n_annot).')
-
         M_tot = float(np.sum(M))
         x_tot = np.sum(x, axis=1).reshape((n_snp, 1))
         self.constrain_intercept = intercept is not None
@@ -335,13 +360,13 @@ class Hsq(LD_Score_Regression):
     ----------
     y : np.ndarray with shape (n_snp, 1)
         chi^2 statistics.
-    x : np.ndarray with shape (n_snp, p)
+    x : np.ndarray with shape (n_snp, n_annot)
         LD Scores.
     w : np.ndarray with shape (n_snp, 1)
         Regression weights LD Scores.
     N : np.ndarray with shape (n_snp, 1)
         Sample sizes (for each SNP).
-    M : np.ndarray with shape (1, p)
+    M : np.ndarray with shape (1, n_annot)
         # of SNPs per category.
     n_blocks : int
         Number of jackknife blocks.
@@ -581,7 +606,7 @@ class Gencov(LD_Score_Regression):
         Z-scores for first trait
     z2 : np.ndarray with shape (n_snp, 1)
         Z-scores for second trait
-    x : np.ndarray with shape (n_snp, p)
+    x : np.ndarray with shape (n_snp, n_annot)
         LD Scores.
     w : np.ndarray with shape (n_snp, 1)
         Regression weights LD Scores.
@@ -589,7 +614,7 @@ class Gencov(LD_Score_Regression):
         Sample sizes for first trait (for each SNP).
     N2 : np.ndarray with shape (n_snp, 1)
         Sample sizes for second trait (for each SNP).
-    M : np.ndarray with shape (1, p)
+    M : np.ndarray with shape (1, n_annot)
         # of SNPs per category.
     hsq1 : float
         Heritability estimate for first trait.
