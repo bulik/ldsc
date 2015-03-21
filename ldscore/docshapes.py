@@ -69,7 +69,23 @@ def parse_shape(line):
         return None
 
 
-def docshapes(init=False):
+def docshapes(f=None, init=False):
+    if f is None:
+        return functools.partial(docshapes, init=init)
+
+    @functools.wraps(f)
+    def wrapped_f(*args, **kwargs):
+        if init:
+            doc = inspect.cleandoc(inspect.getdoc(args[0]))
+            lines = get_lines(doc, 'Attributes')
+        else:
+            doc = inspect.cleandoc(inspect.getdoc(f))
+            lines = get_lines(doc, 'Returns')
+        return __docshapes__(lines, f, *args, **kwargs)
+    return wrapped_f
+
+
+def __docshapes__(lines, f, *args, **kwargs):
     '''
     Decorator that parses docstring and check array shapes.
 
@@ -89,97 +105,49 @@ def docshapes(init=False):
     but an (n, p) array otherwise) are handled correctly.
 
     '''
-    def wrap(f, init=init):
-        def wrapped_f(*args, **kwargs):
-            if not init:
-                doc = inspect.cleandoc(inspect.getdoc(f))
-                lines = get_lines(doc, 'Returns')
-            else:
-                doc = inspect.cleandoc(inspect.getdoc(args[0]))
-                lines = get_lines(doc, 'Attributes')
-            def_lines = filter_colon(base_indent(lines))
-            # None if arg is not an array
-            shapes = [parse_shape(line) for line in def_lines]
-            dims = {}
-            f_sig = inspect.getargspec(f)
-            inner_args = list(args)
-            if f_sig.args[0] == 'cls' or f_sig.args[0] == 'self':
-                f_sig.args.pop(0)
-                inner_args.pop(0)
-            z = zip(inner_args, shapes, it.count(), f_sig.args)
+
+    def_lines = filter_colon(base_indent(lines))
+    # None if arg is not an array
+    shapes = [parse_shape(line) for line in def_lines]
+    dims = dict()
+    f_sig = inspect.getargspec(f)
+    inner_args = list(args)
+    if f_sig.args[0] == 'cls' or f_sig.args[0] == 'self':  # methods
+        f_sig.args.pop(0)
+        inner_args.pop(0)
+    z = zip(inner_args, shapes, it.count(), f_sig.args)
+    try:
+        for a, t, n, a_name in z:
+            exp_shape = shapes[n]
+            if exp_shape is None:
+                continue
             try:
-                for a, t, n, a_name in z:
-                    exp_shape = shapes[n]
-                    if exp_shape is None:
-                        continue
-                    try:
-                        cur_shape = a.shape
-                    except AttributeError:
-                        raise AttributeError('Argument %s is not an array.' % a_name)
-
-                    cur_dim = len(cur_shape)
-                    exp_dim = len(exp_shape)
-                    if cur_dim != exp_dim:
-                        raise TypeError(
-                            'Argument %s has %d dimensions, should have %d.' % (a_name, cur_dim, exp_dim))
-                    for i, d in enumerate(exp_shape):
-                        if isinstance(d, (int, long)):
-                            if cur_shape[i] != d:
-                                raise TypeError(
-                                    'Argument %s has shape %s; dimension %s should be %s.' % (a_name, cur_shape, i, d))
-                        elif d in dims:
-                            if cur_shape[i] != dims[d]:
-                                raise TypeError(
-                                    'Argument %s has shape %s; dimension %s should be %s.' % (a_name, cur_shape, i, dims[d]))
-                        else:
-                            dims[d] = cur_shape[i]
-
-            except TypeError as e:
-                m = 'Shapes incompatible with docstring.\nShapes of arguments to %s()\n' % f.__name__
-                s = dict()
-                for a, t, n, a_name in z:
-                    try:
-                        s = str(a.shape)
-                    except AttributeError:
-                        s = 'not an array'
-                    m += '    %s: %s\n' % (a_name, s)
-
-                m += str(e.args[0])
-                raise TypeError(m)
-
-            return f(*args, **kwargs)
-        return wrapped_f
-    return wrap
-
-
-class Test(object):
-    '''
-    Parameters
-    ----------
-    x : np.ndarray with shape (1, 2)
-
-    Attributes
-    -------
-    asdfasfs
-    '''
-    @docshapes(init=True)
-    def __init__(self, x):
-        pass
-
-    @classmethod
-    @docshapes
-    def f(cls, x):
-        '''
-        Parameters
-        ----------
-        x : np.ndarray with shape (1, 2)
-        Returns
-        -------
-        '''
-        pass
-
-
-import numpy as np
-Test.f(np.ones((1, 2)))
-x = Test(np.ones((1, 3)))
-
+                cur_shape = a.shape
+            except AttributeError:
+                raise AttributeError('Argument %s is not an array.' % a_name)
+            cur_dim, exp_dim = len(cur_shape), len(exp_shape)
+            if cur_dim != exp_dim:
+                raise TypeError(
+                    'Argument %s has %d dimensions, should have %d.' % (a_name, cur_dim, exp_dim))
+            for i, d in enumerate(exp_shape):
+                msg = 'Argument %s has shape %s; dimension %s should be %s.'
+                if isinstance(d, (int, long)):
+                    if cur_shape[i] != d:
+                        raise TypeError(msg % (a_name, cur_shape, i, d))
+                elif d in dims:
+                    if cur_shape[i] != dims[d]:
+                        raise TypeError(msg % (a_name, cur_shape, i, dims[d]))
+                else:
+                    dims[d] = cur_shape[i]
+    except TypeError as e:
+        m = 'Shapes incompatible with docstring.\nShapes of arguments to %s()\n' % f.__name__
+        s = dict()
+        for a, t, n, a_name in z:
+            try:
+                s = str(a.shape)
+            except AttributeError:
+                s = 'not an array'
+            m += '    %s: %s\n' % (a_name, s)
+        m += str(e.args[0])
+        raise TypeError(m)
+    return f(*args, **kwargs)
