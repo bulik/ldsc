@@ -30,8 +30,8 @@ def filter_colon(lines):
     return filtered_lines
 
 
-def param_to_returns(doc):
-    '''Returns the lines in doc between 'Parameters' and 'Returns'.'''
+def get_lines(doc, substring):
+    '''Returns the lines in doc between 'Parameters' and substring.'''
     lines = doc.split('\n')
     try:
         start = lines.index('Parameters')
@@ -39,11 +39,11 @@ def param_to_returns(doc):
         raise ValueError(
             'Could not find a line labeled Parameters in docstring,')
     try:
-        end = lines.index('Returns')
+        end = lines.index(substring)
     except ValueError:
-        raise ValueError('Could not find a line labeled Returns in docstring,')
+        raise ValueError('Could not find a line labeled %s in docstring.' % substring)
     if start > end:
-        raise ValueError('Returns came before Parameters in docstring.')
+        raise ValueError('%s came before Parameters in docstring.' % substring)
     return lines[start:end]
 
 
@@ -93,9 +93,10 @@ def docshapes(init=False):
         def wrapped_f(*args, **kwargs):
             if not init:
                 doc = inspect.cleandoc(inspect.getdoc(f))
+                lines = get_lines(doc, 'Returns')
             else:
                 doc = inspect.cleandoc(inspect.getdoc(args[0]))
-            lines = param_to_returns(doc)
+                lines = get_lines(doc, 'Attributes')
             def_lines = filter_colon(base_indent(lines))
             # None if arg is not an array
             shapes = [parse_shape(line) for line in def_lines]
@@ -156,7 +157,8 @@ class Test(object):
     Parameters
     ----------
     x : np.ndarray with shape (1, 2)
-    Returns
+
+    Attributes
     -------
     asdfasfs
     '''
