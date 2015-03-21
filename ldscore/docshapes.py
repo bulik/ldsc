@@ -77,6 +77,7 @@ def docshapes(f=None, init=False):
     def wrapped_f(*args, **kwargs):
         if init:
             doc = inspect.cleandoc(inspect.getdoc(args[0]))
+            print doc
             lines = get_lines(doc, '-------')
         else:
             doc = inspect.cleandoc(inspect.getdoc(f))

@@ -328,7 +328,6 @@ class LD_Score_Regression(object):
 
 
 class Hsq(LD_Score_Regression):
-    __null_intercept__ = 1
     '''
     h^2 LD Score regression.
 
@@ -364,7 +363,8 @@ class Hsq(LD_Score_Regression):
     ...
 
     '''
-    #@docshapes(init=True)
+    __null_intercept__ = 1
+    @docshapes(init=True)
     def __init__(self, y, x, w, N, M, n_blocks=200, intercept=None, slow=False, twostep=None, old_weights=False):
         step1_ii = None
         if twostep is not None:
@@ -571,8 +571,53 @@ class Hsq(LD_Score_Regression):
 
 
 class Gencov(LD_Score_Regression):
+    '''
+    Genetic Covariance LD Score regression.
+
+    Parameters
+    ----------
+    z1 : np.ndarray with shape (n_snp, 1)
+        Z-scores for first trait
+    z2 : np.ndarray with shape (n_snp, 1)
+        Z-scores for second trait
+    x : np.ndarray with shape (n_snp, p)
+        LD Scores.
+    w : np.ndarray with shape (n_snp, 1)
+        Regression weights LD Scores.
+    N1 : np.ndarray with shape (n_snp, 1)
+        Sample sizes for first trait (for each SNP).
+    N2 : np.ndarray with shape (n_snp, 1)
+        Sample sizes for second trait (for each SNP).
+    M : np.ndarray with shape (1, p)
+        # of SNPs per category.
+    hsq1 : float
+        Heritability estimate for first trait.
+    hsq2 : float
+        Heritability estimate for second trait.
+    n_blocks : int
+        Number of jackknife blocks.
+    intercept_hsq1 : optional float
+        Value to which to constrain the intercept for first h2 estimate.
+    intercept_hsq2 : optional float
+        Value to which to constrain the intercept for second h2 estimate.
+    intercept_gencov : optional float
+        Value to which to constrain the intercept for gencov estimate.
+    slow : bool
+        Use slow block jackknife?
+    twostep : bool
+        Use the two step estimator?
+
+    Attributes
+    ----------
+
+    Methods
+    -------
+
+    '''
+
     __null_intercept__ = 0
 
+    @docshapes(init=True)
     def __init__(self, z1, z2, x, w, N1, N2, M, hsq1, hsq2, intercept_hsq1, intercept_hsq2,
                  n_blocks=200, intercept_gencov=None, slow=False, twostep=None):
         self.intercept_hsq1 = intercept_hsq1
