@@ -1,6 +1,26 @@
 from __future__ import division
 import numpy as np
 import bitarray as ba
+import pandas as pd
+
+bedcode = {
+    2: ba.bitarray('11'),
+    9: ba.bitarray('10'),
+    1: ba.bitarray('01'),
+    0: ba.bitarray('00')
+}
+
+
+def read_bim(bim_fh):
+    x = pd.read_csv(bim_fh, header=None, delim_whitespace=True)
+    x.columns = ['CHR', 'SNP', 'CM', 'BP', 'A1', 'A2']
+    return x
+
+
+def read_fam(fam_fh):
+    x = pd.read_csv(fam_fh, header=None, delim_whitespace=True, usecols=[0, 1])
+    x.columns = ['FID', 'IID']
+    return x
 
 
 class __GenotypeArrayInMemory__(object):

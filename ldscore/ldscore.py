@@ -2,6 +2,7 @@ from __future__ import division
 import numpy as np
 import bitarray as ba
 
+
 def getBlockLefts(coords, max_dist):
     '''
     Converts coordinates + max block length to the a list of coordinates of the leftmost
