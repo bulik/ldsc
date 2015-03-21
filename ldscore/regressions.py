@@ -364,6 +364,7 @@ class Hsq(LD_Score_Regression):
 
     '''
     __null_intercept__ = 1
+
     @docshapes(init=True)
     def __init__(self, y, x, w, N, M, n_blocks=200, intercept=None, slow=False, twostep=None, old_weights=False):
         step1_ii = None
@@ -667,6 +668,7 @@ class Gencov(LD_Score_Regression):
 
         return remove_brackets('\n'.join(out))
 
+    @docshapes
     def _update_func(self, x, ref_ld_tot, w_ld, N, M, Nbar, intercept=None, ii=None):
         '''
         Update function for IRWLS
