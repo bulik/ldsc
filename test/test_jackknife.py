@@ -51,10 +51,6 @@ class Test_Jackknife(unittest.TestCase):
             x = jk.Jackknife.delete_values_to_pseudovalues(delete_values, est)
             assert_array_equal(x, np.ones_like(delete_values))
 
-        est = est.T
-        nose.tools.assert_raises(
-            ValueError, jk.Jackknife.delete_values_to_pseudovalues, delete_values, est)
-
 
 class Test_LstsqJackknifeSlow(unittest.TestCase):
 
@@ -105,14 +101,9 @@ class Test_LstsqJackknifeSlow(unittest.TestCase):
 
         # TODO add tests for the SE etc
 
-    def test_bad_data(self):
-        x = np.arange(10)
-        y = 2 * np.arange(9)
-        assert_raises(ValueError, jk.LstsqJackknifeSlow, x, y, 10)
-
     def test_too_many_blocks(self):
-        x = np.arange(10)
-        y = 2 * np.arange(10)
+        x = np.arange(10).reshape((10, 1))
+        y = 2 * np.arange(10).reshape((10, 1))
         assert_raises(ValueError, jk.LstsqJackknifeSlow, x, y, 11)
 
 
@@ -165,11 +156,11 @@ class Test_LsqtsqJackknifeFast(unittest.TestCase):
 
         # test the dimension checking
         assert_raises(
-            ValueError, jk.LstsqJackknifeFast.block_values_to_est, xty[0:2], xtx)
+            TypeError, jk.LstsqJackknifeFast.block_values_to_est, xty[0:2], xtx)
         assert_raises(
-            ValueError, jk.LstsqJackknifeFast.block_values_to_est, xty, xtx[:, :, 0:1])
+            TypeError, jk.LstsqJackknifeFast.block_values_to_est, xty, xtx[:, :, 0:1])
         assert_raises(
-            ValueError, jk.LstsqJackknifeFast.block_values_to_est, xty, xtx[:, :, 0])
+            TypeError, jk.LstsqJackknifeFast.block_values_to_est, xty, xtx[:, :, 0])
 
     def test_block_to_delete_1d(self):
         x = np.arange(6).reshape((6, 1))
@@ -202,7 +193,7 @@ class Test_LsqtsqJackknifeFast(unittest.TestCase):
 
     def test_bad_data(self):
         x = np.arange(6).reshape((1, 6))
-        assert_raises(ValueError, jk.LstsqJackknifeFast, x, x, n_blocks=3)
+        assert_raises(TypeError, jk.LstsqJackknifeFast, x, x, n_blocks=3)
         assert_raises(ValueError, jk.LstsqJackknifeFast, x.T, x.T, n_blocks=8)
         assert_raises(
             ValueError, jk.LstsqJackknifeFast, x.T, x.T, separators=range(10))

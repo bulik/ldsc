@@ -35,8 +35,8 @@ class Jackknife(object):
         Dependent variable.
     n_blocks : int
         Number of jackknife blocks
-    *args, **kwargs :
-        Arguments for inheriting jackknives.
+    separators : array
+        Block boundaries.
 
     Attributes
     ----------
@@ -55,9 +55,10 @@ class Jackknife(object):
         Converts delete values and the whole-data estimate to pseudovalues.
     get_separators():
         Returns (approximately) evenly-spaced jackknife block boundaries.
+
     '''
 
-    @docshapes
+    @docshapes(init=True)
     def __init__(self, x, y, n_blocks=None, separators=None):
         self.N, self.p = x.shape
         if separators is not None:
@@ -159,6 +160,8 @@ class LstsqJackknifeSlow(Jackknife):
         Number of jackknife blocks
     nn: bool
         Non-negative least-squares?
+    separators : array
+        Block boundaries.
 
     Attributes
     ----------
@@ -182,7 +185,7 @@ class LstsqJackknifeSlow(Jackknife):
 
     '''
 
-    @docshapes
+    @docshapes(init=True)
     def __init__(self, x, y, n_blocks=None, nn=False, separators=None):
         Jackknife.__init__(self, x, y, n_blocks, separators)
         if nn:  # non-negative least squares
@@ -248,6 +251,8 @@ class LstsqJackknifeFast(Jackknife):
         Dependent variable.
     n_blocks : int
         Number of jackknife blocks
+    separators : array
+        Block boundaries.
 
     Attributes
     ----------
@@ -274,7 +279,7 @@ class LstsqJackknifeFast(Jackknife):
         Computes pseudovalues and delete values in a single pass over the block values.
 
     '''
-
+    @docshapes(init=True)
     def __init__(self, x, y, n_blocks=None, separators=None):
         Jackknife.__init__(self, x, y, n_blocks, separators)
         xty, xtx = self.block_values(x, y, self.separators)
@@ -337,7 +342,7 @@ class LstsqJackknifeFast(Jackknife):
         ----------
         xty_block_values : np.ndarray with shape (n_blocks, p)
             Block values of X^T Y.
-        xtx_block_values : 3D np.array with shape (n_blocks, p, p)
+        xtx_block_values : np.ndarray with shape (n_blocks, p, p)
             Block values of X^T X
 
         Returns
@@ -354,7 +359,7 @@ class LstsqJackknifeFast(Jackknife):
         dimensions of xtx_block_values do not equal the shape of xty_block_values.
 
         '''
-        n_blocks, p = xtx_block_values.shape
+        n_blocks, p, _ = xtx_block_values.shape
         xty = np.sum(xty_block_values, axis=0)
         xtx = np.sum(xtx_block_values, axis=0)
         return np.linalg.solve(xtx, xty).reshape((1, p))
@@ -369,7 +374,7 @@ class LstsqJackknifeFast(Jackknife):
         ----------
         xty_block_values : np.ndarray with shape (n_blocks, p)
             Block values of X^T Y.
-        xtx_block_values : 3D np.array with shape (n_blocks, p, p)
+        xtx_block_values : np.ndarray with shape (n_blocks, p, p)
             Block values of X^T X
         est : np.ndarray with shape (1, p)
             Whole data estimate
@@ -402,7 +407,6 @@ class LstsqJackknifeFast(Jackknife):
 
 
 class RatioJackknife(Jackknife):
-
     '''
     Block jackknife ratio estimate.
 
@@ -437,7 +441,7 @@ class RatioJackknife(Jackknife):
     and so the jackknife will (correctly) yield huge SE.
 
     '''
-
+    @docshapes(init=True)
     def __init__(self, est, numer_delete_values, denom_delete_values):
         if numer_delete_values.shape != denom_delete_values.shape:
             raise ValueError(
