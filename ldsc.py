@@ -115,7 +115,7 @@ annot = ld.add_mutually_exclusive_group(required=False)
 annot.add_argument('--extract', default=None, type=str,
                    help='File with SNPs to include in LD Score estimation. '
                    'The file should contain one SNP ID per row.')
-annot.add_argument('--annot', default=None, type=str,
+annot.add_argument('--annot', default=None, type=str, nargs='+',
                    help='Filename prefix for annotation file for partitioned LD Score estimation. '
                    'LDSC will automatically append .annot or .annot.gz to the filename prefix. '
                    'See docs/file_formats_ld for a definition of the .annot format.')
@@ -184,13 +184,13 @@ reg = subparsers.add_parser('reg', help='LD Score regression.')
 reg.add_argument('--out', default='ldsc', type=str,
                  help='Output filename prefix.')
 par = ld.add_mutually_exclusive_group(required=True)
-par.add_argument('--h2', default=None, type=str,
+par.add_argument('--h2', default=None, type=str, nargs='+',
                  help='Filename prefix for a .chisq file for one-phenotype LD Score regression. '
                  'LDSC will automatically append .chisq or .chisq.gz to the filename prefix.'
                  '--h2 requires at minimum also setting the --ref-ld and --w-ld flags.')
-par.add_argument('--rg', default=None, type=str,
+par.add_argument('--rg', default=None, type=str, nargs='+',
                  help='Comma-separated list of prefixes of .chisq filed for genetic correlation estimation.')
-reg.add_argument('--ref-ld', default=None, type=str, required=True,
+reg.add_argument('--ref-ld', default=None, type=str, required=True, nargs='+',
                  help='Use --ref-ld to tell LDSC which LD Scores to use as the predictors in the LD '
                  'Score regression. '
                  'LDSC will automatically append .l2.ldscore/.l2.ldscore.gz to the filename prefix.')
@@ -206,14 +206,14 @@ intercept.add_argument('--no-intercept', action='store_true',
                        help='If used with --h2, this constrains the LD Score regression intercept to equal '
                        '1. If used with --rg, this constrains the LD Score regression intercepts for the h2 '
                        'estimates to be one and the intercept for the genetic covariance estimate to be zero.')
-intercept.add_argument('--intercept-h2', action='store', default=None,
+intercept.add_argument('--intercept-h2', action='store', default=None, nargs='+',
                        help='Intercepts for constrained-intercept single-trait LD Score regression.')
-intercept.add_argument('--intercept-gencov', action='store', default=None,
+intercept.add_argument('--intercept-gencov', action='store', default=None, nargs='+',
                        help='Intercepts for constrained-intercept cross-trait LD Score regression. '
                        'Must have same length as --rg. The first entry is ignored.')
 intercept.add_argument('--two-step', default=None, type=float,
                        help='Test statistic bound for use with the two-step estimator.')
-reg.add_argument('--M', default=None, type=str,
+reg.add_argument('--M', default=None, type=str, nargs='+',
                  help='# of SNPs (if you don\'t want to use the .l2.M files that came with your .l2.ldscore.gz files)')
 reg.add_argument('--chisq-max', default=None, type=float,
                  help='Max chi^2.')
@@ -237,12 +237,12 @@ reg.add_argument('--no-check-alleles', default=False, action='store_true',
                  'same argument to the --merge-alleles flag.')
 reg.add_argument('--print-coefficients', default=False, action='store_true',
                  help='when categories are overlapping, print coefficients as well as heritabilities.')
-reg.add_argument('--frqfile', type=str,
+reg.add_argument('--frqfile', type=str, nargs='+',
                  help='For use with --overlap-annot. Provides allele frequencies to prune to common '
                  'snps if --not-M-5-50 is not set.')
-reg.add_argument('--samp-prev', default=None,
+reg.add_argument('--samp-prev', default=None, nargs='+',
                  help='Sample prevalence of binary phenotype (for conversion to liability scale).')
-reg.add_argument('--pop-prev', default=None,
+reg.add_argument('--pop-prev', default=None, nargs='+',
                  help='Population prevalence of binary phenotype (for conversion to liability scale).')
 
 

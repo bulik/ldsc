@@ -210,7 +210,7 @@ class __GenotypeArrayInMemory__(object):
         return cor_sum
 
 
-class PlinkBEDFile(__GenotypeArrayInMemory__):
+class Bfile(__GenotypeArrayInMemory__):
     '''
     Interface for Plink .bed format
     '''
