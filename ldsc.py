@@ -125,6 +125,12 @@ annot.add_argument('--cts-bin', default=None, type=str,
                    'The argument to this flag should be the name of a single file or a comma-separated '
                    'list of files. The file format is two columns, with SNP IDs in the first column '
                    'and the continuous variable in the second column. ')
+ld.add_argument('--cts-breaks', default=None, type=str,
+                help='Use this flag to specify names for the continuous variables cut into bins '
+                'with --cts-bin. For each continuous variable, specify breaks as a comma-separated '
+                'list of breakpoints, and separate the breakpoints for each variable with an x. '
+                'For example, if binning on MAF and distance to gene (in kb), '
+                'you might set --cts-breaks 0.1,0.25,0.4x10,100,1000 ')
 ld.add_argument('--keep', default=None, type=str,
                 help='File with individuals to include in LD Score estimation. '
                 'The file should contain one individual ID per row.')
@@ -146,17 +152,6 @@ ld.add_argument('--print-snps', default=None, type=str,
                 'PRINT_SNPs. This is useful for reducing the number of LD Scores that have to be '
                 'read into memory when estimating h2 or rg.')
 # Fancy LD Score Estimation Flags
-ld.add_argument('--cts-breaks', default=None, type=str,
-                help='Use this flag to specify names for the continuous variables cut into bins '
-                'with --cts-bin. For each continuous variable, specify breaks as a comma-separated '
-                'list of breakpoints, and separate the breakpoints for each variable with an x. '
-                'For example, if binning on MAF and distance to gene (in kb), '
-                'you might set --cts-breaks 0.1,0.25,0.4x10,100,1000 ')
-ld.add_argument('--cts-names', default=None, type=str,
-                help='Use this flag to specify names for the continuous variables cut into bins '
-                'with --cts-bin. The argument to this flag should be a comma-separated list of '
-                'names. For example, if binning on DAF and distance to gene, you might set '
-                '--cts-bin DAF,DIST_TO_GENE ')
 alpha = ld.add_mutually_exclusive_group(required=False)
 alpha.add_argument('--per-allele', default=False, action='store_true',
                    help='Setting this flag causes LDSC to compute per-allele LD Scores, '

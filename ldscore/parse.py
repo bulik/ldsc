@@ -38,13 +38,6 @@ def read_csv(fh, **kwargs):
                        comment='#', **kwargs)
 
 
-def sub_chr(s, chr):
-    '''Substitute chr for @, else append chr to the end of str.'''
-    if '@' not in s:
-        s += '@'
-    return s.replace('@', str(chr))
-
-
 def which_compression(fh):
     '''Given a file prefix, figure out what sort of compression to use.'''
     if os.access(fh + '.bz2', 4):
@@ -72,14 +65,11 @@ def get_compression(fh):
     return compression
 
 
-def read_cts(fh, match_snps):
+def read_cts(fh):
     '''Reads files for --cts-bin.'''
     compression = get_compression(fh)
-    cts = read_csv(fh, compression=compression, header=None, names=['SNP', 'ANNOT'])
-    if not series_eq(cts.SNP, match_snps):
-        raise ValueError('--cts-bin and the .bim file must have identical SNP columns.')
-
-    return cts.ANNOT.values
+    cts = read_csv(fh, compression=compression, header=0)
+    return cts
 
 
 def sumstats(fh, alleles=False, dropna=True):
@@ -100,17 +90,17 @@ def sumstats(fh, alleles=False, dropna=True):
 
 def read_fromlist(flist, parsefunc, noun, *args, **kwargs):
     '''Sideways concatenation. *args and **kwargs are passed to parsefunc.'''
-    df_array = []
+    df_array = [0 for _ in xrange(len(flist))]
     for i, fh in enumerate(flist):
         y = parsefunc(fh, *args, **kwargs)
         if i > 0:
             if not series_eq(y.SNP, df_array[0].SNP):
-                raise ValueError('%s files for concatenation must have identical SNP columns.' % noun)
+                raise ValueError('%s files must have identical SNP columns.' % noun)
             else:  # keep SNP column from only the first file
                 y = y.drop(['SNP'], axis=1)
         new_col_dict = {c: c + '_' + str(i) for c in y.columns if c != 'SNP'}
         y.rename(columns=new_col_dict, inplace=True)
-        df_array.append(y)
+        df_array[i] = y
     return pd.concat(df_array, axis=1)
 
 
@@ -128,11 +118,11 @@ def ldscore(fh):
     '''Parse .l2.ldscore files, split across num chromosomes. See docs/file_formats_ld.txt.'''
     suffix = '.l2.ldscore'
     fhs = exp_array(fh)
-    chr_ld = []
-    for fh in fhs:
+    chr_ld = [0 for _ in xrange(len(fh))]
+    for i, fh in enumerate(fhs):
         full_fh = fh + suffix
         s, compression = which_compression(full_fh)
-        chr_ld.append(ldscore_parser(full_fh + s, compression))
+        chr_ld[i] = ldscore_parser(full_fh + s, compression)
     x = pd.concat(chr_ld)  # automatically sorted by chromosome
     x = x.sort(['CHR', 'BP'])  # SEs will be wrong unless sorted
     x = x.drop(['CHR', 'BP'], axis=1).drop_duplicates(subset='SNP')

@@ -1,13 +1,22 @@
 from __future__ import division
 import numpy as np
-import bitarray as ba
-from docshapes import docshapes
-from progressbar import Progress
 import parse as ps
 import plink
+import itertools as it
+import pandas as pd
+from subprocess import call
+
+
+def _remove_dtype(x):
+    '''Removes dtype: float64 and dtype: int64 from pandas printouts'''
+    x = str(x)
+    x = x.replace('\ndtype: int64', '')
+    x = x.replace('\ndtype: float64', '')
+    return x
 
 
 def to_csv(fh, **kwargs):
+    '''pd.DataFrame.to_csv with some defaults filled in.'''
     return pd.to_csv(fh, index=False, header=True, sep='\t', **kwargs)
 
 
@@ -84,69 +93,112 @@ def annot_sort_key(s):
     return s
 
 
-def cts_bin():
-    pass
+def cut_cts(vec, breaks):  # TODO add support for quantile binning?
+    '''Cut a cts annotation in to bins.'''
+    max_cts, min_cts = np.max(vec), np.min(vec)
+    cut_breaks, name_breaks = list(breaks), list(breaks)
+    if np.all(cut_breaks >= max_cts) or np.all(cut_breaks <= min_cts):
+        raise ValueError('All breaks lie outside the range of %s.' % vec.columns[0])
+    if np.all(cut_breaks <= max_cts):
+        name_breaks.append(max_cts)
+        cut_breaks.append(max_cts+1)
+    if np.all(cut_breaks >= min_cts):
+        name_breaks.append(min_cts)
+        cut_breaks.append(min_cts-1)
+    # ensure col names consistent across chromosomes w/ different extrema
+    name_breaks = ['min'] + map(str, name_breaks.sort()[1:-1]) + ['max']
+    levels = ['_'.join(name_breaks[i:i+2]) for i in xrange(len(cut_breaks)-1)]
+    cut_vec = pd.Series(pd.cut(vec, bins=cut_breaks.sort(), labels=levels))
+    return cut_vec
 
 
-def read_annot(fh):
+def factor_to_dummy(annot):
+    '''Convert a categorical matrix to a matrix of indicators for each category.'''
+    labels = [t.categories for _, t in annot.iterkv()]
+    cts_colnames = annot.columns
+    annot = pd.crosstab(annot.index,  # some columns empty
+                        [annot[i] for i in annot.columns],
+                        dropna=False, colnames=annot.columns)
+    if len(annot.columns) > 1:  # add missing columns
+        for x in it.product(*labels):
+            if x not in annot.columns:
+                annot[x] = 0
+    else:
+        for x in labels[0]:
+            if x not in annot.columns:
+                annot[x] = 0
+    annot = annot[sorted(annot.columns, key=annot_sort_key)]
+    if len(annot.columns) > 1:  # flatten multi-index
+        annot.columns = ['_'.join([cts_colnames[i]+'_'+b
+                         for i, b in enumerate(c)])
+                         for c in annot.columns]
+    else:
+        annot.columns = [cts_colnames[0]+'_'+b for b in annot.columns]
+    return annot
+
+
+def cts_fromlist(fhs, breaks, log):
+    '''
+    TODO -- how to get comma-free command line stuff for multiple files?
+
+    '''
+    if len(breaks) != len(fhs):
+        raise ValueError('--cts-bin/--cts-breaks/--cts-names must have same lengths.')
+    log.log('Reading data for binning from %s' % fhs)
+    cts = ps.read_fromlist(fhs, ps.read_cts, '--cts-bin')
+    cts.ix[:, 1:].apply(cut_cts, axis=0)
+    annot = factor_to_dummy(cts.ix[:, 1:])
+    if (annot.sum(axis=1) == 0).any():
+        raise ValueError('Some SNPs have no annotation in. This is a bug!')
+    annot['SNP'] = cts.SNP
+    return annot
+
+
+def read_annot(fh, log):
     annot = ps.annot_fromlist(fh)
-    msg = 'Read %d annotations for %d SNPs from s'
-    log.log(msg % (args.annot, n_annot, ma))
     annot.drop(['CM', 'MAF', 'BP'], inplace=True, axis=1)
-    if not ps.series_eq(df.SNP, annot.SNP):  # TODO get rid of this requirement
-        msg = '--annot must contain same SNPs in same order as --bfile.'
-        raise ValueError(msg)
+    n_annot, m_annot = annot.shape - (1, 0)
+    msg = 'Read %d annotations for %d SNPs from %s.'
+    log.log(msg % (n_annot, m_annot, fh))
     return annot
 
 
 def ldscore(args, log):
-    '''
-    Wrapper function for estimating l1, l1^2, l2 and l4 (+ optionally standard errors) from
-    reference panel genotypes.
-
-    Annot format is
-    chr snp bp cm <annotations>
-
-    '''
-    bim = plink.read_bim(args.bfile+'.bim')
-    log.log('Read %d SNP IDs from %s' % (m, snp_file))
+    '''Estimate LD Score.'''
     fam = plink.read_fam(args.bfile+'.fam')
-    log.log('Read %d individual IDs from %s' % (n, ind_file))
-    m, n, len(bim), len(fam)
+    n = len(fam)
+    log.log('Read %d individual IDs from %s' % (n, args.bfile+'.fam'))
+    bim = plink.read_bim(args.bfile+'.bim')
+    m = len(bim)
+    log.log('Read %d SNP IDs from %s' % (m, args.bfile+'.bim'))
     if args.annot is not None:
         annot = read_annot(args.annot)
-        n_annot, m_annot = len(annot.df.columns)-1, len(annot.df)
+        n_annot = len(annot.df.columns)-1
     elif args.cts_bin is not None:
-        annot = cts_bin(args.cts_bin, args.cts_breaks, args.cts_names)
-        n_annot, m_annot = len(annot.df.columns)-1, len(annot.df)
-    if args.extract is not None:  # --extract
-        keep_snps = __filter__(args.extract, 'SNPs', 'include', array_snps)
-        annot_matrix, annot_colnames, n_annot = None, None, 1
-    # read fam
-    array_indivs = ind_obj(ind_file)
-    n = len(array_indivs.IDList)
-    if args.keep:
-        keep_indivs = __filter__(args.keep, 'individuals', 'include', array_indivs)
-    else:
+        annot = cts_fromlist(args.cts_bin, args.cts_breaks, args.cts_names)
+        n_annot = len(annot.columns)-1
+    if args.extract is not None:
         keep_indivs = None
+    if args.keep:
+        keep_snps = None
     covar = ps.read_csv(args.covar, header=0) if args.covar else None
     # read genotypes
-    log.log('Reading genotypes from %s' % array_file)
-    geno_array = plink.Bfile(array_file, n, array_snps, keep_snps=keep_snps,
+    log.log('Reading genotypes from %s' % args.bfile+'.bed')
+    geno = plink.Bfile(args.bfile+'.bed', n, bim, keep_snps=keep_snps,
                              keep_indivs=keep_indivs, mafMin=args.maf)
-    if annot_matrix is not None:  # filter annot to kept SNPs
-        annot_matrix = annot_matrix[geno_array.kept_snps, :]
+    # kill singleton SNPs from annot
+    pass
     # determine block widths
     if args.ld_wind_snps:
         max_dist = args.ld_wind_snps
         coords = np.arange(m)
     elif args.ld_wind_kb:
         max_dist = args.ld_wind_kb*1e3
-        coords = np.array(array_snps.df['BP'])[geno_array.kept_snps]
+        coords = bim.BP
     elif args.ld_wind_cm:
         max_dist = args.ld_wind_cm
-        coords = np.array(array_snps.df['CM'])[geno_array.kept_snps]
-    block_left = ld.getBlockLefts(coords, max_dist)
+        coords = bim.CM
+    block_left = block_lefts(coords, max_dist)
     if block_left[len(block_left)-1] == 0 and not args.yes_really:
         raise ValueError('Set --yes-really to compute whole-chomosome LD Score.')
     scale_suffix = ''
@@ -156,22 +208,20 @@ def ldscore(args, log):
         msg += 'not directly comparable to normal LD Scores.'
         log.log(msg)
         scale_suffix = '_S{S}'.format(S=args.pq_exp)
-        pq = geno_array.maf*(1-geno_array.maf)).reshape((geno_array.m, 1)
+        pq = geno.maf*(1-geno.maf).reshape((geno.m, 1))
         pq = np.power(pq, args.pq_exp)
-        if annot_matrix is not None:
-            annot_matrix = np.multiply(annot_matrix, pq)
+        if annot is not None:
+            annot = np.multiply(annot, pq)
         else:
-            annot_matrix = pq
+            annot = pq
     log.log("Estimating LD Score...")
-    lN = geno_array.ldScoreVarBlocks(block_left, args.chunk_size,
-                                     annot=annot_matrix, covar=covar)
-    col_prefix, file_suffix = "L2", 'L2'
+    lN = geno.ld_score(block_left, args.chunk_size, annot=annot, covar=covar)
     if n_annot == 1:
-        ldscore_colnames = [col_prefix+scale_suffix]
+        ldscore_colnames = ['L2'+scale_suffix]
     else:
-        ldscore_colnames = [y+col_prefix+scale_suffix for y in annot_colnames]
-    df = pd.DataFrame.from_records(np.c_[geno_array.df, lN])
-    df.columns = geno_array.colnames + ldscore_colnames
+        ldscore_colnames = [y+'L2'+scale_suffix for y in annot.columns]
+    df = pd.DataFrame.from_records(np.c_[geno.df, lN])
+    df.columns = geno.colnames + ldscore_colnames
     if args.print_snps:
         c = ps.get_compression(args.print_snps)
         print_snps = ps.read_csv(args.print_snps, header=None, compression=c, usecols=['SNP'])
@@ -182,67 +232,61 @@ def ldscore(args, log):
             raise ValueError('After merging with --print-snps, no SNPs remain.')
         else:
             log.log('Printing LD Scores for %d SNPs in --print-snps.' % len(df))
-    log.log("Writing LD Scores for %d SNPs to %s.gz" % (out_fname, len(df)))
-    df = df.drop(['CM', 'MAF'], axis=1)
-    df.to_csv2(args.out+'.l2.ldscore', float_format='%.3f')
-    call(['gzip', '-f', out_fname])
-    M = np.atleast_1d(np.sum(annot_matrix, axis=0))
-    M_5_50 = np.atleast_1d(np.sum(annot_matrix[geno_array.maf > 0.05, :], axis=0))
+    M = np.atleast_1d(np.sum(annot, axis=0))
+    M_5_50 = np.atleast_1d(np.sum(annot[geno.maf > 0.05, :], axis=0))
+    print_ldscore(df, args.out+'.l2.ldscore', log)
     print_M(M, args.out+'.l2.M')
     print_M(M_5_50, args.out+'.l2.M_5_50')
     if (args.cts_bin is not None) and not args.noprint_annot:
-        print_annot(annot_matrix, args.out)  # TODO this doesn't work yet
-    print_ldscore_metadata(df)
+        print_annot(annot, args.out, log)  # TODO this doesn't work yet
+    print_ldscore_metadata(df, log)
     if n_annot > 1:
-        print_condnum(df)
-    if annot_matrix is not None:
-        print_annot_metadata(annot_matrix, log)
+        print_condnum(df, log)
+    if annot is not None:
+        print_annot_metadata(annot, log)
+
+
+def print_ldscore(df, fh, log):
+    log.log("Writing LD Scores for %d SNPs to %s.gz" % (fh, len(df)))
+    df = df.drop(['CM', 'MAF'], axis=1)
+    df.to_csv2(fh, float_format='%.3f')
+    call(['gzip', '-f', fh])
 
 
 def print_M(M, fh):
-    '''Print M.'''
     fh = open(fh, 'wb')
     print >>fh, '\t'.join(map(str, M))
     fh.close()
 
 
-def print_annot(annot_matrix, out):
-    '''Print annot matrix produced by --cts-bin.'''
-    out += '.annot'
-    new_colnames = geno_array.colnames + ldscore_colnames
-    annot_df = pd.DataFrame(np.c_[geno_array.df, annot_matrix])
-    annot_df.columns = new_colnames
-    log.log("Writing annot matrix from --cts-bin to %s" % out+'.gz')
-    annot_df.to_csv2(out)
-    call(['gzip', '-f', out_fname_annot])
+def print_annot(annot, fh, log):
+    log.log("Writing annot matrix from --cts-bin to %s" % fh+'.gz')
+    annot.to_csv2(fh)
+    call(['gzip', '-f', fh])
 
 
-def print_ldscore_metadata(df):
-    '''Log LD Score metadata.'''
+def print_ldscore_metadata(df, fh, log):
     pd.set_option('display.max_rows', 200)
-    log.log('\nSummary of LD Scores in %s' % out_fname+l2_suffix)
+    log.log('\nSummary of LD Scores in %s.gz' % fh)
     t = df.ix[:, 4:].describe()
     log.log(t.ix[1:, :]+'\n')
     log.log('MAF/LD Score Correlation Matrix')
     log.log(df.ix[:, 4:].corr())
 
 
-def print_condnum(df):
-    '''Log LD Score matrix condition number.'''
+def print_condnum(df, log):
     log.log('\nLD Score Matrix Condition Number')
     cond_num = np.linalg.cond(df.ix[:, 5:])
-    log.log(reg.remove_brackets(str(np.matrix(cond_num))))
+    log.log(round(cond_num, 0))
     if cond_num > 10000:
         log.log('WARNING: ill-conditioned LD Score Matrix!')
 
 
-def print_annot_metadata(annot_matrix, log):
-    '''Log annot matrix metadata to.'''
-    x = pd.DataFrame(annot_matrix, columns=annot_colnames)
+def print_annot_metadata(annot, log):
     log.log('\nAnnotation Correlation Matrix')
-    log.log(x.corr())
+    log.log(annot.corr())
     log.log('\nAnnotation Matrix Column Sums')
-    log.log(_remove_dtype(x.sum(axis=0)))
+    log.log(_remove_dtype(annot.sum(axis=0)))
     log.log('\nSummary of Annotation Matrix Row Sums')
-    row_sums = x.sum(axis=1).describe()
+    row_sums = annot.sum(axis=1).describe()
     log.log(_remove_dtype(row_sums))
