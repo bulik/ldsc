@@ -122,10 +122,8 @@ def cts_fromlist(flist):
     return _read_fromlist(flist, _cts_chr, '--cts-bin')
 
 
-def _cut_cts(vec, breaks):
+def _cut_cts(vec, breaks, n):
     '''Cut a cts annotation in to bins.'''
-    print vec
-    print breaks
     max_cts, min_cts = np.max(vec), np.min(vec)
     cut_breaks, name_breaks = list(breaks), list(breaks)
     if np.all(cut_breaks >= max_cts) or np.all(cut_breaks <= min_cts):
@@ -139,17 +137,20 @@ def _cut_cts(vec, breaks):
     # ensure col names consistent across chromosomes w/ different extrema
     name_breaks = ['min'] + map(str, sorted(name_breaks)[1:-1]) + ['max']
     levels = ['_'.join(name_breaks[i:i+2]) for i in xrange(len(cut_breaks)-1)]
+    levels = [n+m for m in levels]
     cut_vec = pd.Series(pd.cut(vec, bins=sorted(cut_breaks), labels=levels))
     return cut_vec
 
 
-def cts_dummies(cts, breaks):
+def cts_dummies(cts, breaks, names=None):
     '''Cut cts dataframe into dummies. Expects 1st column to be SNP.'''
     if len(breaks) != len(cts.columns) - 1:
         raise ValueError('Wrong number of breaks.')
+    if names is None:
+        names = cts.columns[0:]
     dummies = [None]*len(breaks)
-    for i, br in enumerate(breaks):
-        dummies[i] = _cut_cts(cts.ix[:, i], br)
+    for i, br, n in zip(range(len(breaks)), breaks, names):
+        dummies[i] = pd.get_dummies(_cut_cts(cts.ix[:, i], br, n))
     cts = pd.concat([cts.SNP]+dummies, axis=1)
     if (cts.sum(axis=1) == 0).any():
         raise ValueError('Some SNPs have no annotation in. This is a bug!')

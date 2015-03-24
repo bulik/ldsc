@@ -1,9 +1,8 @@
 from __future__ import division
 import numpy as np
 import parse as ps
-import plink
-import itertools as it
 import pandas as pd
+import plink
 from subprocess import call
 
 
@@ -97,20 +96,22 @@ def ldscore(args, log):
     if args.annot is not None:
         annot = read_annot(args.annot)
         n_annot = len(annot.df.columns)-1
-    elif args.cts_bin is not None:
+    if args.cts_bin is not None:
         annot = ps.cts_dummies(ps.cts_fromlist(args.cts_bin), args.cts_breaks)
         n_annot = len(annot.columns)-1
     if args.extract is not None:
         keep_indivs = None
+
     if args.keep:
         keep_snps = None
     covar = ps.read_csv(args.covar, header=0) if args.covar else None
     # read genotypes
     log.log('Reading genotypes from %s' % args.bfile+'.bed')
     geno = plink.Bfile(args.bfile+'.bed', n, bim, keep_snps=keep_snps,
-                             keep_indivs=keep_indivs, mafMin=args.maf)
-    # kill singleton SNPs from annot
+                       keep_indivs=keep_indivs, mafMin=args.maf)
+    # remove SNPs that do not pass the MAF filter from annot and bim
     pass
+
     # determine block widths
     if args.ld_wind_snps:
         max_dist = args.ld_wind_snps
