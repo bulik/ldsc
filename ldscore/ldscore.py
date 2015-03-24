@@ -77,83 +77,6 @@ def block_left_to_right(block_left):
     return block_right
 
 
-def annot_sort_key(s):
-    '''For use with --cts-bin. Fixes weird pandas crosstab column order.'''
-    if isinstance(s, tuple):
-        s = [x.split('_')[0] for x in s]
-        s = map(lambda x: float(x) if x != 'min' else -float('inf'), s)
-    elif isinstance(s, str):
-        s = s.split('_')[0]
-        if s == 'min':
-            s = float('-inf')
-        else:
-            s = float(s)
-    else:  # bad
-        raise ValueError('Something has gone horribly wrong.')
-    return s
-
-
-def cut_cts(vec, breaks):  # TODO add support for quantile binning?
-    '''Cut a cts annotation in to bins.'''
-    max_cts, min_cts = np.max(vec), np.min(vec)
-    cut_breaks, name_breaks = list(breaks), list(breaks)
-    if np.all(cut_breaks >= max_cts) or np.all(cut_breaks <= min_cts):
-        raise ValueError('All breaks lie outside the range of %s.' % vec.columns[0])
-    if np.all(cut_breaks <= max_cts):
-        name_breaks.append(max_cts)
-        cut_breaks.append(max_cts+1)
-    if np.all(cut_breaks >= min_cts):
-        name_breaks.append(min_cts)
-        cut_breaks.append(min_cts-1)
-    # ensure col names consistent across chromosomes w/ different extrema
-    name_breaks = ['min'] + map(str, name_breaks.sort()[1:-1]) + ['max']
-    levels = ['_'.join(name_breaks[i:i+2]) for i in xrange(len(cut_breaks)-1)]
-    cut_vec = pd.Series(pd.cut(vec, bins=cut_breaks.sort(), labels=levels))
-    return cut_vec
-
-
-def factor_to_dummy(annot):
-    '''Convert a categorical matrix to a matrix of indicators for each category.'''
-    labels = [t.categories for _, t in annot.iterkv()]
-    cts_colnames = annot.columns
-    annot = pd.crosstab(annot.index,  # some columns empty
-                        [annot[i] for i in annot.columns],
-                        dropna=False, colnames=annot.columns)
-    if len(annot.columns) > 1:  # add missing columns
-        for x in it.product(*labels):
-            if x not in annot.columns:
-                annot[x] = 0
-    else:
-        for x in labels[0]:
-            if x not in annot.columns:
-                annot[x] = 0
-    annot = annot[sorted(annot.columns, key=annot_sort_key)]
-    if len(annot.columns) > 1:  # flatten multi-index
-        annot.columns = ['_'.join([cts_colnames[i]+'_'+b
-                         for i, b in enumerate(c)])
-                         for c in annot.columns]
-    else:
-        annot.columns = [cts_colnames[0]+'_'+b for b in annot.columns]
-    return annot
-
-
-def cts_fromlist(fhs, breaks, log):
-    '''
-    TODO -- how to get comma-free command line stuff for multiple files?
-
-    '''
-    if len(breaks) != len(fhs):
-        raise ValueError('--cts-bin/--cts-breaks/--cts-names must have same lengths.')
-    log.log('Reading data for binning from %s' % fhs)
-    cts = ps.read_fromlist(fhs, ps.read_cts, '--cts-bin')
-    cts.ix[:, 1:].apply(cut_cts, axis=0)
-    annot = factor_to_dummy(cts.ix[:, 1:])
-    if (annot.sum(axis=1) == 0).any():
-        raise ValueError('Some SNPs have no annotation in. This is a bug!')
-    annot['SNP'] = cts.SNP
-    return annot
-
-
 def read_annot(fh, log):
     annot = ps.annot_fromlist(fh)
     annot.drop(['CM', 'MAF', 'BP'], inplace=True, axis=1)
@@ -175,7 +98,7 @@ def ldscore(args, log):
         annot = read_annot(args.annot)
         n_annot = len(annot.df.columns)-1
     elif args.cts_bin is not None:
-        annot = cts_fromlist(args.cts_bin, args.cts_breaks, args.cts_names)
+        annot = ps.cts_dummies(ps.cts_fromlist(args.cts_bin), args.cts_breaks)
         n_annot = len(annot.columns)-1
     if args.extract is not None:
         keep_indivs = None

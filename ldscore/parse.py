@@ -65,13 +65,6 @@ def get_compression(fh):
     return compression
 
 
-def read_cts(fh):
-    '''Reads files for --cts-bin.'''
-    compression = get_compression(fh)
-    cts = read_csv(fh, compression=compression, header=0)
-    return cts
-
-
 def sumstats(fh, alleles=False, dropna=True):
     '''Parses .sumstats files. See docs/file_formats_sumstats.txt.'''
     dtype_dict = {'SNP': str,   'Z': float, 'N': float, 'A1': str, 'A2': str}
@@ -88,7 +81,7 @@ def sumstats(fh, alleles=False, dropna=True):
     return x
 
 
-def read_fromlist(flist, parsefunc, noun, *args, **kwargs):
+def _read_fromlist(flist, parsefunc, noun, *args, **kwargs):
     '''Sideways concatenation. *args and **kwargs are passed to parsefunc.'''
     df_array = [0 for _ in xrange(len(flist))]
     for i, fh in enumerate(flist):
@@ -104,25 +97,84 @@ def read_fromlist(flist, parsefunc, noun, *args, **kwargs):
     return pd.concat(df_array, axis=1)
 
 
+# --cts-bin
+
+
+def _cts_single(fh, compression):
+    '''Read a single cts file.'''
+    cts = read_csv(fh, compression=compression, header=0)
+    return cts
+
+
+def _cts_chr(fh):
+    '''Read .cts files split across chromosomes.'''
+    fhs = exp_array(fh)
+    chr_cts = [0 for _ in xrange(len(fh))]
+    for i, fh in enumerate(fhs):
+        s, compression = which_compression(fh)
+        chr_cts[i] = _ldscore_single(fh, compression)
+    x = pd.concat(chr_cts)
+    return x
+
+
+def cts_fromlist(flist):
+    '''Read a list of .cts files and concatenate horizontally.'''
+    return _read_fromlist(flist, _cts_chr, '--cts-bin')
+
+
+def _cut_cts(vec, breaks):
+    '''Cut a cts annotation in to bins.'''
+    print vec
+    print breaks
+    max_cts, min_cts = np.max(vec), np.min(vec)
+    cut_breaks, name_breaks = list(breaks), list(breaks)
+    if np.all(cut_breaks >= max_cts) or np.all(cut_breaks <= min_cts):
+        raise ValueError('All breaks lie outside the range of cts variable.')
+    if np.all(cut_breaks <= max_cts):
+        name_breaks.append(max_cts)
+        cut_breaks.append(max_cts+1)
+    if np.all(cut_breaks >= min_cts):
+        name_breaks.append(min_cts)
+        cut_breaks.append(min_cts-1)
+    # ensure col names consistent across chromosomes w/ different extrema
+    name_breaks = ['min'] + map(str, sorted(name_breaks)[1:-1]) + ['max']
+    levels = ['_'.join(name_breaks[i:i+2]) for i in xrange(len(cut_breaks)-1)]
+    cut_vec = pd.Series(pd.cut(vec, bins=sorted(cut_breaks), labels=levels))
+    return cut_vec
+
+
+def cts_dummies(cts, breaks):
+    '''Cut cts dataframe into dummies. Expects 1st column to be SNP.'''
+    if len(breaks) != len(cts.columns) - 1:
+        raise ValueError('Wrong number of breaks.')
+    dummies = [None]*len(breaks)
+    for i, br in enumerate(breaks):
+        dummies[i] = _cut_cts(cts.ix[:, i], br)
+    cts = pd.concat([cts.SNP]+dummies, axis=1)
+    if (cts.sum(axis=1) == 0).any():
+        raise ValueError('Some SNPs have no annotation in. This is a bug!')
+    return cts
+
+
 # ldscore
 
-def ldscore_parser(fh, compression):
-    '''Parse LD Score files'''
+def _ldscore_single(fh, compression):
+    '''Read a single LD Score file.'''
     x = read_csv(fh, header=0, compression=compression)
     if 'MAF' in x.columns and 'CM' in x.columns:  # for backwards compatibility w/ v<1.0.0
         x = x.drop(['MAF', 'CM'], axis=1)
     return x
 
 
-def ldscore(fh):
-    '''Parse .l2.ldscore files, split across num chromosomes. See docs/file_formats_ld.txt.'''
+def _ldscore_chr(fh):
+    '''Read .l2.ldscore files split across chromosomes.'''
     suffix = '.l2.ldscore'
     fhs = exp_array(fh)
     chr_ld = [0 for _ in xrange(len(fh))]
     for i, fh in enumerate(fhs):
         full_fh = fh + suffix
         s, compression = which_compression(full_fh)
-        chr_ld[i] = ldscore_parser(full_fh + s, compression)
+        chr_ld[i] = _ldscore_single(full_fh + s, compression)
     x = pd.concat(chr_ld)  # automatically sorted by chromosome
     x = x.sort(['CHR', 'BP'])  # SEs will be wrong unless sorted
     x = x.drop(['CHR', 'BP'], axis=1).drop_duplicates(subset='SNP')
@@ -130,29 +182,30 @@ def ldscore(fh):
 
 
 def ldscore_fromlist(flist):
-    return read_fromlist(flist, ldscore, 'LD Score')
+    '''Read a list of .l2.ldscore files and concatenate horizontally.'''
+    return _read_fromlist(flist, _ldscore_single, 'LD Score')
 
 
 # M / M_5_50
 
-def M_parser(fh):
-    '''Parse a .l2.M or .l2.M_5_50 file.'''
+def _M_single(fh):
+    '''Parse a single .l2.M or .l2.M_5_50 file.'''
     return [float(z) for z in open(fh, 'r').readline().split()]
 
 
-def M(fh, N=2, common=False):
-    '''Parses .M* files.'''
+def _M_chr(fh, N=2, common=False):
+    '''Read .M files split across chromosomes.'''
     suffix = '.l' + str(N) + '.M'
     if common:
         suffix += '_5_50'
     fhs = exp_array(fh+suffix)
-    x = np.sum((M_parser(fh) for fh in fhs), axis=0)
+    x = np.sum((_M_single(fh) for fh in fhs), axis=0)
     return np.array(x).reshape((1, len(x)))
 
 
 def M_fromlist(flist, N=2, common=False):
-    '''Read a list of .M* files and concatenate sideways.'''
-    return np.hstack([M(fh, N, common) for fh in flist])
+    '''Read a list of .M* files and concatenate horizontally.'''
+    return np.hstack([_M_chr(fh, N, common) for fh in flist])
 
 
 # annot / frqfile
@@ -230,4 +283,4 @@ def annot(fh_list, num=None, frqfile=None):
 
 
 def annot_fromlist(flist, frqfile=None):
-    return read_fromlist(flist, annot, 'Annot', frqfile=frqfile)
+    return _read_fromlist(flist, annot, 'Annot', frqfile=frqfile)
