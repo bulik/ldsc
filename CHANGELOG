@@ -1,3 +1,6 @@
+18.4.15 Fix bug where --no-intercept + partitioned LD Scores gave wrong answers.
+18.4.15 Fix bug in munge_sumstats.py where using --a1-inc with a file with a signed summary statistic would 
+	when printing summary statistic metadata.
 13.3.15 Fix bug where munge_sumstats.py did not correcly report number of variants with bad alleles removed
 3.3.15 Raise sensible exception with pandas < 0.15
 2.3.15 Fix bug where munge sumstats said many SNPs removed for invalid p-values with --merge-alleles

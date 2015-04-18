@@ -187,14 +187,15 @@ def _check_ld_condnum(args, log, ref_ld):
 
 def _check_variance(log, M_annot, ref_ld):
     '''Remove zero-variance LD Scores.'''
-    # TODO is there a SNP column here?
-    ii = ref_ld.var(axis=0) == 0
+    ii = ref_ld.ix[:, 1:].var() == 0  # NB there is a SNP column here
     if ii.all():
         raise ValueError('All LD Scores have zero variance.')
-    elif ii.any():
+    else:
         log.log('Removing partitioned LD Scores with zero variance.')
-        ref_ld = ref_ld.ix[:, ~ii]
-        M_annot = M_annot[:, np.array(~ii)]
+        ii_snp = np.array([True] + list(~ii))
+        ii_m = np.array(~ii)
+        ref_ld = ref_ld.ix[:, ii_snp]
+        M_annot = M_annot[:, ii_m]
 
     return M_annot, ref_ld, ii
 

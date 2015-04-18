@@ -12,7 +12,7 @@ import os
 from ldsc import parser
 
 DIR = os.path.dirname(__file__)
-N_REP = 1000
+N_REP = 200
 s._N_CHR = 2  # having to mock 22 files is annoying
 
 
@@ -43,13 +43,16 @@ def test_check_condnum():
 
 
 def test_check_variance():
-    ld = pd.DataFrame(np.vstack((np.ones(3), np.arange(3))).T)
+    ld = pd.DataFrame({'SNP': ['a', 'b', 'c'],
+                       'LD1': np.ones(3).astype(float),
+                       'LD2': np.arange(3).astype(float)})
+    ld = ld[['SNP', 'LD1', 'LD2']]
     M_annot = np.array([[1, 2]])
-    M_annot, ld, novar_cols = s._check_variance(log, M_annot, ld)
+    M_annot, ld, novar_col = s._check_variance(log, M_annot, ld)
     assert_array_equal(M_annot.shape, (1, 1))
     assert_array_equal(M_annot, [[2]])
-    assert_series_equal(ld.iloc[:, 0], pd.Series([0.0, 1, 2]))
-    assert_array_equal(novar_cols, [True, False])
+    assert_allclose(ld.iloc[:, 1], [0, 1, 2])
+    assert_array_equal(novar_col, [True, False])
 
 
 def test_align_alleles():

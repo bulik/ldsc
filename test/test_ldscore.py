@@ -4,36 +4,27 @@ import bitarray as ba
 import numpy as np
 import nose
 import ldscore.parse as ps
-from nose_parameterized import parameterized as param
 
 
-##########################################################################
-#                                  MISC FUNCTIONS                                        #
-##########################################################################
+def test_getBlockLefts():
+    l = [
+        (np.arange(1, 6), 5, np.zeros(5)),
+        (np.arange(1, 6), 0, np.arange(0, 5)),
+        ((1, 4, 6, 7, 7, 8), 2, (0, 1, 1, 2, 2, 2))
+    ]
+    for coords, max_dist, correct in l:
+        assert np.all(ld.getBlockLefts(coords, max_dist) == correct)
 
 
-@param([
-    (np.arange(1, 6), 5, np.zeros(5)),
-    (np.arange(1, 6), 0, np.arange(0, 5)),
-    ((1, 4, 6, 7, 7, 8), 2, (0, 1, 1, 2, 2, 2))])
-def test_getBlockLefts(coords, max_dist, correct):
-    assert np.all(ld.getBlockLefts(coords, max_dist) == correct)
-
-
-@param([
-    ((0, 0, 0, 0, 0), (5, 5, 5, 5, 5)),
-    ((0, 1, 2, 3, 4, 5), (1, 2, 3, 4, 5, 6)),
-    ((0, 0, 2, 2), (2, 2, 4, 4))
-])
-def test_block_left_to_right(block_left, correct_answer):
-    block_right = ld.block_left_to_right(block_left)
-    print block_right - correct_answer
-    assert np.all(block_right == correct_answer)
-
-
-##########################################################################
-#                                    BED PARSER                                          #
-##########################################################################
+def test_block_left_to_right():
+    l = [
+        ((0, 0, 0, 0, 0), (5, 5, 5, 5, 5)),
+        ((0, 1, 2, 3, 4, 5), (1, 2, 3, 4, 5, 6)),
+        ((0, 0, 2, 2), (2, 2, 4, 4))
+    ]
+    for block_left, correct_answer in l:
+        block_right = ld.block_left_to_right(block_left)
+        assert np.all(block_right == correct_answer)
 
 
 class test_bed(unittest.TestCase):
@@ -103,15 +94,13 @@ class test_bed(unittest.TestCase):
         bed = ld.PlinkBEDFile('test/plink_test/plink.bed', self.N, self.bim)
         bed.nextSNPs(5)
 
-    @param.expand([([1]), ([2]), ([3])])
-    def test_nextSNPs(self, b):
-        bed = ld.PlinkBEDFile('test/plink_test/plink.bed', self.N, self.bim)
-        x = bed.nextSNPs(b)
-        print x
-        print np.std(x, axis=0)
-        assert x.shape == (5, b)
-        assert np.all(np.abs(np.mean(x, axis=0)) < 0.01)
-        assert np.all(np.abs(np.std(x, axis=0) - 1) < 0.01)
+    def test_nextSNPs(self):
+        for b in [1, 2, 3]:
+            bed = ld.PlinkBEDFile('test/plink_test/plink.bed', self.N, self.bim)
+            x = bed.nextSNPs(b)
+            assert x.shape == (5, b)
+            assert np.all(np.abs(np.mean(x, axis=0)) < 0.01)
+            assert np.all(np.abs(np.std(x, axis=0) - 1) < 0.01)
 
     def test_nextSNPs_maf_ref(self):
         b = 4

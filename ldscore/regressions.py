@@ -168,7 +168,7 @@ class LD_Score_Regression(object):
         else:
             yp = y - intercept
             self.intercept_se = 'NA'
-
+        del y
         self.twostep_filtered = None
         if step1_ii is not None and self.constrain_intercept:
             raise ValueError(
@@ -202,7 +202,7 @@ class LD_Score_Regression(object):
         elif old_weights:
             initial_w = np.sqrt(initial_w)
             x = IRWLS._weight(x, initial_w)
-            y = IRWLS._weight(y, initial_w)
+            y = IRWLS._weight(yp, initial_w)
             jknife = jk.LstsqJackknifeFast(x, y, n_blocks)
         else:
             update_func = lambda a: self._update_func(
