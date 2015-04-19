@@ -1,3 +1,4 @@
+#!/usr/bin/env python
 '''
 (c) 2014 Brendan Bulik-Sullivan and Hilary Finucane
 
