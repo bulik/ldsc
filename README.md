@@ -48,6 +48,10 @@ For partitioned heritability, please also cite
 
 Finucane, HK, et al. Partitioning Heritability by Functional Category using GWAS Summary Statistics. bioRxiv doi: http://dx.doi.org/10.1101/014241
 
+If you find the fact that LD Score regression approximates HE regression to be conceptually useful, please cite
+
+Bulik-Sullivan, Brendan. Relationship between LD Score and Haseman-Elston, bioRxiv doi http://dx.doi.org/10.1101/018283
+
 
 ##Requirements
 
