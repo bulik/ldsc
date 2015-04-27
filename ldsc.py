@@ -595,14 +595,6 @@ if __name__ == '__main__':
                 raise ValueError('Cannot set both --per-allele and --pq-exp (--per-allele is equivalent to --pq-exp 1).')
             if args.per_allele:
                 args.pq_exp = 1
-            if not args.overlap_annot or args.not_M_5_50:
-                if args.frqfile is not None or args.frqfile_chr is not None:
-                    log.log('The frequency file is unnecessary and is being ignored.')
-                    args.frqfile = None
-                    args.frqfile_chr = None
-            if args.overlap_annot and not args.not_M_5_50:
-                if not (args.frqfile and args.ref_ld) or (args.frqfile_chr and args.ref_ld_chr):
-                    raise ValueError ('Must set either --frqfile and --ref-ld or --frqfile-chr and --ref-ld-chr')
 
 
             ldscore(args, log)
@@ -616,6 +608,15 @@ if __name__ == '__main__':
                 raise ValueError('Cannot set both --w-ld and --w-ld-chr.')
             if (args.samp_prev is not None) != (args.pop_prev is not None):
                 raise ValueError('Must set both or neither of --samp-prev and --pop-prev.')
+
+            if not args.overlap_annot or args.not_M_5_50:
+                if args.frqfile is not None or args.frqfile_chr is not None:
+                    log.log('The frequency file is unnecessary and is being ignored.')
+                    args.frqfile = None
+                    args.frqfile_chr = None
+            if args.overlap_annot and not args.not_M_5_50:
+                if not (args.frqfile and args.ref_ld) or (args.frqfile_chr and args.ref_ld_chr):
+                    raise ValueError ('Must set either --frqfile and --ref-ld or --frqfile-chr and --ref-ld-chr')
 
             if args.rg:
                 sumstats.estimate_rg(args, log)
