@@ -1,3 +1,4 @@
+#!/usr/bin/env python
 from __future__ import division
 import pandas as pd
 import numpy as np
@@ -541,7 +542,7 @@ def munge_sumstats(args, p=True):
             ignore_cnames = []
 
         # remove LOG_ODDS, BETA, Z, OR from the default list
-        if args.signed_sumstats is not None:
+        if args.signed_sumstats is not None or args.a1_inc:
             mod_default_cnames = {x: default_cnames[
                 x] for x in default_cnames if default_cnames[x] not in null_values}
         else:
@@ -652,7 +653,6 @@ def munge_sumstats(args, p=True):
                 check_median(dat.SIGNED_SUMSTAT, signed_sumstat_null, 0.1, sign_cname))
             dat.Z *= (-1) ** (dat.SIGNED_SUMSTAT < signed_sumstat_null)
             dat.drop('SIGNED_SUMSTAT', inplace=True, axis=1)
-
         # do this last so we don't have to worry about NA values in the rest of
         # the program
         if args.merge_alleles:
