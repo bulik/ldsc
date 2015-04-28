@@ -438,10 +438,10 @@ class Hsq(LD_Score_Regression):
                                    for i in xrange(self.n_annot)]
 
             out.append('Categories: ' + ' '.join(ref_ld_colnames))
-            out.append(T + ' scale h2: ' + s(c * self.cat))
-            out.append(T + ' scale h2 SE: ' + s(c * self.cat_se))
-
+            
             if not overlap:
+                out.append(T + ' scale h2: ' + s(c * self.cat))
+                out.append(T + ' scale h2 SE: ' + s(c * self.cat_se))
                 out.append('Proportion of SNPs: ' + s(self.M_prop))
                 out.append('Proportion of h2g: ' + s(self.prop))
                 out.append('Enrichment: ' + s(self.enrichment))
