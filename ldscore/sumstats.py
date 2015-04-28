@@ -296,7 +296,7 @@ def estimate_h2(args, log):
     if args.print_delete_vals:
         _print_delete_values(hsqhat, args.out + '.delete', log)
 
-    log.log(hsqhat.summary(ref_ld_cnames, P=args.samp_prev, K=args.pop_prev))
+    log.log(hsqhat.summary(ref_ld_cnames, P=args.samp_prev, K=args.pop_prev, overlap = args.overlap_annot))
     if args.overlap_annot:
         overlap_matrix, M_tot = _read_annot(args, log)
 

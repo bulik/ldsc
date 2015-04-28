@@ -421,7 +421,7 @@ class Hsq(LD_Score_Regression):
                      'Enrichment_std_error', 'Enrichment_p']]
         return df
 
-    def summary(self, ref_ld_colnames=None, P=None, K=None):
+    def summary(self, ref_ld_colnames=None, P=None, K=None, overlap=False):
         '''Print summary of the LD Score Regression.'''
         if P is not None and K is not None:
             T = 'Liability'
@@ -440,11 +440,13 @@ class Hsq(LD_Score_Regression):
             out.append('Categories: ' + ' '.join(ref_ld_colnames))
             out.append(T + ' scale h2: ' + s(c * self.cat))
             out.append(T + ' scale h2 SE: ' + s(c * self.cat_se))
-            out.append('Proportion of SNPs: ' + s(self.M_prop))
-            out.append('Proportion of h2g: ' + s(self.prop))
-            out.append('Enrichment: ' + s(self.enrichment))
-            out.append('Coefficients: ' + s(self.coef))
-            out.append('Coefficient SE: ' + s(self.coef_se))
+
+            if not overlap:
+                out.append('Proportion of SNPs: ' + s(self.M_prop))
+                out.append('Proportion of h2g: ' + s(self.prop))
+                out.append('Enrichment: ' + s(self.enrichment))
+                out.append('Coefficients: ' + s(self.coef))
+                out.append('Coefficient SE: ' + s(self.coef_se))
 
         out.append('Lambda GC: ' + s(self.lambda_gc))
         out.append('Mean Chi^2: ' + s(self.mean_chisq))
