@@ -616,7 +616,7 @@ if __name__ == '__main__':
                     args.frqfile = None
                     args.frqfile_chr = None
             if args.overlap_annot and not args.not_M_5_50:
-                if not (args.frqfile and args.ref_ld) or (args.frqfile_chr and args.ref_ld_chr):
+                if not ((args.frqfile and args.ref_ld) or (args.frqfile_chr and args.ref_ld_chr)):
                     raise ValueError ('Must set either --frqfile and --ref-ld or --frqfile-chr and --ref-ld-chr')
 
             if args.rg:
