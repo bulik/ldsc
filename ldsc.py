@@ -573,9 +573,11 @@ if __name__ == '__main__':
         opts = vars(args)
         non_defaults = [x for x in opts.keys() if opts[x] != defaults[x]]
         header = MASTHEAD
-        header += "\nOptions: \n"
-        options = ['--'+x.replace('_','-')+' '+str(opts[x]) for x in non_defaults]
-        header += '\n'.join(options).replace('True','').replace('False','')+'\n'
+        header += "Call: \n"
+        header += './ldsc.py \\\n'
+        options = ['--'+x.replace('_','-')+' '+str(opts[x])+' \\' for x in non_defaults]
+        header += '\n'.join(options).replace('True','').replace('False','')
+        header = header[0:-1]+'\n'
         log.log(header)
         log.log('Beginning analysis at {T}'.format(T=time.ctime()))
         start_time = time.time()
