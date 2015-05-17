@@ -532,7 +532,6 @@ def munge_sumstats(args, p=True):
             header += '\n'.join(options).replace('True','').replace('False','')
             header = header[0:-1]+'\n'
             log.log(header)
-            log.log(header)
 
         file_cnames = read_header(args.sumstats)  # note keys not cleaned
         flag_cnames, signed_sumstat_null = parse_flag_cnames(log, args)
