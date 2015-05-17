@@ -526,12 +526,12 @@ def munge_sumstats(args, p=True):
             opts = vars(args)
             non_defaults = [x for x in opts.keys() if opts[x] != defaults[x]]
             header = MASTHEAD
-            header += "\nOptions: \n"
-            options = [
-                '--' + x.replace('_', '-') + ' ' + str(opts[x]) for x in non_defaults]
-            header += '\n'.join(options).replace('True',
-                                                 '').replace('False', '')
-            header += '\n'
+            header += "Call: \n"
+            header += './munge_sumstats.py \\\n'
+            options = ['--'+x.replace('_','-')+' '+str(opts[x])+' \\' for x in non_defaults]
+            header += '\n'.join(options).replace('True','').replace('False','')
+            header = header[0:-1]+'\n'
+            log.log(header)
             log.log(header)
 
         file_cnames = read_header(args.sumstats)  # note keys not cleaned
