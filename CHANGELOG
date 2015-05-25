@@ -1,3 +1,4 @@
+25.5.15 Fix ValueError in partitioned h2 (possibly caused by changes in pandas in 0.16.1?)
 18.4.15 Fix bug where --no-intercept + partitioned LD Scores gave wrong answers.
 18.4.15 Fix bug in munge_sumstats.py where using --a1-inc with a file with a signed summary statistic would 
 	when printing summary statistic metadata.

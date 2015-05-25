@@ -17,6 +17,7 @@ import traceback
 import copy
 import os
 
+
 _N_CHR = 22
 # complementary bases
 COMPLEMENT = {'A': 'T', 'T': 'A', 'C': 'G', 'G': 'C'}
@@ -276,8 +277,8 @@ def estimate_h2(args, log):
     s = lambda x: np.array(x).reshape((n_snp, 1))
     chisq = s(sumstats.Z**2)
     if chisq_max is not None:
-        ii = chisq < chisq_max
-        sumstats = sumstats[ii]
+        ii = np.ravel(chisq < chisq_max)
+        sumstats = sumstats.ix[ii, :]
         log.log('Removed {M} SNPs with chi^2 > {C} ({N} SNPs remain)'.format(
                 C=chisq_max, N=np.sum(ii), M=n_snp-np.sum(ii)))
         n_snp = np.sum(ii)  # lambdas are late-binding, so this works
