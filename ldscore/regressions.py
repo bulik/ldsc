@@ -158,6 +158,7 @@ class LD_Score_Regression(object):
         x_tot = np.sum(x, axis=1).reshape((n_snp, 1))
         self.constrain_intercept = intercept is not None
         self.intercept = intercept
+        self.n_blocks = n_blocks
         tot_agg = self.aggregate(y, x_tot, N, M_tot, intercept)
         initial_w = self._update_weights(
             x_tot, w, N, M_tot, tot_agg, intercept)
