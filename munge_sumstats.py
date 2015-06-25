@@ -69,6 +69,7 @@ default_cnames = {
     # N
     'N': 'N',
     'NCASE': 'N_CAS',
+    'CASES_N': 'N_CAS',
     'N_CASE': 'N_CAS',
     'N_CASES': 'N_CAS',
     'N_CONTROLS': 'N_CON',
@@ -76,6 +77,7 @@ default_cnames = {
     'N_CON': 'N_CON',
     'N_CASE': 'N_CAS',
     'NCONTROL': 'N_CON',
+    'CONTROLS_N': 'N_CON',
     'N_CONTROL': 'N_CON',
     'WEIGHT': 'N',  # metal does this. possibly risky.
     # SIGNED STATISTICS
