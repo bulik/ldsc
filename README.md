@@ -17,6 +17,21 @@ $ python ldsc.py -h
 ```
 will print a list of all command-line options. Short tutorials describing the four basic functions of `ldsc` (estimating LD Scores, h2 and partitioned h2, genetic correlation, the LD Score regression intercept) can be found in the wiki. If you would like to run the tests, please see the wiki.
 
+## Updating LDSC
+
+You can update to the newest version of `ldsc` using `git`. First, navigate to your `ldsc` directory (e.g., `cd ldsc`), then run
+```
+git pull
+```
+If `ldsc` is up to date, you will see 
+```
+Already up-to-date.
+```
+otherwise, you will see `git` output similar to 
+
+
+which tells you which files were changed. 
+
 ## Where Can I Get LD Scores?
 
 You can download LD Scores that are suitable for basic LD Score analyses (the LD Score regression intercept, heritability, genetic correlation) [here](http://www.broadinstitute.org/~bulik/eur_ldscores/).
