@@ -13,13 +13,13 @@ git clone https://github.com/bulik/ldsc.git
 ```
 Once you have installed `ldsc` as well as the required packages, typing
 ```
-$ python ldsc.py -h
+python ldsc.py -h
 ```
 will print a list of all command-line options. Short tutorials describing the four basic functions of `ldsc` (estimating LD Scores, h2 and partitioned h2, genetic correlation, the LD Score regression intercept) can be found in the wiki. If you would like to run the tests, please see the wiki.
 
 ## Updating LDSC
 
-You can update to the newest version of `ldsc` using `git`. First, navigate to your `ldsc` directory (e.g., `cd ldsc`), then run
+You can update to the newest version of `ldsc` using `git`. First, navigate to your `ldsc/` directory (e.g., `cd ldsc`), then run
 ```
 git pull
 ```
@@ -44,7 +44,7 @@ which tells you which files were changed. If you have modified the `ldsc` source
 
 ## Where Can I Get LD Scores?
 
-You can download LD Scores that are suitable for basic LD Score analyses (the LD Score regression intercept, heritability, genetic correlation) [here](http://www.broadinstitute.org/~bulik/eur_ldscores/).
+You can download European and East Asian LD Scores from 1000 Genomes [here](http://www.broadinstitute.org/~bulik/eur_ldscores/). These LD Scores are suitable for basic LD Score analyses (the LD Score regression intercept, heritability, genetic correlation, cross-sex genetic correlation). You can download partitioned LD Scores for partitioned heritability estimation [here](http://data.broadinstitute.org/alkesgroup/LDSCORE/).
 
 
 ##Support
@@ -80,12 +80,16 @@ Bulik-Sullivan, Brendan. Relationship between LD Score and Haseman-Elston, bioRx
 
 ##Requirements
 
-1. `Python 2.7`
-2. `argparse 1.2.1`
-3. `bitarray 0.8.1`
-4. `numpy 1.8.0`
-5. `pandas 0.15.0`
-6. `scipy 0.10.1`
+1. `Python (3 > version >= 2.7)`
+2. `argparse`
+3. `bitarray`
+4. `numpy`
+5. `pandas`
+6. `scipy`
+
+The python data science stack is still under constant development, with frequent breaking changes. We will attempt to keep `ldsc` compatible with the newest releases of `numpy/scipy/pandas`, and we therefore recommend that you make sure you are running the latest versions of these three packages. This is most easily accomplished using the [`Anaconda`]((https://store.continuum.io/cshop/anaconda/) ) python distribution and the included package manager `conda`.  
+
+`ldsc` is not presently compatible with python 3.x.
 
 ##License
 
