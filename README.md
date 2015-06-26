@@ -28,9 +28,19 @@ If `ldsc` is up to date, you will see
 Already up-to-date.
 ```
 otherwise, you will see `git` output similar to 
-
-
-which tells you which files were changed. 
+```
+remote: Counting objects: 3, done.
+remote: Compressing objects: 100% (3/3), done.
+remote: Total 3 (delta 0), reused 0 (delta 0), pack-reused 0
+Unpacking objects: 100% (3/3), done.
+From https://github.com/bulik/ldsc
+   95f4db3..a6a6b18  master     -> origin/master
+Updating 95f4db3..a6a6b18
+Fast-forward
+ README.md | 15 +++++++++++++++
+ 1 file changed, 15 insertions(+)
+ ```
+which tells you which files were changed. If you have modified the `ldsc` source code, `git pull` may fail with an error such as `error: Your local changes to the following files would be overwritten by merge:`. 
 
 ## Where Can I Get LD Scores?
 
