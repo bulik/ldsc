@@ -426,11 +426,11 @@ class Hsq(LD_Score_Regression):
             'Coefficient_z-score': one_d_convert(self.coef) / one_d_convert(self.coef_se)
         })
         if print_coefficients:
-            df = df[['Category', 'Prop._SNPs', 'Prop._h2', 'Prop._h2_std_error', 
-                    'Enrichment','Enrichment_std_error', 'Enrichment_p', 
+            df = df[['Category', 'Prop._SNPs', 'Prop._h2', 'Prop._h2_std_error',
+                    'Enrichment','Enrichment_std_error', 'Enrichment_p',
                      'Coefficient', 'Coefficient_std_error','Coefficient_z-score']]
         else:
-            df = df[['Category', 'Prop._SNPs', 'Prop._h2', 'Prop._h2_std_error', 
+            df = df[['Category', 'Prop._SNPs', 'Prop._h2', 'Prop._h2_std_error',
                     'Enrichment','Enrichment_std_error', 'Enrichment_p']]
         return df
 
@@ -452,7 +452,7 @@ class Hsq(LD_Score_Regression):
                                    for i in xrange(self.n_annot)]
 
             out.append('Categories: ' + ' '.join(ref_ld_colnames))
-            
+
             if not overlap:
                 out.append(T + ' scale h2: ' + s(c * self.cat))
                 out.append(T + ' scale h2 SE: ' + s(c * self.cat_se))
@@ -675,7 +675,7 @@ class RG(object):
 
     def __init__(self, z1, z2, x, w, N1, N2, M, intercept_hsq1=None, intercept_hsq2=None,
                  intercept_gencov=None, n_blocks=200, slow=False, twostep=None):
-
+        self.intercept_gencov = intercept_gencov
         self._negative_hsq = None
         n_snp, n_annot = x.shape
         hsq1 = Hsq(np.square(z1), x, w, N1, M, n_blocks=n_blocks, intercept=intercept_hsq1,
@@ -713,18 +713,25 @@ class RG(object):
             out.append('P: nan (nan) (h2  out of bounds)')
             out.append('WARNING: One of the h2\'s was out of bounds.')
             out.append(
-                'This usually indicates a data-munging error or that h2 or N is low.')
+                'This usually indicates a data-munging error ' +
+                'or that h2 or N is low.')
         elif (self.rg_ratio > 1.2 or self.rg_ratio < -1.2) and not silly:
             out.append('Genetic Correlation: nan (nan) (rg out of bounds) ')
             out.append('Z-score: nan (nan) (rg out of bounds)')
             out.append('P: nan (nan) (rg out of bounds)')
             out.append('WARNING: rg was out of bounds.')
-            out.append(
-                'This usually means that h2 is not significantly different from zero.')
+            if self.intercept_gencov is None:
+                out.append(
+                    'This often means that h2 is not significantly ' +
+                    'different from zero.')
+            else:
+                out.append(
+                           'This often means that you have constrained' +
+                           ' the intercepts to the wrong values.')
         else:
             out.append(
-                'Genetic Correlation: ' + s(self.rg_ratio) + ' (' + s(self.rg_se) + ')')
+                'Genetic Correlation: ' + s(self.rg_ratio) +
+                ' (' + s(self.rg_se) + ')')
             out.append('Z-score: ' + s(self.z))
             out.append('P: ' + s(self.p))
-
         return remove_brackets('\n'.join(out))
