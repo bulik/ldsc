@@ -1,4 +1,4 @@
-'''
+®'''
 (c) 2014 Brendan Bulik-Sullivan and Hilary Finucane
 
 Estimators of heritability and genetic correlation.
@@ -473,7 +473,7 @@ class Hsq(LD_Score_Regression):
             if self.mean_chisq > 1:
                 if self.ratio < 0:
                     out.append(
-                      'Ratio < 0 (ususally indicates GC correction).')
+                      'Ratio < 0 (usually indicates GC correction).')
                 else:
                     out.append(
                       'Ratio: ' + s(self.ratio) + ' (' + s(self.ratio_se) + ')')
