@@ -1,4 +1,4 @@
-®'''
+'''
 (c) 2014 Brendan Bulik-Sullivan and Hilary Finucane
 
 Estimators of heritability and genetic correlation.
