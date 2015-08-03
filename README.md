@@ -54,7 +54,7 @@ You can download European and East Asian LD Scores from 1000 Genomes [here](http
 
 Before contacting us, please try the following:
 
-1. The [wiki](https://github.com/bulik/ldsc/wiki) has tutorials on [estimating LD Score](https://github.com/bulik/ldsc/wiki/LD-Score-Estimation-Tutorial), [genetic correlation](https://github.com/bulik/ldsc/wiki/Genetic-Correlation) and [partitioned heritability](https://github.com/bulik/ldsc/wiki/Partitioned-Heritability).
+1. The [wiki](https://github.com/bulik/ldsc/wiki) has tutorials on [estimating LD Score](https://github.com/bulik/ldsc/wiki/LD-Score-Estimation-Tutorial), [heritability, genetic correlation and the LD Score regression intercept](https://github.com/bulik/ldsc/wiki/Heritability-and-Genetic-Correlation) and [partitioned heritability](https://github.com/bulik/ldsc/wiki/Partitioned-Heritability).
 2. Common issues are described in the [FAQ](https://github.com/bulik/ldsc/wiki/FAQ)
 2. The methods are described in the papers (citations below)
 
