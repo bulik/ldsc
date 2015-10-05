@@ -94,14 +94,14 @@ class test_process_n(unittest.TestCase):
         self.args.N_cas = None
         self.args.N_con = None
         dat = munge.process_n(self.dat, self.args, log)
-        assert_series_equal(dat.N, self.N_const)
+        assert_series_equal(dat.N, self.N_const, check_names=False)
 
     def test_n_cas_con_flag(self):
         self.args.N = None
         self.args.N_cas = 1000.0
         self.args.N_con = 234.0
         dat = munge.process_n(self.dat, self.args, log)
-        assert_series_equal(dat.N, self.N_const)
+        assert_series_equal(dat.N, self.N_const, check_names=False)
 
 
 def test_filter_pvals():
