@@ -442,7 +442,12 @@ def _filter_alleles(alleles):
 
 def _align_alleles(z, alleles):
     '''Align Z1 and Z2 to same choice of ref allele (allowing for strand flip).'''
-    z *= (-1) ** alleles.apply(lambda y: FLIP_ALLELES[y])
+    try:
+        z *= (-1) ** alleles.apply(lambda y: FLIP_ALLELES[y])
+    except KeyError as e:
+        msg = 'Incompatible alleles in .sumstats files: %s. ' % e.args
+        msg += 'Did you forget to use --merge-alleles with munge_sumstats.py?'
+        raise KeyError(msg)
     return z
 
 
