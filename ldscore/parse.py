@@ -141,8 +141,11 @@ def ldscore(fh, num=None):
     else:  # just one file
         s, compression = which_compression(fh + suffix)
         x = l2_parser(fh + suffix + s, compression)
-
-    x = x.sort(['CHR', 'BP'])  # SEs will be wrong unless sorted
+    # resolve pandas versioning
+    if pd.__version__.startswith("0.17"):
+        x = x.sort_values(by=['CHR', 'BP'])
+    else:
+        x = x.sort(['CHR', 'BP'])  # SEs will be wrong unless sorted
     x = x.drop(['CHR', 'BP'], axis=1).drop_duplicates(subset='SNP')
     return x
 
