@@ -211,7 +211,7 @@ def _print_cov(ldscore_reg, ofh, log):
     '''Prints covariance matrix of slopes.'''
     log.log(
         'Printing covariance matrix of the estimates to {F}.'.format(F=ofh))
-    np.savetxt(ofh, ldscore_reg.cat_cov)
+    np.savetxt(ofh, ldscore_reg.coef_cov)
 
 
 def _print_delete_values(ldscore_reg, ofh, log):
