@@ -261,6 +261,7 @@ def parse_dat(dat_gen, convert_colname, merge_alleles, log, args):
             old = new
 
         if 'FRQ' in dat.columns:
+            old = ii.sum()
             ii &= filter_frq(dat['FRQ'], log, args)
             new = ii.sum()
             drops['FRQ'] += old - new
