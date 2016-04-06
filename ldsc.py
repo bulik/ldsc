@@ -519,8 +519,6 @@ parser.add_argument('--two-step', default=None, type=float,
     help='Test statistic bound for use with the two-step estimator. Not compatible with --no-intercept and --constrain-intercept.')
 parser.add_argument('--chisq-max', default=None, type=float,
     help='Max chi^2.')
-parser.add_argument('--all', default=False, action='store_true',
-    help='Estimate all pairwise genetic correlation.')
 
 # Flags for both LD Score estimation and h2/gencor estimation
 parser.add_argument('--print-cov', default=False, action='store_true',
