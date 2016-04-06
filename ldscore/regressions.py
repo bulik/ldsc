@@ -22,7 +22,7 @@ s = lambda x: remove_brackets(str(np.matrix(x)))
 
 def update_separators(s, ii):
     '''s are separators with ii masked. Returns unmasked separators.'''
-    maplist = np.arange(len(ii) + 1)[np.squeeze(ii)]
+    maplist = np.arange(len(ii))[np.squeeze(ii)]
     mask_to_unmask = lambda i: maplist[i]
     t = np.apply_along_axis(mask_to_unmask, 0, s[1:-1])
     t = np.hstack(((0), t, (len(ii))))

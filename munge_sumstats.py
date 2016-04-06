@@ -231,7 +231,7 @@ def parse_dat(dat_gen, convert_colname, merge_alleles, log, args):
     tot_snps = 0
     dat_list = []
     msg = 'Reading sumstats from {F} into memory {N} SNPs at a time.'
-    log.log(msg.format(F=args.sumstats, N=args.chunksize))
+    log.log(msg.format(F=args.sumstats, N=int(args.chunksize)))
     drops = {'NA': 0, 'P': 0, 'INFO': 0,
              'FRQ': 0, 'A': 0, 'SNP': 0, 'MERGE': 0}
     for block_num, dat in enumerate(dat_gen):

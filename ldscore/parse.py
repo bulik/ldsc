@@ -142,7 +142,7 @@ def ldscore(fh, num=None):
         s, compression = which_compression(fh + suffix)
         x = l2_parser(fh + suffix + s, compression)
 
-    x = x.sort(['CHR', 'BP'])  # SEs will be wrong unless sorted
+    x = x.sort_values(by=['CHR', 'BP']) # SEs will be wrong unless sorted
     x = x.drop(['CHR', 'BP'], axis=1).drop_duplicates(subset='SNP')
     return x
 
