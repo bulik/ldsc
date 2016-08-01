@@ -620,6 +620,11 @@ def munge_sumstats(args, p=True):
             if c not in cname_translation.values():
                 raise ValueError('Could not find {C} column.'.format(C=c))
 
+        for heads in cname_translation.values():
+            numc = cname_translation.values().count(heads)
+	    if numc > 1:
+                raise ValueError('Found {num} different {C} columns'.format(C=heads,num=str(numc)))
+
         if (not args.N) and (not (args.N_cas and args.N_con)) and ('N' not in cname_translation.values()) and\
                 (any(x not in cname_translation.values() for x in ['N_CAS', 'N_CON'])):
             raise ValueError('Could not determine N.')
