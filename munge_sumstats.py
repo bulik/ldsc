@@ -628,7 +628,7 @@ def munge_sumstats(args, p=True):
 
         # check multiple different column names don't map to same data field
         for head in cname_translation.values():
-            numc = cname_translation.count(head)
+            numc = cname_translation.values().count(head)
 	    if numc > 1:
                 raise ValueError('Found {num} different {C} columns'.format(C=head,num=str(numc)))
 
