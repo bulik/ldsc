@@ -525,6 +525,9 @@ def munge_sumstats(args, p=True):
         if args.no_alleles and args.merge_alleles:
             raise ValueError(
                 '--no-alleles and --merge-alleles are not compatible.')
+        if args.daner and args.daner_n:
+            raise ValueError('--daner and --daner-n are not compatible. Use --daner for sample ' + 
+	        'size from FRQ_A/FRQ_U headers, use --daner-n for values from Nca/Nco columns')
 
         if p:
             defaults = vars(parser.parse_args(''))
