@@ -462,7 +462,10 @@ parser.add_argument('--info-min', default=0.9, type=float,
 parser.add_argument('--maf-min', default=0.01, type=float,
                     help="Minimum MAF.")
 parser.add_argument('--daner', default=False, action='store_true',
-                    help="Use this flag to parse Step han Ripke's daner* file format.")
+                    help="Use this flag to parse Stephan Ripke's daner* file format.")
+parser.add_argument('--daner-n', default=False, action='store_true',
+                    help="Use this flag to parse more recent daner* formatted files, which "
+		    "include sample size column 'Nca' and 'Nco'.")
 parser.add_argument('--no-alleles', default=False, action="store_true",
                     help="Don't require alleles. Useful if only unsigned summary statistics are available "
                     "and the goal is h2 / partitioned h2 estimation rather than rg estimation.")
@@ -523,6 +526,9 @@ def munge_sumstats(args, p=True):
         if args.no_alleles and args.merge_alleles:
             raise ValueError(
                 '--no-alleles and --merge-alleles are not compatible.')
+        if args.daner and args.daner_n:
+            raise ValueError('--daner and --daner-n are not compatible. Use --daner for sample ' + 
+	        'size from FRQ_A/FRQ_U headers, use --daner-n for values from Nca/Nco columns')
 
         if p:
             defaults = vars(parser.parse_args(''))
@@ -567,6 +573,22 @@ def munge_sumstats(args, p=True):
                     del cname_map[d]
 
             cname_map[frq_u] = 'FRQ'
+
+	if args.daner_n:
+	    frq_u = filter(lambda x: x.startswith('FRQ_U_'), file_cnames)[0]
+	    cname_map[frq_u] = 'FRQ'
+	    try:
+	        cas_col = file_cnames.index('NCA')
+	    except ValueError:
+	        raise ValueError('Could not find Nca column expected for daner-n format')
+	
+	    try:
+	        con_col = file_cnames.index('NCO')
+	    except ValueError:
+	        raise ValueError('Could not find Nco column expected for daner-n format')
+
+            cname_map[cas_col] = 'N_CAS'
+	    cname_map[con_col] = 'N_CON'
 
         cname_translation = {x: cname_map[clean_header(x)] for x in file_cnames if
                              clean_header(x) in cname_map}  # note keys not cleaned
