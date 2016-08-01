@@ -577,17 +577,17 @@ def munge_sumstats(args, p=True):
 	    frq_u = filter(lambda x: x.startswith('FRQ_U_'), file_cnames)[0]
 	    cname_map[frq_u] = 'FRQ'
 	    try:
-	        cas_col = file_cnames.index('NCA')
+	        dan_cas = clean_header(file_cnames[file_cnames.index('Nca')])
 	    except ValueError:
 	        raise ValueError('Could not find Nca column expected for daner-n format')
 	
 	    try:
-	        con_col = file_cnames.index('NCO')
+	        dan_con = clean_header(file_cnames[file_cnames.index('Nco')])
 	    except ValueError:
 	        raise ValueError('Could not find Nco column expected for daner-n format')
 
-            cname_map[cas_col] = 'N_CAS'
-	    cname_map[con_col] = 'N_CON'
+            cname_map[dan_cas] = 'N_CAS'
+	    cname_map[dan_con] = 'N_CON'
 
         cname_translation = {x: cname_map[clean_header(x)] for x in file_cnames if
                              clean_header(x) in cname_map}  # note keys not cleaned
