@@ -16,9 +16,9 @@ np.seterr(invalid='ignore')
 
 try:
     x = pd.DataFrame({'A': [1, 2, 3]})
-    x.drop_duplicates(subset='A')
-except TypeError:
-    raise ImportError('LDSC requires pandas version > 0.15.2')
+    x.sort_values(by='A')
+except AttributeError:
+    raise ImportError('LDSC requires pandas version >= 0.17.0')
 
 null_values = {
 
