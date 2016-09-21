@@ -120,6 +120,7 @@ describe_cname = {
     'NSTUDY': 'Number of studies in which the SNP was genotyped.'
 }
 
+numeric_cols = ['P', 'N', 'N_CAS', 'N_CON', 'Z', 'OR', 'BETA', 'LOG_ODDS', 'INFO', 'FRQ', 'SIGNED_SUMSTAT', 'NSTUDY']
 
 def read_header(fh):
     '''Read the first line of a file and returns a list with the column names.'''
@@ -242,6 +243,11 @@ def parse_dat(dat_gen, convert_colname, merge_alleles, log, args):
             lambda x: x != 'INFO', dat.columns)).reset_index(drop=True)
         drops['NA'] += old - len(dat)
         dat.columns = map(lambda x: convert_colname[x], dat.columns)
+
+        wrong_types = [c for c in dat.columns if c in numeric_cols and not np.issubdtype(dat[c].dtype, np.number)]
+        if len(wrong_types) > 0:
+            raise ValueError('Columns {} are expected to be numeric'.format(wrong_types))
+
         ii = np.array([True for i in xrange(len(dat))])
         if args.merge_alleles:
             old = ii.sum()
