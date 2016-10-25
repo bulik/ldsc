@@ -60,7 +60,7 @@ Before contacting us, please try the following:
 
 If that doesn't work, you can get in touch with us via the [google group](https://groups.google.com/forum/?hl=en#!forum/ldsc_users).
 
-Issues with LDHub?  Email ldhub@bristol.ac.uk
+Issues with LD Hub?  Email ldhub@bristol.ac.uk
 
 
 ##Citation
@@ -82,7 +82,7 @@ If you find the fact that LD Score regression approximates HE regression to be c
 
 Bulik-Sullivan, Brendan. Relationship between LD Score and Haseman-Elston, bioRxiv doi http://dx.doi.org/10.1101/018283
 
-For LDHub, please cite
+For LD Hub, please cite
 
 Zheng, et al. LD Hub: a centralized database and web interface to perform LD score regression that maximizes the potential of summary level GWAS data for SNP heritability and genetic correlation analysis. Bioinformatics (2016)
 https://doi.org/10.1093/bioinformatics/btw613
