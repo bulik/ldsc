@@ -60,7 +60,7 @@ Before contacting us, please try the following:
 
 If that doesn't work, you can get in touch with us via the [google group](https://groups.google.com/forum/?hl=en#!forum/ldsc_users).
 
-Issues with LD Hub?  Email ldhub@bristol.ac.uk
+Issues with LD Hub?  Email ld-hub@bristol.ac.uk
 
 
 ##Citation
