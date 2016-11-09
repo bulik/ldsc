@@ -227,6 +227,7 @@ class LD_Score_Regression(object):
 
         self.jknife = jknife
         self.tot_delete_values = self._delete_vals_tot(jknife, Nbar, M)
+        self.part_delete_values = self._delete_vals_part(jknife, Nbar, M)
         if not self.constrain_intercept:
             self.intercept_delete_values = jknife.delete_values[
                 :, self.n_annot]
@@ -253,6 +254,11 @@ class LD_Score_Regression(object):
         # shape (n_blocks, 1)
         tot_delete_vals = np.dot(tot_delete_vals, M.T) / Nbar
         return tot_delete_vals
+
+    def _delete_vals_part(self, jknife, Nbar, M):
+        '''Get delete values for partitioned h2 or gencov.'''
+        n_annot = self.n_annot
+        return jknife.delete_values[:, 0:n_annot] / Nbar
 
     def _coef(self, jknife, Nbar):
         '''Get coefficient estimates + cov from the jackknife.'''

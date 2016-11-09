@@ -219,6 +219,11 @@ def _print_delete_values(ldscore_reg, ofh, log):
     log.log('Printing block jackknife delete values to {F}.'.format(F=ofh))
     np.savetxt(ofh, ldscore_reg.tot_delete_values)
 
+def _print_part_delete_values(ldscore_reg, ofh, log):
+    '''Prints partitioned block jackknife delete-k values'''
+    log.log('Printing partitioned block jackknife delete values to {F}.'.format(F=ofh))
+    np.savetxt(ofh, ldscore_reg.part_delete_values)
+
 
 def _merge_and_log(ld, sumstats, noun, log):
     '''Wrap smart merge with log messages about # of SNPs.'''
@@ -296,6 +301,7 @@ def estimate_h2(args, log):
         _print_cov(hsqhat, args.out + '.cov', log)
     if args.print_delete_vals:
         _print_delete_values(hsqhat, args.out + '.delete', log)
+        _print_part_delete_values(hsqhat, args.out + '.part_delete', log)
 
     log.log(hsqhat.summary(ref_ld_cnames, P=args.samp_prev, K=args.pop_prev, overlap = args.overlap_annot))
     if args.overlap_annot:
