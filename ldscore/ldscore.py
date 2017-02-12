@@ -166,7 +166,7 @@ class __GenotypeArrayInMemory__(object):
         m, n = self.m, self.n
         block_sizes = np.array(np.arange(m) - block_left)
         block_sizes = np.ceil(block_sizes / c)*c
-        if not np.any(annot):
+        if annot is None:
             annot = np.ones((m, 1))
         else:
             annot_m = annot.shape[0]
@@ -204,7 +204,7 @@ class __GenotypeArrayInMemory__(object):
             # this happens w/ sparse categories (i.e., pathways)
             # update the block
             old_b = b
-            b = block_sizes[l_B]
+            b = int(block_sizes[l_B])
             if l_B > b0 and b > 0:
                 # block_size can't increase more than c
                 # block_size can't be less than c unless it is zero
