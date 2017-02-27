@@ -66,7 +66,7 @@ def _select_and_log(x, ii, log, msg):
 
 def smart_merge(x, y):
     '''Check if SNP columns are equal. If so, save time by using concat instead of merge.'''
-    if len(x) == len(y) and (x.SNP == y.SNP).all():
+    if len(x) == len(y) and (x.index == y.index).all() and (x.SNP == y.SNP).all():
         x = x.reset_index(drop=True)
         y = y.reset_index(drop=True).drop('SNP', 1)
         out = pd.concat([x, y], axis=1)
