@@ -9,6 +9,7 @@ regression is implemented in the regressions module.
 from __future__ import division
 import numpy as np
 import pandas as pd
+from scipy import stats
 import itertools as it
 import parse as ps
 import regressions as reg
@@ -249,6 +250,66 @@ def _read_ld_sumstats(args, log, fh, alleles=False, dropna=True):
     w_ld_cname = sumstats.columns[-1]
     ref_ld_cnames = ref_ld.columns[1:len(ref_ld.columns)]
     return M_annot, w_ld_cname, ref_ld_cnames, sumstats, novar_cols
+
+def cell_type_specific(args, log):
+    '''Cell type specific analysis'''
+    args = copy.deepcopy(args)
+    if args.intercept_h2 is not None:
+        args.intercept_h2 = float(args.intercept_h2)
+    if args.no_intercept:
+        args.intercept_h2 = 1
+
+    M_annot_all_regr, w_ld_cname, ref_ld_cnames_all_regr, sumstats, novar_cols = \
+            _read_ld_sumstats(args, log, args.h2_cts)
+    M_tot = np.sum(M_annot_all_regr)
+    _check_ld_condnum(args, log, ref_ld_cnames_all_regr)
+    _warn_length(log, sumstats)
+    n_snp = len(sumstats)
+    n_blocks = min(n_snp, args.n_blocks)
+    if args.chisq_max is None:
+        chisq_max = max(0.001*sumstats.N.max(), 80)
+    else:
+        chisq_max = args.chisq_max
+
+    ii = np.ravel(sumstats.Z**2 < chisq_max)
+    sumstats = sumstats.ix[ii, :]
+    log.log('Removed {M} SNPs with chi^2 > {C} ({N} SNPs remain)'.format(
+            C=chisq_max, N=np.sum(ii), M=n_snp-np.sum(ii)))
+    n_snp = np.sum(ii)  # lambdas are late-binding, so this works
+    ref_ld_all_regr = np.array(sumstats[ref_ld_cnames_all_regr]).reshape((len(sumstats),-1))
+    chisq = np.array(sumstats.Z**2)
+    keep_snps = sumstats[['SNP']]
+
+    s = lambda x: np.array(x).reshape((n_snp, 1))
+    results_columns = ['Name', 'Coefficient', 'Coefficient_std_error', 'Coefficient_P_value']
+    results_data = []
+    for (name, ct_ld_chr) in [x.split() for x in open(args.ref_ld_chr_cts).readlines()]:
+        ref_ld_cts_allsnps = _read_chr_split_files(ct_ld_chr, None, log,
+                                   'cts reference panel LD Score', ps.ldscore_fromlist)
+        log.log('Performing regression.')
+        ref_ld_cts = np.array(pd.merge(keep_snps, ref_ld_cts_allsnps, on='SNP', how='left').ix[:,1:])
+        if np.any(np.isnan(ref_ld_cts)):
+            raise ValueError ('Missing some LD scores from cts files. Are you sure all SNPs in ref-ld-chr are also in ref-ld-chr-cts')
+
+        ref_ld = np.hstack([ref_ld_cts, ref_ld_all_regr])
+        M_cts = ps.M_fromlist(
+                _splitp(ct_ld_chr), _N_CHR, common=(not args.not_M_5_50))
+        M_annot = np.hstack([M_cts, M_annot_all_regr])
+        hsqhat = reg.Hsq(s(chisq), ref_ld, s(sumstats[w_ld_cname]), s(sumstats.N),
+                     M_annot, n_blocks=n_blocks, intercept=args.intercept_h2,
+                     twostep=None, old_weights=True)
+        coef, coef_se = hsqhat.coef[0], hsqhat.coef_se[0]
+        results_data.append((name, coef, coef_se, stats.norm.sf(coef/coef_se)))
+        if args.print_all_cts:
+            for i in range(1, len(ct_ld_chr.split(','))):
+                coef, coef_se = hsqhat.coef[i], hsqhat.coef_se[i]
+                results_data.append((name+'_'+str(i), coef, coef_se, stats.norm.sf(coef/coef_se)))
+
+
+    df_results = pd.DataFrame(data = results_data, columns = results_columns)
+    df_results.sort_values(by = 'Coefficient_P_value', inplace=True)
+    df_results.to_csv(args.out+'.cell_type_results.txt', sep='\t', index=False)
+    log.log('Results printed to '+args.out+'.cell_type_results.txt')
 
 
 def estimate_h2(args, log):

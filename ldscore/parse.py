@@ -114,8 +114,7 @@ def l2_parser(fh, compression):
 
 def annot_parser(fh, compression, frqfile_full=None, compression_frq=None):
     '''Parse annot files'''
-    df_annot = read_csv(fh, header=0, compression=compression).drop(['CHR', 'BP', 'CM'], axis=1)
-    df_annot.iloc[:, 1:] = df_annot.iloc[:, 1:].astype(float)
+    df_annot = read_csv(fh, header=0, compression=compression).drop(['SNP','CHR', 'BP', 'CM'], axis=1, errors='ignore').astype(float)
     if frqfile_full is not None:
         df_frq = frq_parser(frqfile_full, compression_frq)
         df_annot = df_annot[(.95 > df_frq.FRQ) & (df_frq.FRQ > 0.05)]
@@ -200,7 +199,7 @@ def annot(fh_list, num=None, frqfile=None):
                 df_annot_chr_list = [annot_parser(sub_chr(fh, chr) + annot_suffix[i], annot_compression[i])
                                      for i, fh in enumerate(fh_list)]
 
-            annot_matrix_chr_list = [np.matrix(df_annot_chr.ix[:, 1:]) for df_annot_chr in df_annot_chr_list]
+            annot_matrix_chr_list = [np.matrix(df_annot_chr) for df_annot_chr in df_annot_chr_list]
             annot_matrix_chr = np.hstack(annot_matrix_chr_list)
             y.append(np.dot(annot_matrix_chr.T, annot_matrix_chr))
             M_tot += len(df_annot_chr_list[0])
@@ -224,7 +223,7 @@ def annot(fh_list, num=None, frqfile=None):
             df_annot_list = [annot_parser(fh + annot_suffix[i], annot_compression[i])
                              for i, fh in enumerate(fh_list)]
 
-        annot_matrix_list = [np.matrix(y.ix[:, 1:]) for y in df_annot_list]
+        annot_matrix_list = [np.matrix(y) for y in df_annot_list]
         annot_matrix = np.hstack(annot_matrix_list)
         x = np.dot(annot_matrix.T, annot_matrix)
         M_tot = len(df_annot_list[0])
@@ -243,7 +242,7 @@ def __ID_List_Factory__(colnames, keepcol, fname_end, header=None, usecols=None)
             self.__fname_end__ = fname_end
             self.__header__ = header
             self.__read__(fname)
-            self.n = len(self.IDList)
+            self.n = len(self.df)
 
         def __read__(self, fname):
             end = self.__fname_end__
@@ -257,7 +256,8 @@ def __ID_List_Factory__(colnames, keepcol, fname_end, header=None, usecols=None)
             if self.__colnames__:
                 self.df.columns = self.__colnames__
 
-            self.IDList = self.df.iloc[:, [self.__keepcol__]].astype('object')
+            if self.__keepcol__ is not None:
+                self.IDList = self.df.iloc[:, [self.__keepcol__]].astype('object')
 
         def loj(self, externalDf):
             '''Returns indices of those elements of self.IDList that appear in exernalDf.'''
@@ -277,3 +277,4 @@ PlinkBIMFile = __ID_List_Factory__(['CHR', 'SNP', 'CM', 'BP', 'A1', 'A2'], 1, '.
 PlinkFAMFile = __ID_List_Factory__(['IID'], 0, '.fam', usecols=[1])
 FilterFile = __ID_List_Factory__(['ID'], 0, None, usecols=[0])
 AnnotFile = __ID_List_Factory__(None, 2, None, header=0, usecols=None)
+ThinAnnotFile = __ID_List_Factory__(None, None, None, header=0, usecols=None)
