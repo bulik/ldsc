@@ -1,12 +1,38 @@
-2.7.15 Modify rg out of bounds error message when --no-intercept (or --intercept-h2 and --intercept-gencov) flags are set
-25.5.15 Fix ValueError in partitioned h2 (possibly caused by changes in pandas in 0.16.1?)
-18.4.15 Fix bug where --no-intercept + partitioned LD Scores gave wrong answers.
-18.4.15 Fix bug in munge_sumstats.py where using --a1-inc with a file with a signed summary statistic would 
-	when printing summary statistic metadata.
-13.3.15 Fix bug where munge_sumstats.py did not correcly report number of variants with bad alleles removed
-3.3.15 Raise sensible exception with pandas < 0.15
-2.3.15 Fix bug where munge sumstats said many SNPs removed for invalid p-values with --merge-alleles
-20.2.15 Fix --a1-inc flag in munge_sumstats.py
-17.2.15 Fix bug where ~ was not expanded in comma-separated lists of files
-12.2.15 v1.0.0 released
+XX.03.17 Update this changelog to record changes between 2.8.15 and 8.3.17
+08.03.17 Update pandas version requirement, add --daner-n option (pull #75; commit 4da1199)
+28.02.17 Fix ValueError in --h2 regarding Series labels from pandas 0.19 (pull #73; commit fa28cca)
+27.02.17 Add --thin-annot and --ldsc-cts options (commit 94b5143)
+12.02.17 Fix empty annotations outputting total LD scores; fix munge_sumstats outputting wrong 
+	 sign on Z scores when sumstats aren't floats; fix error from floats used as indices with 
+	 some versions of pandas (pull #69; commit c42e055)
+09.11.16 Add support for continuous annotations in partitioned h2 (pull #62; commit f7c3316)
+27.10.16 Fix possibly incorrect log of number of MAF exclusions from munge_sumstats (pull #44; 
+	 commit d853e57); fix typos in LD hub information (commit 285eb69, 091c1fc)
+24.10.16 Add LD Hub information to readme (pull #60; bb0bb7d)
+07.06.16 Update Anaconda recommendation for Broad users (commit 2a4af67)
+05.04.16 Fix multiple crash errors from pandas 0.17 (pull #49; commit 23a94fc)
+29.02.16 Add --print-cov to print covariance matrix of regression coefficients (commit d382392) 
+01.02.16 Move precomputed LD scores download location to 
+	 data.broadinstitute.org/alkesgroup/LDSCORE (commit 2bedf46)
+23.12.15 Remove nonfunctional --all flag (commit f8e8342)
+06.10.15 Clarify error message if --rg encounters mismatched alleles (commit 78874c7)
+05.10.15 Fix failing nosetests from pandas updates (commit a4a29af)
+03.08.15 Add mention of heritability tutorial to readme (commit 34394e8)
+16.07.15 Update Anaconda recommendation for Broad users (commit af14f3b)
+09.07.15 Fix non-ascii character in regressions.py (commit 0401c28)
+07.07.15 Fix typo in log for ratio estimates < 0 (commit c72a219)
+02.07.15 Modify rg out of bounds error message when --no-intercept (or --intercept-h2 and 
+	 --intercept-gencov) flags are set
+25.05.15 Fix ValueError in partitioned h2 (possibly caused by changes in pandas in 0.16.1?)
+18.04.15 Fix bug where --no-intercept + partitioned LD Scores gave wrong answers.
+18.04.15 Fix bug in munge_sumstats.py where using --a1-inc with a file with a signed summary 
+	 statistic would when printing summary statistic metadata.
+13.03.15 Fix bug where munge_sumstats.py did not correcly report number of variants with bad 
+	 alleles removed
+03.03.15 Raise sensible exception with pandas < 0.15
+02.03.15 Fix bug where munge sumstats said many SNPs removed for invalid p-values with 
+	 --merge-alleles
+20.02.15 Fix --a1-inc flag in munge_sumstats.py
+17.02.15 Fix bug where ~ was not expanded in comma-separated lists of files
+12.02.15 v1.0.0 released
 
