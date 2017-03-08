@@ -16,9 +16,9 @@ np.seterr(invalid='ignore')
 
 try:
     x = pd.DataFrame({'A': [1, 2, 3]})
-    x.drop_duplicates(subset='A')
-except TypeError:
-    raise ImportError('LDSC requires pandas version > 0.15.2')
+    x.sort_values(by='A')
+except AttributeError:
+    raise ImportError('LDSC requires pandas version >= 0.17.0')
 
 null_values = {
 
@@ -462,7 +462,10 @@ parser.add_argument('--info-min', default=0.9, type=float,
 parser.add_argument('--maf-min', default=0.01, type=float,
                     help="Minimum MAF.")
 parser.add_argument('--daner', default=False, action='store_true',
-                    help="Use this flag to parse Step han Ripke's daner* file format.")
+                    help="Use this flag to parse Stephan Ripke's daner* file format.")
+parser.add_argument('--daner-n', default=False, action='store_true',
+                    help="Use this flag to parse more recent daner* formatted files, which "
+		    "include sample size column 'Nca' and 'Nco'.")
 parser.add_argument('--no-alleles', default=False, action="store_true",
                     help="Don't require alleles. Useful if only unsigned summary statistics are available "
                     "and the goal is h2 / partitioned h2 estimation rather than rg estimation.")
@@ -523,6 +526,9 @@ def munge_sumstats(args, p=True):
         if args.no_alleles and args.merge_alleles:
             raise ValueError(
                 '--no-alleles and --merge-alleles are not compatible.')
+        if args.daner and args.daner_n:
+            raise ValueError('--daner and --daner-n are not compatible. Use --daner for sample ' + 
+	        'size from FRQ_A/FRQ_U headers, use --daner-n for values from Nca/Nco columns')
 
         if p:
             defaults = vars(parser.parse_args(''))
@@ -568,6 +574,22 @@ def munge_sumstats(args, p=True):
 
             cname_map[frq_u] = 'FRQ'
 
+	if args.daner_n:
+	    frq_u = filter(lambda x: x.startswith('FRQ_U_'), file_cnames)[0]
+	    cname_map[frq_u] = 'FRQ'
+	    try:
+	        dan_cas = clean_header(file_cnames[file_cnames.index('Nca')])
+	    except ValueError:
+	        raise ValueError('Could not find Nca column expected for daner-n format')
+	
+	    try:
+	        dan_con = clean_header(file_cnames[file_cnames.index('Nco')])
+	    except ValueError:
+	        raise ValueError('Could not find Nco column expected for daner-n format')
+
+            cname_map[dan_cas] = 'N_CAS'
+	    cname_map[dan_con] = 'N_CON'
+
         cname_translation = {x: cname_map[clean_header(x)] for x in file_cnames if
                              clean_header(x) in cname_map}  # note keys not cleaned
         cname_description = {
@@ -597,6 +619,18 @@ def munge_sumstats(args, p=True):
         for c in req_cols:
             if c not in cname_translation.values():
                 raise ValueError('Could not find {C} column.'.format(C=c))
+
+        # check aren't any duplicated column names in mapping
+	for field in cname_translation:
+	    numk = file_cnames.count(field)
+	    if numk > 1:
+		raise ValueError('Found {num} columns named {C}'.format(C=field,num=str(numk)))
+
+        # check multiple different column names don't map to same data field
+        for head in cname_translation.values():
+            numc = cname_translation.values().count(head)
+	    if numc > 1:
+                raise ValueError('Found {num} different {C} columns'.format(C=head,num=str(numc)))
 
         if (not args.N) and (not (args.N_cas and args.N_con)) and ('N' not in cname_translation.values()) and\
                 (any(x not in cname_translation.values() for x in ['N_CAS', 'N_CON'])):
