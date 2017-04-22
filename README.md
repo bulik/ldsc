@@ -1,5 +1,5 @@
 
-#LDSC (LD SCore) `v1.0.0`
+# LDSC (LD SCore) `v1.0.0`
 
 `ldsc` is a command line tool for estimating heritability and genetic correlation from GWAS summary statistics. `ldsc` also computes LD Scores.
 
@@ -50,7 +50,7 @@ which tells you which files were changed. If you have modified the `ldsc` source
 You can download [European](https://data.broadinstitute.org/alkesgroup/LDSCORE/eur_w_ld_chr.tar.bz2) and [East Asian LD Scores](https://data.broadinstitute.org/alkesgroup/LDSCORE/eas_ldscores.tar.bz2) from 1000 Genomes [here](https://data.broadinstitute.org/alkesgroup/LDSCORE/). These LD Scores are suitable for basic LD Score analyses (the LD Score regression intercept, heritability, genetic correlation, cross-sex genetic correlation). You can download partitioned LD Scores for partitioned heritability estimation [here](http://data.broadinstitute.org/alkesgroup/LDSCORE/).
 
 
-##Support
+## Support
 
 Before contacting us, please try the following:
 
@@ -63,7 +63,7 @@ If that doesn't work, you can get in touch with us via the [google group](https:
 Issues with LD Hub?  Email ld-hub@bristol.ac.uk
 
 
-##Citation
+## Citation
 
 If you use the software or the LD Score regression intercept, please cite
 
@@ -88,7 +88,7 @@ Zheng, et al. LD Hub: a centralized database and web interface to perform LD sco
 https://doi.org/10.1093/bioinformatics/btw613
 
 
-##Requirements
+## Requirements
 
 1. `Python (3 > version >= 2.7)`
 2. `argparse`
@@ -101,12 +101,12 @@ The python data science stack is still under constant development, with frequent
 
 `ldsc` is not presently compatible with python 3.x.
 
-##License
+## License
 
 This project is licensed under GNU GPL v3.
 
 
-##Authors
+## Authors
 
 Brendan Bulik-Sullivan (Broad Institute of MIT and Harvard)
 
