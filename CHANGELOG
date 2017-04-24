@@ -1,4 +1,5 @@
-XX.03.17 Update this changelog to record changes between 2.8.15 and 8.3.17
+24.04.17 Update this changelog to record changes between 2.8.15 and 24.4.17
+21.04.17 Fix README formatting issues from changes to Github markdown (commit a673b7c; see #80)
 08.03.17 Update pandas version requirement, add --daner-n option (pull #75; commit 4da1199)
 28.02.17 Fix ValueError in --h2 regarding Series labels from pandas 0.19 (pull #73; commit fa28cca)
 27.02.17 Add --thin-annot and --ldsc-cts options (commit 94b5143)
