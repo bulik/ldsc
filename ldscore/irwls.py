@@ -5,9 +5,10 @@ Iterativey re-weighted least squares.
 
 '''
 from __future__ import division
+from __future__ import absolute_import
 import numpy as np
-import jackknife as jk
-
+import ldscore.jackknife as jk
+import logging
 
 class IRWLS(object):
 
@@ -109,10 +110,10 @@ class IRWLS(object):
                 'w has shape {S}. w must have shape ({N}, 1).'.format(S=w.shape, N=n))
 
         w = np.sqrt(w)
-        for i in xrange(2):  # update this later
+        for i in range(2):  # update this later
             new_w = np.sqrt(update_func(cls.wls(x, y, w)))
             if new_w.shape != w.shape:
-                print 'IRWLS update:', new_w.shape, w.shape
+                logging.info(('IRWLS update:', new_w.shape, w.shape))
                 raise ValueError('New weights must have same shape.')
             else:
                 w = new_w
