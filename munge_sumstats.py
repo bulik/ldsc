@@ -511,7 +511,7 @@ filters.add_argument('--daner', default=False, action='store_true',
                     help="Use this flag to parse Stephan Ripke's daner* file format.")
 filters.add_argument('--daner-n', default=False, action='store_true',
                     help="Use this flag to parse more recent daner* formatted files, which "
-            "include sample size column 'Nca' and 'Nco'.")
+                    "include sample size column 'Nca' and 'Nco'.")
 filters.add_argument('--merge-alleles', default=None, type=str,
                     help="Same as --merge, except the file should have three columns: SNP, A1, A2, "
                     "and all alleles will be matched to the --merge-alleles file alleles.")
