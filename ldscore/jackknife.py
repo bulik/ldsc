@@ -13,7 +13,9 @@ of the data.
 '''
 
 from __future__ import division
+from __future__ import absolute_import
 import numpy as np
+import logging
 from scipy.optimize import nnls
 np.seterr(divide='raise', invalid='raise')
 
@@ -256,7 +258,7 @@ class LstsqJackknifeSlow(Jackknife):
         '''
         _check_shape(x, y)
         d = [func(np.vstack([x[0:s[i], ...], x[s[i + 1]:, ...]]), np.vstack([y[0:s[i], ...], y[s[i + 1]:, ...]]))
-             for i in xrange(len(s) - 1)]
+             for i in range(len(s) - 1)]
 
         return np.concatenate(d, axis=0)
 
@@ -346,7 +348,7 @@ class LstsqJackknifeFast(Jackknife):
         n_blocks = len(s) - 1
         xtx_block_values = np.zeros((n_blocks, p, p))
         xty_block_values = np.zeros((n_blocks, p))
-        for i in xrange(n_blocks):
+        for i in range(n_blocks):
             xty_block_values[i, ...] = np.dot(
                 x[s[i]:s[i + 1], ...].T, y[s[i]:s[i + 1], ...]).reshape((1, p))
             xtx_block_values[i, ...] = np.dot(
@@ -417,7 +419,7 @@ class LstsqJackknifeFast(Jackknife):
         delete_values = np.zeros((n_blocks, p))
         xty_tot = np.sum(xty_block_values, axis=0)
         xtx_tot = np.sum(xtx_block_values, axis=0)
-        for j in xrange(n_blocks):
+        for j in range(n_blocks):
             delete_xty = xty_tot - xty_block_values[j]
             delete_xtx = xtx_tot - xtx_block_values[j]
             delete_values[j, ...] = np.linalg.solve(
@@ -507,7 +509,7 @@ class RatioJackknife(Jackknife):
         '''
         n_blocks, p = denom.shape
         pseudovalues = np.zeros((n_blocks, p))
-        for j in xrange(0, n_blocks):
+        for j in range(0, n_blocks):
             pseudovalues[j, ...] = n_blocks * est - \
                 (n_blocks - 1) * numer[j, ...] / denom[j, ...]
 

@@ -9,14 +9,17 @@ LDSC is a command line tool for estimating
 
 '''
 from __future__ import division
+from __future__ import absolute_import
 import ldscore.ldscore as ld
 import ldscore.parse as ps
 import ldscore.sumstats as sumstats
 import ldscore.regressions as reg
 import numpy as np
 import pandas as pd
+import logging
 from subprocess import call
 from itertools import product
+from functools import reduce
 import time, sys, traceback, argparse
 
 
@@ -66,36 +69,18 @@ def _remove_dtype(x):
     return x
 
 
-class Logger(object):
-    '''
-    Lightweight logging.
-    TODO: replace with logging module
-
-    '''
-    def __init__(self, fh):
-        self.log_fh = open(fh, 'wb')
-
-    def log(self, msg):
-        '''
-        Print to log file and stdout with a single command.
-
-        '''
-        print >>self.log_fh, msg
-        print msg
-
-
 def __filter__(fname, noun, verb, merge_obj):
     merged_list = None
     if fname:
         f = lambda x,n: x.format(noun=noun, verb=verb, fname=fname, num=n)
         x = ps.FilterFile(fname)
         c = 'Read list of {num} {noun} to {verb} from {fname}'
-        print f(c, len(x.IDList))
+        logging.info(f(c, len(x.IDList)))
         merged_list = merge_obj.loj(x.IDList)
         len_merged_list = len(merged_list)
         if len_merged_list > 0:
             c = 'After merging, {num} {noun} remain'
-            print f(c, len_merged_list)
+            logging.info(f(c, len_merged_list))
         else:
             error_msg = 'No {noun} retained for analysis'
             raise ValueError(f(error_msg, 0))
@@ -116,7 +101,7 @@ def annot_sort_key(s):
 
     return s
 
-def ldscore(args, log):
+def ldscore(args):
     '''
     Wrapper function for estimating l1, l1^2, l2 and l4 (+ optionally standard errors) from
     reference panel genotypes.
@@ -134,13 +119,13 @@ def ldscore(args, log):
     # read bim/snp
     array_snps = snp_obj(snp_file)
     m = len(array_snps.IDList)
-    log.log('Read list of {m} SNPs from {f}'.format(m=m, f=snp_file))
+    logging.info('Read list of {m} SNPs from {f}'.format(m=m, f=snp_file))
     if args.annot is not None:  # read --annot
         try:
             if args.thin_annot: # annot file has only annotations
                 annot = ps.ThinAnnotFile(args.annot)
                 n_annot, ma = len(annot.df.columns), len(annot.df)
-                log.log("Read {A} annotations for {M} SNPs from {f}".format(f=args.annot,
+                logging.info("Read {A} annotations for {M} SNPs from {f}".format(f=args.annot,
                     A=n_annot, M=ma))
                 annot_matrix = annot.df.values
                 annot_colnames = annot.df.columns
@@ -148,7 +133,7 @@ def ldscore(args, log):
             else:
                 annot = ps.AnnotFile(args.annot)
                 n_annot, ma = len(annot.df.columns) - 4, len(annot.df)
-                log.log("Read {A} annotations for {M} SNPs from {f}".format(f=args.annot,
+                logging.info("Read {A} annotations for {M} SNPs from {f}".format(f=args.annot,
                     A=n_annot, M=ma))
                 annot_matrix = np.array(annot.df.iloc[:,4:])
                 annot_colnames = annot.df.columns[4:]
@@ -157,11 +142,11 @@ def ldscore(args, log):
                     raise ValueError('The .annot file must contain the same SNPs in the same'+\
                         ' order as the .bim file.')
         except Exception:
-            log.log('Error parsing .annot file')
+            logging.info('Error parsing .annot file')
             raise
 
-    elif args.extract is not None:  # --extract
-        keep_snps = __filter__(args.extract, 'SNPs', 'include', array_snps)
+    elif args.ld_extract is not None:  # --ld-extract
+        keep_snps = __filter__(args.ld_extract, 'SNPs', 'include', array_snps)
         annot_matrix, annot_colnames, n_annot = None, None, 1
 
 
@@ -184,9 +169,9 @@ def ldscore(args, log):
                 raise ValueError(msg)
 
         else:
-            cts_colnames = ['ANNOT'+str(i) for i in xrange(len(cts_fnames))]
+            cts_colnames = ['ANNOT'+str(i) for i in range(len(cts_fnames))]
 
-        log.log('Reading numbers with which to bin SNPs from {F}'.format(F=args.cts_bin))
+        logging.info('Reading numbers with which to bin SNPs from {F}'.format(F=args.cts_bin))
 
         cts_levs = []
         full_labs = []
@@ -215,7 +200,7 @@ def ldscore(args, log):
             name_breaks[0] = 'min'
             name_breaks[-1] = 'max'
             name_breaks = [str(x) for x in name_breaks]
-            labs = [name_breaks[i]+'_'+name_breaks[i+1] for i in xrange(n_breaks-1)]
+            labs = [name_breaks[i]+'_'+name_breaks[i+1] for i in range(n_breaks-1)]
             cut_vec = pd.Series(pd.cut(vec, bins=cut_breaks, labels=labs))
             cts_levs.append(cut_vec)
             full_labs.append(labs)
@@ -259,15 +244,15 @@ def ldscore(args, log):
     # read fam
     array_indivs = ind_obj(ind_file)
     n = len(array_indivs.IDList)
-    log.log('Read list of {n} individuals from {f}'.format(n=n, f=ind_file))
+    logging.info('Read list of {n} individuals from {f}'.format(n=n, f=ind_file))
     # read keep_indivs
-    if args.keep:
-        keep_indivs = __filter__(args.keep, 'individuals', 'include', array_indivs)
+    if args.ld_keep:
+        keep_indivs = __filter__(args.ld_keep, 'individuals', 'include', array_indivs)
     else:
         keep_indivs = None
 
     # read genotype array
-    log.log('Reading genotypes from {fname}'.format(fname=array_file))
+    logging.info('Reading genotypes from {fname}'.format(fname=array_file))
     geno_array = array_obj(array_file, n, array_snps, keep_snps=keep_snps,
         keep_indivs=keep_indivs, mafMin=args.maf)
 
@@ -283,7 +268,7 @@ def ldscore(args, log):
 
     if args.ld_wind_snps:
         max_dist = args.ld_wind_snps
-        coords = np.array(xrange(geno_array.m))
+        coords = np.array(range(geno_array.m))
     elif args.ld_wind_kb:
         max_dist = args.ld_wind_kb*1000
         coords = np.array(array_snps.df['BP'])[geno_array.kept_snps]
@@ -299,10 +284,10 @@ def ldscore(args, log):
 
     scale_suffix = ''
     if args.pq_exp is not None:
-        log.log('Computing LD with pq ^ {S}.'.format(S=args.pq_exp))
+        logging.info('Computing LD with pq ^ {S}.'.format(S=args.pq_exp))
         msg = 'Note that LD Scores with pq raised to a nonzero power are'
         msg += 'not directly comparable to normal LD Scores.'
-        log.log(msg)
+        logging.info(msg)
         scale_suffix = '_S{S}'.format(S=args.pq_exp)
         pq = np.matrix(geno_array.maf*(1-geno_array.maf)).reshape((geno_array.m, 1))
         pq = np.power(pq, args.pq_exp)
@@ -312,7 +297,7 @@ def ldscore(args, log):
         else:
             annot_matrix = pq
 
-    log.log("Estimating LD Score.")
+    logging.info("Estimating LD Score.")
     lN = geno_array.ldScoreVarBlocks(block_left, args.chunk_size, annot=annot_matrix)
     col_prefix = "L2"; file_suffix = "l2"
 
@@ -335,7 +320,7 @@ def ldscore(args, log):
             print_snps = pd.read_csv(args.print_snps, header=None)
         if len(print_snps.columns) > 1:
             raise ValueError('--print-snps must refer to a file with a one column of SNP IDs.')
-        log.log('Reading list of {N} SNPs for which to print LD Scores from {F}'.format(\
+        logging.info('Reading list of {N} SNPs for which to print LD Scores from {F}'.format(\
                         F=args.print_snps, N=len(print_snps)))
 
         print_snps.columns=['SNP']
@@ -344,10 +329,10 @@ def ldscore(args, log):
             raise ValueError('After merging with --print-snps, no SNPs remain.')
         else:
             msg = 'After merging with --print-snps, LD Scores for {N} SNPs will be printed.'
-            log.log(msg.format(N=len(df)))
+            logging.info(msg.format(N=len(df)))
 
     l2_suffix = '.gz'
-    log.log("Writing LD Scores for {N} SNPs to {f}.gz".format(f=out_fname, N=len(df)))
+    logging.info("Writing LD Scores for {N} SNPs to {f}.gz".format(f=out_fname, N=len(df)))
     df.drop(['CM','MAF'], axis=1).to_csv(out_fname, sep="\t", header=True, index=False,
         float_format='%.3f')
     call(['gzip', '-f', out_fname])
@@ -361,12 +346,12 @@ def ldscore(args, log):
 
     # print .M
     fout_M = open(args.out + '.'+ file_suffix +'.M','wb')
-    print >>fout_M, '\t'.join(map(str,M))
+    logging.info('\t'.join(map(str,M)), file=fout_M)
     fout_M.close()
 
     # print .M_5_50
     fout_M_5_50 = open(args.out + '.'+ file_suffix +'.M_5_50','wb')
-    print >>fout_M_5_50, '\t'.join(map(str,M_5_50))
+    logging.info('\t'.join(map(str,M_5_50)), file=fout_M_5_50)
     fout_M_5_50.close()
 
     # print annot matrix
@@ -376,206 +361,237 @@ def ldscore(args, log):
         annot_df = pd.DataFrame(np.c_[geno_array.df, annot_matrix])
         annot_df.columns = new_colnames
         del annot_df['MAF']
-        log.log("Writing annot matrix produced by --cts-bin to {F}".format(F=out_fname+'.gz'))
+        logging.info("Writing annot matrix produced by --cts-bin to {F}".format(F=out_fname+'.gz'))
         annot_df.to_csv(out_fname_annot, sep="\t", header=True, index=False)
         call(['gzip', '-f', out_fname_annot])
 
     # print LD Score summary
     pd.set_option('display.max_rows', 200)
-    log.log('\nSummary of LD Scores in {F}'.format(F=out_fname+l2_suffix))
+    logging.info('\nSummary of LD Scores in {F}'.format(F=out_fname+l2_suffix))
     t = df.ix[:,4:].describe()
-    log.log( t.ix[1:,:] )
+    logging.info( t.ix[1:,:] )
 
     np.seterr(divide='ignore', invalid='ignore')  # print NaN instead of weird errors
     # print correlation matrix including all LD Scores and sample MAF
-    log.log('')
-    log.log('MAF/LD Score Correlation Matrix')
-    log.log( df.ix[:,4:].corr() )
+    logging.info('')
+    logging.info('MAF/LD Score Correlation Matrix')
+    logging.info( df.ix[:,4:].corr() )
 
     # print condition number
     if n_annot > 1: # condition number of a column vector w/ nonzero var is trivially one
-        log.log('\nLD Score Matrix Condition Number')
+        logging.info('\nLD Score Matrix Condition Number')
         cond_num = np.linalg.cond(df.ix[:,5:])
-        log.log( reg.remove_brackets(str(np.matrix(cond_num))) )
+        logging.info( reg.remove_brackets(str(np.matrix(cond_num))) )
         if cond_num > 10000:
-            log.log('WARNING: ill-conditioned LD Score Matrix!')
+            logging.info('WARNING: ill-conditioned LD Score Matrix!')
 
     # summarize annot matrix if there is one
     if annot_matrix is not None:
         # covariance matrix
         x = pd.DataFrame(annot_matrix, columns=annot_colnames)
-        log.log('\nAnnotation Correlation Matrix')
-        log.log( x.corr() )
+        logging.info('\nAnnotation Correlation Matrix')
+        logging.info( x.corr() )
 
         # column sums
-        log.log('\nAnnotation Matrix Column Sums')
-        log.log(_remove_dtype(x.sum(axis=0)))
+        logging.info('\nAnnotation Matrix Column Sums')
+        logging.info(_remove_dtype(x.sum(axis=0)))
 
         # row sums
-        log.log('\nSummary of Annotation Matrix Row Sums')
+        logging.info('\nSummary of Annotation Matrix Row Sums')
         row_sums = x.sum(axis=1).describe()
-        log.log(_remove_dtype(row_sums))
+        logging.info(_remove_dtype(row_sums))
 
     np.seterr(divide='raise', invalid='raise')
 
 
 parser = argparse.ArgumentParser()
-parser.add_argument('--out', default='ldsc', type=str,
+
+## output file paths
+ofile = parser.add_argument_group(title="Output Options", description="Output directory and options to write to files.")
+ofile.add_argument('--out', default='ldsc', type=str,
     help='Output filename prefix. If --out is not set, LDSC will use ldsc as the '
-    'defualt output filename prefix.')
-# Basic LD Score Estimation Flags'
-parser.add_argument('--bfile', default=None, type=str,
+    'default output filename prefix.')
+ofile.add_argument('--write-excel',  default=False, action='store_true',
+    help='This flag tells LDSC to write the estimates from variance components analyses to an excel file. By default, all results included in the log file will be stored in different tabs of the excel file. Additionally, outputs from options such as --print-cov and --print-delete-vals will also be stored as separate tabs of the same file.')
+ofile.add_argument('--print-estimates', default=False, action='store_true',
+    help='This flag tells LDSC to write the matrices of estimate results to text files.')
+ofile.add_argument('--print-cov', default=False, action='store_true',
+    help='For use with --h2/--rg. This flag tells LDSC to output the '
+    'covaraince matrix of the estimates.')
+ofile.add_argument('--print-delete-vals', default=False, action='store_true',
+    help='If this flag is set, LDSC will output the block jackknife delete-values ('
+    'i.e., the regression coefficeints estimated from the data with a block removed). '
+    'The delete-values are formatted as a matrix with (# of jackknife blocks) rows and '
+    '(# of LD Scores) columns.')
+ofile.add_argument('--stdout-off', default=False, action='store_true',
+                    help='Only prints to the log file (not to console).')
+
+# Basic LD Score Estimation Flags
+basic_ldsc = parser.add_argument_group(title="LD Score Estimation Flags", description="File paths to Plink format genetic files and l2 scores.")
+basic_ldsc.add_argument('--bfile', default=None, type=str,
     help='Prefix for Plink .bed/.bim/.fam file')
-parser.add_argument('--l2', default=False, action='store_true',
+basic_ldsc.add_argument('--l2', default=False, action='store_true',
     help='Estimate l2. Compatible with both jackknife and non-jackknife.')
+
 # Filtering / Data Management for LD Score
-parser.add_argument('--extract', default=None, type=str,
+data_filter = parser.add_argument_group(title="LD Score Estimation Data Filters", description="Data management options for LD scores.")
+data_filter.add_argument('--ld-extract', default=None, type=str,
     help='File with SNPs to include in LD Score estimation. '
     'The file should contain one SNP ID per row.')
-parser.add_argument('--keep', default=None, type=str,
+data_filter.add_argument('--ld-keep', default=None, type=str,
     help='File with individuals to include in LD Score estimation. '
     'The file should contain one individual ID per row.')
-parser.add_argument('--ld-wind-snps', default=None, type=int,
+data_filter.add_argument('--ld-wind-snps', default=None, type=int,
     help='Specify the window size to be used for estimating LD Scores in units of '
     '# of SNPs. You can only specify one --ld-wind-* option.')
-parser.add_argument('--ld-wind-kb', default=None, type=float,
+data_filter.add_argument('--ld-wind-kb', default=None, type=float,
     help='Specify the window size to be used for estimating LD Scores in units of '
     'kilobase-pairs (kb). You can only specify one --ld-wind-* option.')
-parser.add_argument('--ld-wind-cm', default=None, type=float,
+data_filter.add_argument('--ld-wind-cm', default=None, type=float,
     help='Specify the window size to be used for estimating LD Scores in units of '
     'centiMorgans (cM). You can only specify one --ld-wind-* option.')
-parser.add_argument('--print-snps', default=None, type=str,
+data_filter.add_argument('--print-snps', default=None, type=str,
     help='This flag tells LDSC to only print LD Scores for the SNPs listed '
     '(one ID per row) in PRINT_SNPS. The sum r^2 will still include SNPs not in '
     'PRINT_SNPs. This is useful for reducing the number of LD Scores that have to be '
     'read into memory when estimating h2 or rg.' )
+
 # Fancy LD Score Estimation Flags
-parser.add_argument('--annot', default=None, type=str,
+advanced_ldsc = parser.add_argument_group(title="Advanced Options", description="Additional LD score estimation flags")
+advanced_ldsc.add_argument('--annot', default=None, type=str,
     help='Filename prefix for annotation file for partitioned LD Score estimation. '
     'LDSC will automatically append .annot or .annot.gz to the filename prefix. '
     'See docs/file_formats_ld for a definition of the .annot format.')
-parser.add_argument('--thin-annot', action='store_true', default=False,
+advanced_ldsc.add_argument('--thin-annot', action='store_true', default=False,
     help='This flag says your annot files have only annotations, with no SNP, CM, CHR, BP columns.')
-parser.add_argument('--cts-bin', default=None, type=str,
+advanced_ldsc.add_argument('--cts-bin', default=None, type=str,
     help='This flag tells LDSC to compute partitioned LD Scores, where the partition '
     'is defined by cutting one or several continuous variable[s] into bins. '
     'The argument to this flag should be the name of a single file or a comma-separated '
     'list of files. The file format is two columns, with SNP IDs in the first column '
     'and the continuous variable in the second column. ')
-parser.add_argument('--cts-breaks', default=None, type=str,
+advanced_ldsc.add_argument('--cts-breaks', default=None, type=str,
     help='Use this flag to specify names for the continuous variables cut into bins '
     'with --cts-bin. For each continuous variable, specify breaks as a comma-separated '
     'list of breakpoints, and separate the breakpoints for each variable with an x. '
     'For example, if binning on MAF and distance to gene (in kb), '
     'you might set --cts-breaks 0.1,0.25,0.4x10,100,1000 ')
-parser.add_argument('--cts-names', default=None, type=str,
+advanced_ldsc.add_argument('--cts-names', default=None, type=str,
     help='Use this flag to specify names for the continuous variables cut into bins '
     'with --cts-bin. The argument to this flag should be a comma-separated list of '
     'names. For example, if binning on DAF and distance to gene, you might set '
     '--cts-bin DAF,DIST_TO_GENE ')
-parser.add_argument('--per-allele', default=False, action='store_true',
+advanced_ldsc.add_argument('--per-allele', default=False, action='store_true',
     help='Setting this flag causes LDSC to compute per-allele LD Scores, '
     'i.e., \ell_j := \sum_k p_k(1-p_k)r^2_{jk}, where p_k denotes the MAF '
     'of SNP j. ')
-parser.add_argument('--pq-exp', default=None, type=float,
+advanced_ldsc.add_argument('--pq-exp', default=None, type=float,
     help='Setting this flag causes LDSC to compute LD Scores with the given scale factor, '
     'i.e., \ell_j := \sum_k (p_k(1-p_k))^a r^2_{jk}, where p_k denotes the MAF '
     'of SNP j and a is the argument to --pq-exp. ')
-parser.add_argument('--no-print-annot', default=False, action='store_true',
+advanced_ldsc.add_argument('--no-print-annot', default=False, action='store_true',
     help='By defualt, seting --cts-bin or --cts-bin-add causes LDSC to print '
     'the resulting annot matrix. Setting --no-print-annot tells LDSC not '
     'to print the annot matrix. ')
-parser.add_argument('--maf', default=None, type=float,
+advanced_ldsc.add_argument('--maf', default=None, type=float,
     help='Minor allele frequency lower bound. Default is MAF > 0.')
+
 # Basic Flags for Working with Variance Components
-parser.add_argument('--h2', default=None, type=str,
+var_components = parser.add_argument_group(title="Variance Components Analyses", description="Basic flags for working with variance components.")
+var_components.add_argument('--h2', default=None, type=str,
     help='Filename for a .sumstats[.gz] file for one-phenotype LD Score regression. '
     '--h2 requires at minimum also setting the --ref-ld and --w-ld flags.')
-parser.add_argument('--h2-cts', default=None, type=str,
+var_components.add_argument('--h2-cts', default=None, type=str,
     help='Filename for a .sumstats[.gz] file for cell-type-specific analysis. '
     '--h2-cts requires the --ref-ld-chr, --w-ld, and --ref-ld-chr-cts flags.')
-parser.add_argument('--rg', default=None, type=str,
+var_components.add_argument('--rg', default=None, type=str,
     help='Comma-separated list of prefixes of .chisq filed for genetic correlation estimation.')
-parser.add_argument('--ref-ld', default=None, type=str,
+var_components.add_argument('--ref-ld', default=None, type=str,
     help='Use --ref-ld to tell LDSC which LD Scores to use as the predictors in the LD '
     'Score regression. '
-    'LDSC will automatically append .l2.ldscore/.l2.ldscore.gz to the filename prefix.')
-parser.add_argument('--ref-ld-chr', default=None, type=str,
+    'LDSC will automatically append .l2.ldscore/.l2.ldscore.gz to the filename prefix. '
+    'If this option (and --ref-ld-chr) is not specified, then the file passed from --w-ld is used, '
+    'except when calculating partitioned heritability, for which both files must be specified.')
+var_components.add_argument('--ref-ld-chr', default=None, type=str,
     help='Same as --ref-ld, but will automatically concatenate .l2.ldscore files split '
     'across 22 chromosomes. LDSC will automatically append .l2.ldscore/.l2.ldscore.gz '
     'to the filename prefix. If the filename prefix contains the symbol @, LDSC will '
     'replace the @ symbol with chromosome numbers. Otherwise, LDSC will append chromosome '
-    'numbers to the end of the filename prefix.'
-    'Example 1: --ref-ld-chr ld/ will read ld/1.l2.ldscore.gz ... ld/22.l2.ldscore.gz'
-    'Example 2: --ref-ld-chr ld/@_kg will read ld/1_kg.l2.ldscore.gz ... ld/22_kg.l2.ldscore.gz')
-parser.add_argument('--w-ld', default=None, type=str,
+    'numbers to the end of the filename prefix. '
+    'Example 1: --ref-ld-chr ld/ will read ld/1.l2.ldscore.gz ... ld/22.l2.ldscore.gz; '
+    'Example 2: --ref-ld-chr ld/@_kg will read ld/1_kg.l2.ldscore.gz ... ld/22_kg.l2.ldscore.gz. '
+    'If this option (and --ref-ld) is not specified, then the file passed from --w-ld-chr is used, '
+    'except when calculating partitioned heritability, for which both files must be specified.')
+var_components.add_argument('--ref-ld-chr-cts', default=None, type=str,
+    help='Name of a file that has a list of file name prefixes for cell-type-specific analysis.')
+var_components.add_argument('--w-ld', default=None, type=str,
     help='Filename prefix for file with LD Scores with sum r^2 taken over SNPs included '
-    'in the regression. LDSC will automatically append .l2.ldscore/.l2.ldscore.gz.')
-parser.add_argument('--w-ld-chr', default=None, type=str,
+    'in the regression. LDSC will automatically append .l2.ldscore/.l2.ldscore.gz. '
+    'If this option (and --w-ld-chr) is not specified, then the file passed from --ref-ld is used, '
+    'except when calculating partitioned heritability, for which both files must be specified.')
+var_components.add_argument('--w-ld-chr', default=None, type=str,
     help='Same as --w-ld, but will read files split into 22 chromosomes in the same '
-    'manner as --ref-ld-chr.')
-parser.add_argument('--overlap-annot', default=False, action='store_true',
+    'manner as --ref-ld-chr. '
+    'If this option (and --w-ld) is not specified, then the file passed from --ref-ld-chr is used, '
+    'except when calculating partitioned heritability, for which both files must be specified.')
+
+# Filtering / data management for variance component analysis
+var_options = parser.add_argument_group(title="Variance Components Advanced Options", description="Advanced Options for variance components analyses.")
+var_options.add_argument('--exclude', type=str, default=None, help='A list of SNPs to be excluded from variance components analyses.')
+var_options.add_argument('--overlap-annot', default=False, action='store_true',
     help='This flag informs LDSC that the partitioned LD Scores were generates using an '
     'annot matrix with overlapping categories (i.e., not all row sums equal 1), '
     'and prevents LDSC from displaying output that is meaningless with overlapping categories.')
-parser.add_argument('--print-coefficients',default=False,action='store_true',
+var_options.add_argument('--print-coefficients',default=False,action='store_true',
     help='when categories are overlapping, print coefficients as well as heritabilities.')
-parser.add_argument('--frqfile', type=str,
+var_options.add_argument('--frqfile', type=str,
     help='For use with --overlap-annot. Provides allele frequencies to prune to common '
     'snps if --not-M-5-50 is not set.')
-parser.add_argument('--frqfile-chr', type=str,
+var_options.add_argument('--frqfile-chr', type=str,
     help='Prefix for --frqfile files split over chromosome.')
-parser.add_argument('--no-intercept', action='store_true',
+var_options.add_argument('--no-intercept', action='store_true',
     help = 'If used with --h2, this constrains the LD Score regression intercept to equal '
     '1. If used with --rg, this constrains the LD Score regression intercepts for the h2 '
     'estimates to be one and the intercept for the genetic covariance estimate to be zero.')
-parser.add_argument('--intercept-h2', action='store', default=None,
+var_options.add_argument('--intercept-h2', action='store', default=None,
     help = 'Intercepts for constrained-intercept single-trait LD Score regression.')
-parser.add_argument('--intercept-gencov', action='store', default=None,
+var_options.add_argument('--intercept-gencov', action='store', default=None,
     help = 'Intercepts for constrained-intercept cross-trait LD Score regression.'
     ' Must have same length as --rg. The first entry is ignored.')
-parser.add_argument('--M', default=None, type=str,
+var_options.add_argument('--M', default=None, type=str,
     help='# of SNPs (if you don\'t want to use the .l2.M files that came with your .l2.ldscore.gz files)')
-parser.add_argument('--two-step', default=None, type=float,
+var_options.add_argument('--two-step', default=None, type=float,
     help='Test statistic bound for use with the two-step estimator. Not compatible with --no-intercept and --constrain-intercept.')
-parser.add_argument('--chisq-max', default=None, type=float,
+var_options.add_argument('--chisq-max', default=None, type=float,
     help='Max chi^2.')
-parser.add_argument('--ref-ld-chr-cts', default=None, type=str,
-    help='Name of a file that has a list of file name prefixes for cell-type-specific analysis.')
-parser.add_argument('--print-all-cts', action='store_true', default=False)
+var_options.add_argument('--print-all-cts', action='store_true', default=False)
 
-# Flags for both LD Score estimation and h2/gencor estimation
-parser.add_argument('--print-cov', default=False, action='store_true',
-    help='For use with --h2/--rg. This flag tells LDSC to print the '
-    'covaraince matrix of the estimates.')
-parser.add_argument('--print-delete-vals', default=False, action='store_true',
-    help='If this flag is set, LDSC will print the block jackknife delete-values ('
-    'i.e., the regression coefficeints estimated from the data with a block removed). '
-    'The delete-values are formatted as a matrix with (# of jackknife blocks) rows and '
-    '(# of LD Scores) columns.')
 # Flags you should almost never use
-parser.add_argument('--chunk-size', default=50, type=int,
+rare_options = parser.add_argument_group(title="Rare Options", description="These flags are scarcely used.")
+rare_options.add_argument('--chunk-size', default=50, type=int,
     help='Chunk size for LD Score calculation. Use the default.')
-parser.add_argument('--pickle', default=False, action='store_true',
+rare_options.add_argument('--pickle', default=False, action='store_true',
     help='Store .l2.ldscore files as pickles instead of gzipped tab-delimited text.')
-parser.add_argument('--yes-really', default=False, action='store_true',
+rare_options.add_argument('--yes-really', default=False, action='store_true',
     help='Yes, I really want to compute whole-chromosome LD Score.')
-parser.add_argument('--invert-anyway', default=False, action='store_true',
+rare_options.add_argument('--invert-anyway', default=False, action='store_true',
     help="Force LDSC to attempt to invert ill-conditioned matrices.")
-parser.add_argument('--n-blocks', default=200, type=int,
+rare_options.add_argument('--n-blocks', default=200, type=int,
     help='Number of block jackknife blocks.')
-parser.add_argument('--not-M-5-50', default=False, action='store_true',
+rare_options.add_argument('--not-M-5-50', default=False, action='store_true',
     help='This flag tells LDSC to use the .l2.M file instead of the .l2.M_5_50 file.')
-parser.add_argument('--return-silly-things', default=False, action='store_true',
+rare_options.add_argument('--return-silly-things', default=False, action='store_true',
     help='Force ldsc to return silly genetic correlation estimates.')
-parser.add_argument('--no-check-alleles', default=False, action='store_true',
+rare_options.add_argument('--no-check-alleles', default=False, action='store_true',
     help='For rg estimation, skip checking whether the alleles match. This check is '
     'redundant for pairs of chisq files generated using munge_sumstats.py and the '
     'same argument to the --merge-alleles flag.')
+
 # transform to liability scale
-parser.add_argument('--samp-prev',default=None,
+liability = parser.add_argument_group(title="Scale Transformation", description="Setting for libaility scale transformation.")
+liability.add_argument('--samp-prev',default=None,
     help='Sample prevalence of binary phenotype (for conversion to liability scale).')
-parser.add_argument('--pop-prev',default=None,
+liability.add_argument('--pop-prev',default=None,
     help='Population prevalence of binary phenotype (for conversion to liability scale).')
 
 if __name__ == '__main__':
@@ -584,7 +600,10 @@ if __name__ == '__main__':
     if args.out is None:
         raise ValueError('--out is required.')
 
-    log = Logger(args.out+'.log')
+    logging.basicConfig(format='%(message)s', filename=args.out+'.log', filemode='w', level=logging.INFO)
+    if not args.stdout_off: # suppress printing to console
+        logging.getLogger().addHandler(logging.StreamHandler())
+
     try:
         defaults = vars(parser.parse_args(''))
         opts = vars(args)
@@ -595,18 +614,18 @@ if __name__ == '__main__':
         options = ['--'+x.replace('_','-')+' '+str(opts[x])+' \\' for x in non_defaults]
         header += '\n'.join(options).replace('True','').replace('False','')
         header = header[0:-1]+'\n'
-        log.log(header)
-        log.log('Beginning analysis at {T}'.format(T=time.ctime()))
+        logging.info(header)
+        logging.info('Beginning analysis at {T}'.format(T=time.ctime()))
         start_time = time.time()
         if args.n_blocks <= 1:
             raise ValueError('--n-blocks must be an integer > 1.')
         if args.bfile is not None:
             if args.l2 is None:
                 raise ValueError('Must specify --l2 with --bfile.')
-            if args.annot is not None and args.extract is not None:
-                raise ValueError('--annot and --extract are currently incompatible.')
-            if args.cts_bin is not None and args.extract is not None:
-                raise ValueError('--cts-bin and --extract are currently incompatible.')
+            if args.annot is not None and args.ld_extract is not None:
+                raise ValueError('--annot and --ld-extract are currently incompatible.')
+            if args.cts_bin is not None and args.ld_extract is not None:
+                raise ValueError('--cts-bin and --ld-extract are currently incompatible.')
             if args.annot is not None and args.cts_bin is not None:
                 raise ValueError('--annot and --cts-bin are currently incompatible.')
             if (args.cts_bin is not None) != (args.cts_breaks is not None):
@@ -617,21 +636,39 @@ if __name__ == '__main__':
                 args.pq_exp = 1
 
 
-            ldscore(args, log)
+            ldscore(args)
         # summary statistics
-        elif (args.h2 or args.rg or args.h2_cts) and (args.ref_ld or args.ref_ld_chr) and (args.w_ld or args.w_ld_chr):
+        elif (args.h2 or args.rg or args.h2_cts) and (args.ref_ld or args.ref_ld_chr or args.w_ld or args.w_ld_chr):
             if args.h2 is not None and args.rg is not None:
                 raise ValueError('Cannot set both --h2 and --rg.')
             if args.ref_ld and args.ref_ld_chr:
                 raise ValueError('Cannot set both --ref-ld and --ref-ld-chr.')
             if args.w_ld and args.w_ld_chr:
                 raise ValueError('Cannot set both --w-ld and --w-ld-chr.')
+            if args.overlap_annot:
+                if not (args.ref_ld or args.ref_ld_chr) or not (args.w_ld or args.w_ld_chr):
+                    raise ValueError('For partitioned heritability calculation, both --ref-ld (or --ref-ld-chr) and --w-ld (or --w-ld-chr) should be specified.')
+            else:
+                if (args.ref_ld or args.ref_ld_chr) and not (args.w_ld or args.w_ld_chr):
+                    if args.ref_ld is not None:
+                        args.w_ld = args.ref_ld
+                        logging.info('Options --w-ld or --w-ld-chr not specified; automatically using --ref-ld for --w-ld.')
+                    elif args.ref_ld_chr is not None:
+                        args.w_ld_chr = args.ref_ld_chr
+                        logging.info('Options --w-ld or --w-ld-chr not specified; automatically using --ref-ld-chr for --w-ld-chr.')
+                elif not (args.ref_ld or args.ref_ld_chr) and (args.w_ld or args.w_ld_chr):
+                    if args.w_ld is not None:
+                        args.ref_ld = args.w_ld
+                        logging.info('Options --ref-ld or --ref-ld-chr not specified; automatically using --w-ld for --ref-ld.')
+                    elif args.w_ld_chr is not None:
+                        args.ref_ld_chr = args.w_ld_chr
+                        logging.info('Options --ref-ld or --ref-ld-chr not specified; automatically using --w-ld-chr for --ref-ld-chr.')
             if (args.samp_prev is not None) != (args.pop_prev is not None):
                 raise ValueError('Must set both or neither of --samp-prev and --pop-prev.')
 
             if not args.overlap_annot or args.not_M_5_50:
                 if args.frqfile is not None or args.frqfile_chr is not None:
-                    log.log('The frequency file is unnecessary and is being ignored.')
+                    logging.info('The frequency file is unnecessary and is being ignored.')
                     args.frqfile = None
                     args.frqfile_chr = None
             if args.overlap_annot and not args.not_M_5_50:
@@ -639,22 +676,22 @@ if __name__ == '__main__':
                     raise ValueError('Must set either --frqfile and --ref-ld or --frqfile-chr and --ref-ld-chr')
 
             if args.rg:
-                sumstats.estimate_rg(args, log)
+                sumstats.estimate_rg(args)
             elif args.h2:
-                sumstats.estimate_h2(args, log)
+                sumstats.estimate_h2(args)
             elif args.h2_cts:
-                sumstats.cell_type_specific(args, log)
+                sumstats.cell_type_specific(args)
 
             # bad flags
         else:
-            print header
-            print 'Error: no analysis selected.'
-            print 'ldsc.py -h describes options.'
+            logging.info(header)
+            logging.info('Error: no analysis selected.')
+            logging.info('ldsc.py -h describes options.')
     except Exception:
         ex_type, ex, tb = sys.exc_info()
-        log.log( traceback.format_exc(ex) )
+        logging.info( traceback.format_exc(ex) )
         raise
     finally:
-        log.log('Analysis finished at {T}'.format(T=time.ctime()) )
+        logging.info('Analysis finished at {T}'.format(T=time.ctime()) )
         time_elapsed = round(time.time()-start_time,2)
-        log.log('Total time elapsed: {T}'.format(T=sec_to_str(time_elapsed)))
+        logging.info('Total time elapsed: {T}'.format(T=sec_to_str(time_elapsed)))

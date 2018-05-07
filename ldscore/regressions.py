@@ -8,11 +8,13 @@ Last column = intercept.
 
 '''
 from __future__ import division
+from __future__ import absolute_import
 import numpy as np
 import pandas as pd
+import logging
 from scipy.stats import norm, chi2
-import jackknife as jk
-from irwls import IRWLS
+import ldscore.jackknife as jk
+from ldscore.irwls import IRWLS
 from scipy.stats import t as tdist
 from collections import namedtuple
 np.seterr(divide='raise', invalid='raise')
@@ -455,7 +457,7 @@ class Hsq(LD_Score_Regression):
         if self.n_annot > 1:
             if ref_ld_colnames is None:
                 ref_ld_colnames = ['CAT_' + str(i)
-                                   for i in xrange(self.n_annot)]
+                                   for i in range(self.n_annot)]
 
             out.append('Categories: ' + ' '.join(ref_ld_colnames))
 
