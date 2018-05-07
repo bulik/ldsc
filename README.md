@@ -5,18 +5,28 @@
 
 ## Getting Started
 
-First, you will need to install python as well as the packages listed under the requirements header below. The easiest way to do this is with the [Anaconda](https://store.continuum.io/cshop/anaconda/) python distribution. All of the required packages come standard with Ananconda (Broad users: do `use Anaconda`).
 
-In order to download `ldsc`, you should clone this repository via the command
+
+In order to download `ldsc`, you should clone this repository via the commands
 ```  
 git clone https://github.com/bulik/ldsc.git
+cd ldsc
 ```
-Once you have installed `ldsc` as well as the required packages, typing
+
+In order to install the Python dependencies, you will need the [Anaconda](https://store.continuum.io/cshop/anaconda/) Python distribution and package manager. After installing Anaconda, run the following commands to create an environment with LDSC's dependencies:
+
+```
+conda env create --file environment.yml
+source activate ldsc
+```
+
+Once the above has completed, you can run:
+
 ```
 ./ldsc.py -h
 ./munge_sumstats.py -h
 ```
-will print a list of all command-line options. If these commands fail with an error, then something as gone wrong during the installation process. 
+to print a list of all command-line options. If these commands fail with an error, then something as gone wrong during the installation process. 
 
 Short tutorials describing the four basic functions of `ldsc` (estimating LD Scores, h2 and partitioned h2, genetic correlation, the LD Score regression intercept) can be found in the wiki. If you would like to run the tests, please see the wiki.
 
@@ -44,6 +54,12 @@ Fast-forward
  1 file changed, 15 insertions(+)
  ```
 which tells you which files were changed. If you have modified the `ldsc` source code, `git pull` may fail with an error such as `error: Your local changes to the following files would be overwritten by merge:`. 
+
+In case the Python dependencies have changed, you can update the LDSC environment with
+
+```
+conda env update --file environment.yml
+```
 
 ## Where Can I Get LD Scores?
 
@@ -87,19 +103,6 @@ For LD Hub, please cite
 Zheng, et al. LD Hub: a centralized database and web interface to perform LD score regression that maximizes the potential of summary level GWAS data for SNP heritability and genetic correlation analysis. Bioinformatics (2016)
 https://doi.org/10.1093/bioinformatics/btw613
 
-
-## Requirements
-
-1. `Python (3 > version >= 2.7)`
-2. `argparse`
-3. `bitarray`
-4. `numpy`
-5. `pandas`
-6. `scipy`
-
-The python data science stack is still under constant development, with frequent breaking changes. We will attempt to keep `ldsc` compatible with the newest releases of `numpy/scipy/pandas`, and we therefore recommend that you make sure you are running the latest versions of these three packages. This is most easily accomplished using the [`Anaconda`]((https://store.continuum.io/cshop/anaconda/) ) python distribution and the included package manager `conda`.  
-
-`ldsc` is not presently compatible with python 3.x.
 
 ## License
 
