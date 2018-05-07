@@ -12,7 +12,7 @@ import os
 from ldsc import parser
 
 DIR = os.path.dirname(__file__)
-N_REP = 200
+N_REP = 500
 s._N_CHR = 2  # having to mock 22 files is annoying
 
 
@@ -271,7 +271,7 @@ class Test_RG_Statistical():
 
     def test_hsq_int_se(self):
         assert_allclose(np.nanmean(map(t('intercept_se'), map(t('hsq2'), self.rg))), np.nanstd(
-            map(t('intercept'), map(t('hsq2'), self.rg))), atol=0.15)
+            map(t('intercept'), map(t('hsq2'), self.rg))), atol=0.1)
 
 
 @attr('h2')
