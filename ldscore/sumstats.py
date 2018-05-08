@@ -350,7 +350,7 @@ def estimate_h2(args):
     H2 = []
     sumstats_list = {}
 
-    if type(args.h2) == str: # command line case
+    if isinstance(args.h2, str): # command line case
         h2_paths, h2_files = _parse_(args.h2) # rows
         h2_list = h2_paths # columns
         n_pheno = len(h2_paths)
@@ -369,7 +369,7 @@ def estimate_h2(args):
 
         ref_ld, w_ld, M_annot, ref_ld_cnames, novar_cols=map(lambda x: x.copy(),(ref_ld_orig, w_ld_orig, M_annot_orig, ref_ld_cnames_orig, novar_cols_orig))
 
-        if type(args.h2) == str:
+        if isinstance(args.h2, str):
             p1 = p1_orig
         else:
             p1 = p1_orig.copy()
@@ -450,7 +450,7 @@ def estimate_rg(args):
     RG = []
     sumstats_list = {}
 
-    if type(args.rg) == str: # command line case
+    if isinstance(args.rg, str): # command line case
         rg_paths, rg_files = _parse_(args.rg) # rows
         rg_list = rg_paths # columns
         n_pheno = len(rg_paths)
@@ -477,7 +477,7 @@ def estimate_rg(args):
         
     for k, p1_orig in enumerate(rg_list): # rows
 
-        if type(args.rg) == str:
+        if isinstance(args.rg, str):
             p1 = p1_orig 
         else:
             p1 = p1_orig.copy()
