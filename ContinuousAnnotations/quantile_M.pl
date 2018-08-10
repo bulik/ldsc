@@ -12,6 +12,7 @@ sub print_header
   print "|                  Compute sum of each annotation                  |\n";
   print "|              by quantile of continuous annotations               |\n";
   print "|                     sgazal\@hsph.harvard.edu                      |\n";
+  print "|                      last modified: 08/10/18                     |\n";
   print "\@------------------------------------------------------------------@\n";
   print "\n";
 }
@@ -54,7 +55,6 @@ sub print_help
   exit;
 }
 
-
 my($frqfile_chr)=""; my($ref_annot_chr)=""; my($annot)=""; my($nb_quantile)=5; my($maf_threshold)=0.05; my($out_file)=""; my($i); my($j); my($k); my($printhelp); my($exclude0);
 GetOptions(
   "help"            => \$printhelp,
@@ -70,7 +70,6 @@ GetOptions(
 print_header();
 if (defined($printhelp)){ print_help() }
 if (($frqfile_chr eq "") || ($ref_annot_chr eq "") || ($annot eq "") || ($out_file eq "")) {die "\nERROR! --freqfile-chr, --ref-annot-chr, --annot-header and --out options are mandatory.\n"}
-
 
 #Step 0: find annot in ref-ld
 my($annot_file)=""; 
@@ -174,6 +173,9 @@ for ($i=0; $i<=$nb_quantile ; $i++) {
 	push(@Qvect,$Q);
 }
 
+#substract epsilon to $Qvect[0]
+$Qvect[0]=$Qvect[0]-0.0000000001;
+
 #Step 3: Compute sum of each annotation in each quantile
 print "\nStep 3: Compute sum of each annotation in each quantile\n";
 #Initialize matrix
@@ -237,4 +239,3 @@ for ($i=0; $i<$total_nb_annotation ; $i++) {
 	printf OUT "\n";
 }
 close OUT;
-
