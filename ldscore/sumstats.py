@@ -160,7 +160,10 @@ def _read_chr_split_files(chr_arg, not_chr_arg, log, noun, parsefunc, **kwargs):
 def _read_sumstats(args, log, fh, alleles=False, dropna=False):
     '''Parse summary statistics.'''
     log.log('Reading summary statistics from {S} ...'.format(S=fh))
-    sumstats = ps.sumstats(fh, alleles=alleles, dropna=dropna)
+    if args.snplist:
+        sumstats = ps.sumstats(fh, alleles=alleles, dropna=dropna, slh=args.snplist)
+    else:
+        sumstats = ps.sumstats(fh, alleles=alleles, dropna=dropna)
     log_msg = 'Read summary statistics for {N} SNPs.'
     log.log(log_msg.format(N=len(sumstats)))
     m = len(sumstats)

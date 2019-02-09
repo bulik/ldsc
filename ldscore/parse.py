@@ -10,6 +10,8 @@ import numpy as np
 import pandas as pd
 import os
 import glob
+from pysam import VariantFile
+import gzip
 
 
 def series_eq(x, y):
@@ -51,7 +53,6 @@ def which_compression(fh):
         compression = None
     else:
         raise IOError('Could not open {F}[./gz/bz2]'.format(F=fh))
-
     return suffix, compression
 
 
@@ -61,6 +62,8 @@ def get_compression(fh):
         compression = 'gzip'
     elif fh.endswith('bz2'):
         compression = 'bz2'
+    elif fh.endswith('bcf'):
+        compression = 'bcf'
     else:
         compression = None
 
@@ -77,7 +80,7 @@ def read_cts(fh, match_snps):
     return cts.ANNOT.values
 
 
-def sumstats(fh, alleles=False, dropna=True):
+def sumstats(fh, alleles=False, dropna=True, slh=None):
     '''Parses .sumstats files. See docs/file_formats_sumstats.txt.'''
     dtype_dict = {'SNP': str,   'Z': float, 'N': float, 'A1': str, 'A2': str}
     compression = get_compression(fh)
@@ -85,15 +88,53 @@ def sumstats(fh, alleles=False, dropna=True):
     if alleles:
         usecols += ['A1', 'A2']
 
-    try:
-        x = read_csv(fh, usecols=usecols, dtype=dtype_dict, compression=compression)
-    except (AttributeError, ValueError) as e:
-        raise ValueError('Improperly formatted sumstats file: ' + str(e.args))
+    if compression == 'bcf':
+        try:
+            x = read_bcf(fh, usecols, slh)
+        except (AttributeError, ValueError) as e:
+            raise ValueError('Improperly formatted sumstats file: ' + str(e.args))
+    else:
+        try:
+            x = read_csv(fh, usecols=usecols, dtype=dtype_dict, compression=compression)
+        except (AttributeError, ValueError) as e:
+            raise ValueError('Improperly formatted sumstats file: ' + str(e.args))
 
     if dropna:
         x = x.dropna(how='any')
 
     return x
+
+
+
+def read_bcf(fh, usecols, slh=None):
+    bcf_in = VariantFile(fh)
+
+    o = [[rec.id, rec.info["EFFECT"][0]/rec.info["SE"][0], rec.info["N"][0]] for rec in bcf_in.fetch()]
+    p = pd.DataFrame(np.array(o), columns=usecols)
+    bcf_in.close()
+
+    if slh is not None:
+        compression = get_compression(slh)
+        sl = []
+        if compression == "gz":
+            try:
+                with gzip.open(slh) as f:
+                    for line in f:
+                        sl.append(line.strip())
+            except (AttributeError, ValueError) as e:
+                raise ValueError('Improperly formatted snplist file: ' + str(e.args))
+        else:
+            try:
+                with open(slh) as f:
+                    for line in f:
+                        sl.append(line.strip())
+            except (AttributeError, ValueError) as e:
+                raise ValueError('Improperly formatted snplist file: ' + str(e.args))
+        f.close()
+        p = p.loc[p['SNP'].isin(sl)]
+
+    return(p)
+
 
 
 def ldscore_fromlist(flist, num=None):

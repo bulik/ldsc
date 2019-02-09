@@ -490,7 +490,8 @@ parser.add_argument('--maf', default=None, type=float,
 # Basic Flags for Working with Variance Components
 parser.add_argument('--h2', default=None, type=str,
     help='Filename for a .sumstats[.gz] file for one-phenotype LD Score regression. '
-    '--h2 requires at minimum also setting the --ref-ld and --w-ld flags.')
+    '--h2 requires at minimum also setting the --ref-ld and --w-ld flags.'
+    'Can alternatively provide a bcf of GWAS summary data in which case ideally you should also specify --snplist flag to list the rs IDs to retain for the analysis.')
 parser.add_argument('--h2-cts', default=None, type=str,
     help='Filename for a .sumstats[.gz] file for cell-type-specific analysis. '
     '--h2-cts requires the --ref-ld-chr, --w-ld, and --ref-ld-chr-cts flags.')
@@ -543,6 +544,8 @@ parser.add_argument('--chisq-max', default=None, type=float,
 parser.add_argument('--ref-ld-chr-cts', default=None, type=str,
     help='Name of a file that has a list of file name prefixes for cell-type-specific analysis.')
 parser.add_argument('--print-all-cts', action='store_true', default=False)
+parser.add_argument('--snplist', default=None, type=str,
+    help='Filename for a .snplist[.gz] file which lists the rs IDs to extract from a bcf file being analysed by --h2. One rsID per line.')
 
 # Flags for both LD Score estimation and h2/gencor estimation
 parser.add_argument('--print-cov', default=False, action='store_true',
