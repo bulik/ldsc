@@ -90,7 +90,7 @@ def sumstats(fh, alleles=False, dropna=True, slh=None):
 
     if compression == 'bcf':
         try:
-            x = read_bcf(fh, usecols, slh)
+            x = read_bcf(fh, alleles, slh)
         except (AttributeError, ValueError) as e:
             raise ValueError('Improperly formatted sumstats file: ' + str(e.args))
     else:
@@ -106,10 +106,15 @@ def sumstats(fh, alleles=False, dropna=True, slh=None):
 
 
 
-def read_bcf(fh, usecols, slh=None):
+def read_bcf(fh, alleles, slh=None):
     bcf_in = VariantFile(fh)
 
-    o = [[rec.id, rec.info["EFFECT"][0]/rec.info["SE"][0], rec.info["N"][0]] for rec in bcf_in.fetch()]
+    if alleles:
+        usecols = ['SNP', 'Z', 'N', 'A1', 'A2']
+        o = [[rec.id, rec.info["EFFECT"][0]/rec.info["SE"][0], rec.info["N"][0], rec.alt, rec.ref] for rec in bcf_in.fetch()]
+    else:
+        usecols = ['SNP', 'Z', 'N']
+        o = [[rec.id, rec.info["EFFECT"][0]/rec.info["SE"][0], rec.info["N"][0]] for rec in bcf_in.fetch()]
     p = pd.DataFrame(np.array(o), columns=usecols)
     bcf_in.close()
 
