@@ -116,7 +116,7 @@ def read_bcf(fh, usecols, slh=None):
     if slh is not None:
         compression = get_compression(slh)
         sl = []
-        if compression == "gz":
+        if compression == "gzip":
             try:
                 with gzip.open(slh) as f:
                     for line in f:

@@ -161,6 +161,7 @@ def _read_sumstats(args, log, fh, alleles=False, dropna=False):
     '''Parse summary statistics.'''
     log.log('Reading summary statistics from {S} ...'.format(S=fh))
     if args.snplist:
+        log.log('and extracting SNPs specified in {S} ...'.format(S=args.snplist))
         sumstats = ps.sumstats(fh, alleles=alleles, dropna=dropna, slh=args.snplist)
     else:
         sumstats = ps.sumstats(fh, alleles=alleles, dropna=dropna)
