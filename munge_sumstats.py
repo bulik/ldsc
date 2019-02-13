@@ -715,9 +715,8 @@ def munge_sumstats(args, p=True):
         log.log(
             msg.format(M=len(dat), F=out_fname + '.gz', N=dat.N.notnull().sum()))
         if p:
-            dat.to_csv(out_fname, sep="\t", index=False,
-                       columns=print_colnames, float_format='%.3f')
-            os.system('gzip -f {F}'.format(F=out_fname))
+            dat.to_csv(out_fname + '.gz', sep="\t", index=False,
+                       columns=print_colnames, float_format='%.3f', compression = 'gzip')
 
         log.log('\nMetadata:')
         CHISQ = (dat.Z ** 2)
