@@ -112,7 +112,7 @@ def read_bcf(fh, alleles, slh=None):
     if alleles:
         dtype_dict = {'SNP': str,   'Z': float, 'N': float, 'A1': str, 'A2': str}
         usecols = ['SNP', 'Z', 'N', 'A1', 'A2']
-        o = [[rec.id, rec.info["EFFECT"][0]/rec.info["SE"][0], rec.info["N"][0], rec.alts[0], rec.ref] for rec in bcf_in.fetch()]
+        o = [[rec.id, float(rec.info["EFFECT"][0])/rec.info["SE"][0], rec.info["N"][0], rec.alts[0], rec.ref] for rec in bcf_in.fetch()]
         p = pd.DataFrame(
             {'SNP': pd.Series([x[0] for x in o], dtype='str'),
             'Z': pd.Series([x[1] for x in o], dtype='float'),
@@ -123,7 +123,7 @@ def read_bcf(fh, alleles, slh=None):
     else:
         dtype_dict = {'SNP': str,   'Z': float, 'N': float}
         usecols = ['SNP', 'Z', 'N']
-        o = [[rec.id, rec.info["EFFECT"][0]/rec.info["SE"][0], rec.info["N"][0]] for rec in bcf_in.fetch()]
+        o = [[rec.id, float(rec.info["EFFECT"][0])/rec.info["SE"][0], rec.info["N"][0]] for rec in bcf_in.fetch()]
         p = pd.DataFrame(
             {'SNP': pd.Series([x[0] for x in o], dtype='str'),
             'Z': pd.Series([x[1] for x in o], dtype='float'),
