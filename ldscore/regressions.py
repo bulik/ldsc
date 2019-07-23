@@ -568,7 +568,7 @@ class Gencov(LD_Score_Regression):
             c = 1
 
         out.append('Total ' + T + ' scale gencov: ' +
-                   s(self.tot) + ' (' + s(self.tot_se) + ')')
+                   s(c * self.tot) + ' (' + s(c * self.tot_se) + ')')
         if self.n_annot > 1:
             out.append('Categories: ' + str(' '.join(ref_ld_colnames)))
             out.append(T + ' scale gencov: ' + s(c * self.cat))
