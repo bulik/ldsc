@@ -75,6 +75,7 @@ docs/_build/
 *cov
 *.sumstats
 *.delete_k
+*.part_delete
 *asdf*
 *qwer*
 *M_5_50*
