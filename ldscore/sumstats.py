@@ -455,12 +455,14 @@ def _get_rg_table(rg_paths, RG, args):
     x['se'] = map(t('rg_se'), RG)
     x['z'] = map(t('z'), RG)
     x['p'] = map(t('p'), RG)
-    if args.samp_prev is not None and args.pop_prev is not None and\
-            all((i is not None for i in args.samp_prev)) and all((i is not None for it in args.pop_prev)):
-        c = reg.h2_obs_to_liab(1, args.samp_prev[1], args.pop_prev[1])
-        x['h2_liab'] = map(lambda x: c * x, map(t('tot'), map(t('hsq2'), RG)))
-        x['h2_liab_se'] = map(
-            lambda x: c * x, map(t('tot_se'), map(t('hsq2'), RG)))
+    if args.samp_prev is not None and \
+            args.pop_prev is not None and \
+            all((i is not None for i in args.samp_prev)) and \
+            all((i is not None for it in args.pop_prev)):
+
+        c = map(lambda x, y: reg.h2_obs_to_liab(1, x, y), args.samp_prev[1:], args.pop_prev[1:])
+        x['h2_liab'] = map(lambda x, y: x * y, c, map(t('tot'), map(t('hsq2'), RG)))
+        x['h2_liab_se'] = map(lambda x, y: x * y, c, map(t('tot_se'), map(t('hsq2'), RG)))
     else:
         x['h2_obs'] = map(t('tot'), map(t('hsq2'), RG))
         x['h2_obs_se'] = map(t('tot_se'), map(t('hsq2'), RG))
