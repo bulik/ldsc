@@ -491,7 +491,7 @@ parser.add_argument('--maf', default=None, type=float,
 parser.add_argument('--h2', default=None, type=str,
     help='Filename for a .sumstats[.gz] file for one-phenotype LD Score regression. '
     '--h2 requires at minimum also setting the --ref-ld and --w-ld flags.'
-    'Can alternatively provide a bcf of GWAS summary data in which case ideally you should also specify --snplist flag to list the rs IDs to retain for the analysis.')
+    'Can alternatively provide a vcf/vcf.gz/bcf of GWAS summary data in which case ideally you should also specify --snplist flag to list the rs IDs to retain for the analysis.')
 parser.add_argument('--h2-cts', default=None, type=str,
     help='Filename for a .sumstats[.gz] file for cell-type-specific analysis. '
     '--h2-cts requires the --ref-ld-chr, --w-ld, and --ref-ld-chr-cts flags.')
