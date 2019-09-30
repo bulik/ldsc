@@ -21,6 +21,9 @@ def test_series_eq():
 
 
 def test_get_compression():
+    assert_equal(ps.get_compression('vcf'), 'bcf')
+    assert_equal(ps.get_compression('bcf'), 'bcf')
+    assert_equal(ps.get_compression('vcf.gz'), 'bcf')
     assert_equal(ps.get_compression('gz'), 'gzip')
     assert_equal(ps.get_compression('bz2'), 'bz2')
     assert_equal(ps.get_compression('asdf'), None)
@@ -42,6 +45,19 @@ def test_read_sumstats():
     assert_raises(ValueError, ps.sumstats, os.path.join(
         DIR, 'parse_test/test.l2.ldscore.gz'))
 
+def test_read_vcf():
+    x1 = ps.read_vcf("test/vcf_test/example1.vcf.gz", alleles=True)
+    x2 = ps.read_vcf("test/vcf_test/example1.vcf.gz", alleles=False)
+    x3 = ps.read_vcf("test/vcf_test/example2.vcf.gz", alleles=True)
+    x4 = ps.read_vcf("test/vcf_test/example2.vcf.gz", alleles=False)
+    x5 = ps.read_vcf("test/vcf_test/example3.vcf.gz", alleles=True)
+    x6 = ps.read_vcf("test/vcf_test/example3.vcf.gz", alleles=False)
+    assert_equal(len(x1), len(x2))
+    assert_equal(len(x3), len(x4))
+    assert_equal(len(x5), len(x6))
+    assert('rs' in x1.SNP[0])
+    assert_raises(ValueError, ps.read_vcf, os.path.join(
+        DIR, 'test/vcf_test/example1.vcf.gz'))
 
 def test_frq_parser():
     x = ps.frq_parser(os.path.join(DIR, 'parse_test/test1.frq'), compression=None)
