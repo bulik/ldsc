@@ -1,0 +1,6 @@
+bitarray==0.8
+nose==1.3
+pybedtools==0.7
+scipy==0.18
+numpy==1.10.4
+pandas==0.20
