@@ -20,7 +20,7 @@ def make_annot_files(args, bed_for_annot):
     print('making annot file')
     df_bim = pd.read_csv(args.bimfile,
             delim_whitespace=True, usecols = [0,1,2,3], names = ['CHR','SNP','CM','BP'])
-    iter_bim = [['chr'+str(x1), x2, x2] for (x1, x2) in np.array(df_bim[['CHR', 'BP']])]
+    iter_bim = [['chr'+str(x1), int(x2), int(x2)] for (x1, x2) in np.array(df_bim[['CHR', 'BP']])]
     bimbed = BedTool(iter_bim)
     annotbed = bimbed.intersect(bed_for_annot)
     bp = [x.start for x in annotbed]
@@ -29,8 +29,7 @@ def make_annot_files(args, bed_for_annot):
     df_annot.fillna(0, inplace=True)
     df_annot = df_annot[['ANNOT']].astype(int)
     if args.annot_file.endswith('.gz'):
-        with gzip.open(args.annot_file, 'wb') as f:
-            df_annot.to_csv(f, sep = "\t", index = False)
+        df_annot.to_csv(args.annot_file, sep = "\t", index = False, compression='\gzip')
     else:
         df_annot.to_csv(args.annot_file, sep="\t", index=False)
 
