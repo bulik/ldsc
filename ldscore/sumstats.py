@@ -437,8 +437,8 @@ def _read_other_sumstats(args, log, p2, sumstats, ref_ld_cnames):
     if not args.no_check_alleles:
         loop = _select_and_log(loop, _filter_alleles(alleles), log,
                                '{N} SNPs with valid alleles.')
+        loop['Z2'] = _align_alleles(loop.Z2, alleles)
 
-    loop['Z2'] = _align_alleles(loop.Z2, alleles)
     loop = loop.drop(['A1', 'A1x', 'A2', 'A2x'], axis=1)
     _check_ld_condnum(args, log, loop[ref_ld_cnames])
     _warn_length(log, loop)
