@@ -13,17 +13,17 @@ def gene_set_to_bed(args):
     df = pd.merge(GeneSet, all_genes, on = 'GENE', how = 'inner')
     df['START'] = np.maximum(0, df['START'] - args.windowsize)
     df['END'] = df['END'] + args.windowsize
-    iter_df = [['chr'+(str(x1).lstrip('chr')), x2, x3] for (x1,x2,x3) in np.array(df[['CHR', 'START', 'END']])]
+    iter_df = [['chr'+(str(x1).lstrip('chr')), x2 - 1, x3] for (x1,x2,x3) in np.array(df[['CHR', 'START', 'END']])]
     return BedTool(iter_df).sort().merge()
 
 def make_annot_files(args, bed_for_annot):
     print('making annot file')
     df_bim = pd.read_csv(args.bimfile,
             delim_whitespace=True, usecols = [0,1,2,3], names = ['CHR','SNP','CM','BP'])
-    iter_bim = [['chr'+str(x1), x2, x2] for (x1, x2) in np.array(df_bim[['CHR', 'BP']])]
+    iter_bim = [['chr'+str(x1), x2 - 1, x2] for (x1, x2) in np.array(df_bim[['CHR', 'BP']])]
     bimbed = BedTool(iter_bim)
     annotbed = bimbed.intersect(bed_for_annot)
-    bp = [x.start for x in annotbed]
+    bp = [x.start + 1 for x in annotbed]
     df_int = pd.DataFrame({'BP': bp, 'ANNOT':1})
     df_annot = pd.merge(df_bim, df_int, how='left', on='BP')
     df_annot.fillna(0, inplace=True)
