@@ -1,3 +1,4 @@
+02.01.20 Fix KeyError in allele_merge
 30.07.19 v1.0.1; update changelog and increment version for edits on this date (see #164)
 30.07.19 Fix to display of liability scale gencov, h2 in rg results log (see #162)
 30.07.19 Update munge to use pandas option for gzip output (see #142)

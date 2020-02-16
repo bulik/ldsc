@@ -442,7 +442,7 @@ def allele_merge(dat, alleles, log):
         raise ValueError(
             'All SNPs have alleles that do not match --merge-alleles.')
 
-    dat.loc[~jj, [i for i in dat.columns if i != 'SNP']] = float('nan')
+    dat.loc[~jj.astype('bool'), [i for i in dat.columns if i != 'SNP']] = float('nan')
     dat.drop(['MA'], axis=1, inplace=True)
     return dat
 
