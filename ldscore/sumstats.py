@@ -17,6 +17,7 @@ import sys
 import traceback
 import copy
 import os
+import glob
 
 
 _N_CHR = 22
@@ -50,8 +51,10 @@ FLIP_ALLELES = {''.join(x):
 
 def _splitp(fstr):
     flist = fstr.split(',')
-    flist = [os.path.expanduser(os.path.expandvars(x)) for x in flist]
-    return flist
+    paths = []
+    for x in [os.path.expanduser(os.path.expandvars(x)) for x in flist]:
+      paths.extend(glob.glob(x))
+    return paths
 
 
 def _select_and_log(x, ii, log, msg):
