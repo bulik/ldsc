@@ -10,4 +10,4 @@ dependencies:
 - pip:
   - scipy==0.18
   - pandas==0.20
-  - numpy==1.12
+  - numpy==1.16

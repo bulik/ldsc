@@ -14,7 +14,7 @@ setup(name='ldsc',
             'nose>=1.3,<1.4',
             'pybedtools>=0.7,<0.8',
             'scipy>=0.18,<0.19',
-            'numpy>=1.10,<1.11',
+            'numpy>=1.16,<1.17',
             'pandas>=0.20,<0.21'
       ]
 )
