@@ -11,7 +11,7 @@ def gene_set_to_bed(args):
     GeneSet = pd.read_csv(args.gene_set_file, header = None, names = ['GENE'])
     all_genes = pd.read_csv(args.gene_coord_file, delim_whitespace = True)
     df = pd.merge(GeneSet, all_genes, on = 'GENE', how = 'inner')
-    df['START'] = np.maximum(0, df['START'] - args.windowsize)
+    df['START'] = np.maximum(1, df['START'] - args.windowsize)
     df['END'] = df['END'] + args.windowsize
     iter_df = [['chr'+(str(x1).lstrip('chr')), x2 - 1, x3] for (x1,x2,x3) in np.array(df[['CHR', 'START', 'END']])]
     return BedTool(iter_df).sort().merge()
