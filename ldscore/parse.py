@@ -114,24 +114,6 @@ def ldscore_fromlist(flist, num=None):
     return pd.concat(ldscore_array, axis=1)
 
 
-def ldscore(fh, num=None):
-    '''Parse .l2.ldscore files, split across num chromosomes. See docs/file_formats_ld.txt.'''
-    suffix = '.l2.ldscore'
-    if num is not None:  # num files, e.g., one per chromosome
-        chrs = get_present_chrs(fh, num+1)
-        first_fh = sub_chr(fh, chrs[0]) + suffix
-        s, compression = which_compression(first_fh)
-        chr_ld = [l2_parser(sub_chr(fh, i) + suffix + s, compression) for i in chrs]
-        x = pd.concat(chr_ld)  # automatically sorted by chromosome
-    else:  # just one file
-        s, compression = which_compression(fh + suffix)
-        x = l2_parser(fh + suffix + s, compression)
-
-    x = x.sort_values(by=['CHR', 'BP']) # SEs will be wrong unless sorted
-    x = x.drop(['CHR', 'BP'], axis=1).drop_duplicates(subset='SNP')
-    return x
-
-
 def l2_parser(fh, compression):
     '''Parse LD Score files'''
     x = read_csv(fh, header=0, compression=compression)
@@ -155,6 +137,24 @@ def frq_parser(fh, compression):
     if 'MAF' in df.columns:
         df.rename(columns={'MAF': 'FRQ'}, inplace=True)
     return df[['SNP', 'FRQ']]
+
+
+def ldscore(fh, num=None):
+    '''Parse .l2.ldscore files, split across num chromosomes. See docs/file_formats_ld.txt.'''
+    suffix = '.l2.ldscore'
+    if num is not None:  # num files, e.g., one per chromosome
+        chrs = get_present_chrs(fh, num+1)
+        first_fh = sub_chr(fh, chrs[0]) + suffix
+        s, compression = which_compression(first_fh)
+        chr_ld = [l2_parser(sub_chr(fh, i) + suffix + s, compression) for i in chrs]
+        x = pd.concat(chr_ld)  # automatically sorted by chromosome
+    else:  # just one file
+        s, compression = which_compression(fh + suffix)
+        x = l2_parser(fh + suffix + s, compression)
+
+    x = x.sort_values(by=['CHR', 'BP']) # SEs will be wrong unless sorted
+    x = x.drop(['CHR', 'BP'], axis=1).drop_duplicates(subset='SNP')
+    return x
 
 
 def M(fh, num=None, N=2, common=False):
