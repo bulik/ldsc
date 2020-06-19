@@ -118,9 +118,9 @@ def ldscore(fh, num=None):
     '''Parse .l2.ldscore files, split across num chromosomes. See docs/file_formats_ld.txt.'''
     suffix = '.l2.ldscore'
     if num is not None:  # num files, e.g., one per chromosome
-        first_fh = sub_chr(fh, 1) + suffix
-        s, compression = which_compression(first_fh)
         chrs = get_present_chrs(fh, num+1)
+        first_fh = sub_chr(fh, chrs[0]) + suffix
+        s, compression = which_compression(first_fh)
         chr_ld = [l2_parser(sub_chr(fh, i) + suffix + s, compression) for i in chrs]
         x = pd.concat(chr_ld)  # automatically sorted by chromosome
     else:  # just one file
@@ -187,8 +187,9 @@ def annot(fh_list, num=None, frqfile=None):
     annot_suffix = ['.annot' for fh in fh_list]
     annot_compression = []
     if num is not None:  # 22 files, one for each chromosome
+        chrs = get_present_chrs(fh, num+1)
         for i, fh in enumerate(fh_list):
-            first_fh = sub_chr(fh, 1) + annot_suffix[i]
+            first_fh = sub_chr(fh, chrs[0]) + annot_suffix[i]
             annot_s, annot_comp_single = which_compression(first_fh)
             annot_suffix[i] += annot_s
             annot_compression.append(annot_comp_single)
@@ -201,7 +202,7 @@ def annot(fh_list, num=None, frqfile=None):
 
         y = []
         M_tot = 0
-        for chrom in get_present_chrs(fh, num+1):
+        for chrom in chrs:
             if frqfile is not None:
                 df_annot_chr_list = [annot_parser(sub_chr(fh, chrom) + annot_suffix[i], annot_compression[i],
                                                   sub_chr(frqfile, chrom) + frq_suffix, frq_compression)
