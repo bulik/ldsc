@@ -9,6 +9,7 @@ from __future__ import division
 import numpy as np
 import pandas as pd
 import os
+import glob
 
 
 def series_eq(x, y):
@@ -20,12 +21,21 @@ def read_csv(fh, **kwargs):
     return pd.read_csv(fh, delim_whitespace=True, na_values='.', **kwargs)
 
 
-def sub_chr(s, chr):
+def sub_chr(s, chrom):
     '''Substitute chr for @, else append chr to the end of str.'''
     if '@' not in s:
         s += '@'
 
-    return s.replace('@', str(chr))
+    return s.replace('@', str(chrom))
+
+
+def get_present_chrs(fh, num):
+    '''Checks which chromosomes exist, assuming that the file base will be appended by a dot in any suffix.'''
+    chrs = []
+    for chrom in xrange(1,num):
+        if glob.glob(sub_chr(fh, chrom) + '.*'):
+            chrs.append(chrom)
+    return chrs
 
 
 def which_compression(fh):
@@ -104,6 +114,24 @@ def ldscore_fromlist(flist, num=None):
     return pd.concat(ldscore_array, axis=1)
 
 
+def ldscore(fh, num=None):
+    '''Parse .l2.ldscore files, split across num chromosomes. See docs/file_formats_ld.txt.'''
+    suffix = '.l2.ldscore'
+    if num is not None:  # num files, e.g., one per chromosome
+        first_fh = sub_chr(fh, 1) + suffix
+        s, compression = which_compression(first_fh)
+        chrs = get_present_chrs(fh, num+1)
+        chr_ld = [l2_parser(sub_chr(fh, i) + suffix + s, compression) for i in chrs]
+        x = pd.concat(chr_ld)  # automatically sorted by chromosome
+    else:  # just one file
+        s, compression = which_compression(fh + suffix)
+        x = l2_parser(fh + suffix + s, compression)
+
+    x = x.sort_values(by=['CHR', 'BP']) # SEs will be wrong unless sorted
+    x = x.drop(['CHR', 'BP'], axis=1).drop_duplicates(subset='SNP')
+    return x
+
+
 def l2_parser(fh, compression):
     '''Parse LD Score files'''
     x = read_csv(fh, header=0, compression=compression)
@@ -129,23 +157,6 @@ def frq_parser(fh, compression):
     return df[['SNP', 'FRQ']]
 
 
-def ldscore(fh, num=None):
-    '''Parse .l2.ldscore files, split across num chromosomes. See docs/file_formats_ld.txt.'''
-    suffix = '.l2.ldscore'
-    if num is not None:  # num files, e.g., one per chromosome
-        first_fh = sub_chr(fh, 1) + suffix
-        s, compression = which_compression(first_fh)
-        chr_ld = [l2_parser(sub_chr(fh, i) + suffix + s, compression) for i in xrange(1, num + 1)]
-        x = pd.concat(chr_ld)  # automatically sorted by chromosome
-    else:  # just one file
-        s, compression = which_compression(fh + suffix)
-        x = l2_parser(fh + suffix + s, compression)
-
-    x = x.sort_values(by=['CHR', 'BP']) # SEs will be wrong unless sorted
-    x = x.drop(['CHR', 'BP'], axis=1).drop_duplicates(subset='SNP')
-    return x
-
-
 def M(fh, num=None, N=2, common=False):
     '''Parses .l{N}.M files, split across num chromosomes. See docs/file_formats_ld.txt.'''
     parsefunc = lambda y: [float(z) for z in open(y, 'r').readline().split()]
@@ -154,7 +165,7 @@ def M(fh, num=None, N=2, common=False):
         suffix += '_5_50'
 
     if num is not None:
-        x = np.sum([parsefunc(sub_chr(fh, i) + suffix) for i in xrange(1, num + 1)], axis=0)
+        x = np.sum([parsefunc(sub_chr(fh, i) + suffix) for i in get_present_chrs(fh, num+1)], axis=0)
     else:
         x = parsefunc(fh + suffix)
 
@@ -190,13 +201,13 @@ def annot(fh_list, num=None, frqfile=None):
 
         y = []
         M_tot = 0
-        for chr in xrange(1, num + 1):
+        for chrom in get_present_chrs(fh, num+1):
             if frqfile is not None:
-                df_annot_chr_list = [annot_parser(sub_chr(fh, chr) + annot_suffix[i], annot_compression[i],
-                                                  sub_chr(frqfile, chr) + frq_suffix, frq_compression)
+                df_annot_chr_list = [annot_parser(sub_chr(fh, chrom) + annot_suffix[i], annot_compression[i],
+                                                  sub_chr(frqfile, chrom) + frq_suffix, frq_compression)
                                      for i, fh in enumerate(fh_list)]
             else:
-                df_annot_chr_list = [annot_parser(sub_chr(fh, chr) + annot_suffix[i], annot_compression[i])
+                df_annot_chr_list = [annot_parser(sub_chr(fh, chrom) + annot_suffix[i], annot_compression[i])
                                      for i, fh in enumerate(fh_list)]
 
             annot_matrix_chr_list = [np.matrix(df_annot_chr) for df_annot_chr in df_annot_chr_list]

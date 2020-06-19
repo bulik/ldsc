@@ -4,7 +4,6 @@
 This module deals with getting all the data needed for LD Score regression from files
 into memory and checking that the input makes sense. There is no math here. LD Score
 regression is implemented in the regressions module.
-
 '''
 from __future__ import division
 import numpy as np
@@ -147,11 +146,11 @@ def _read_chr_split_files(chr_arg, not_chr_arg, log, noun, parsefunc, **kwargs):
     '''Read files split across 22 chromosomes (annot, ref_ld, w_ld).'''
     try:
         if not_chr_arg:
-            log.log('Reading {N} from {F} ...'.format(F=not_chr_arg, N=noun))
+            log.log('Reading {N} from {F} ... ({p})'.format(N=noun, F=not_chr_arg, p=parsefunc.__name__))
             out = parsefunc(_splitp(not_chr_arg), **kwargs)
         elif chr_arg:
             f = ps.sub_chr(chr_arg, '[1-22]')
-            log.log('Reading {N} from {F} ...'.format(F=f, N=noun))
+            log.log('Reading {N} from {F} ... ({p})'.format(N=noun, F=f, p=parsefunc.__name__))
             out = parsefunc(_splitp(chr_arg), _N_CHR, **kwargs)
     except ValueError as e:
         log.log('Error parsing {N}.'.format(N=noun))
