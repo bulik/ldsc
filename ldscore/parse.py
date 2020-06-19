@@ -10,7 +10,7 @@ import numpy as np
 import pandas as pd
 import os
 import glob
-import pygwasvcf
+from pysam import VariantFile
 import gzip
 
 
@@ -59,13 +59,9 @@ def which_compression(fh):
 def get_compression(fh):
     '''Which sort of compression should we use with read_csv?'''
     if fh.endswith('vcf.gz'):
-        compression = 'vcf'
-    elif fh.endswith('vcf'):
-        compression = 'vcf'
+        compression = 'bcf'
     elif fh.endswith('bcf'):
-        compression = 'vcf'
-    elif fh.endswith('bcf.gz'):
-        compression = 'vcf'
+        compression = 'bcf'
     elif fh.endswith('gz'):
         compression = 'gzip'
     elif fh.endswith('bz2'):
@@ -94,11 +90,11 @@ def sumstats(fh, alleles=False, dropna=True, slh=None):
     if alleles:
         usecols += ['A1', 'A2']
 
-    if compression == 'vcf':
+    if compression == 'bcf':
         try:
             x = read_vcf(fh, alleles, slh)
         except (AttributeError, ValueError) as e:
-            raise ValueError('Improperly formatted VCF/BCF file: ' + str(e.args))
+            raise ValueError('Improperly formatted bcf/vcf file: ' + str(e.args))
     else:
         try:
             x = read_csv(fh, usecols=usecols, dtype=dtype_dict, compression=compression)
@@ -111,60 +107,61 @@ def sumstats(fh, alleles=False, dropna=True, slh=None):
     return x
 
 
-"""
-Function to read GWAS summary statistics from GWAS-VCF
-:param fh: Path to GWAS-VCF
-:param alleles: Bool value to include alleles in output
-:param slh: SNP list (optional)
-:param trait: Name of trait to select from GWAS-VCF. If None then assume a single GWAS is present in the file
-"""
-def read_vcf(fh, alleles, slh=None, trait=None):
-    with pygwasvcf.GwasVcf(fh) as vcf_in:
-        traits = vcf_in.get_traits()
 
-        if trait is not None:
-            assert trait in traits
-        else:
-            trait = traits[0]
+def read_vcf(fh, alleles, slh=None):
+    vcf_in = VariantFile(fh)
+    sample = list(vcf_in.header.samples)[0]
+    availcols = next(vcf_in.fetch()).format.keys()
+    vcf_in.seek(0)
 
-        # get global field info from header
-        metadata = vcf_in.get_metadata()
+    # Check if sample size info is in header
+    global_fields = [x for x in vcf_in.header.records if x.key == "SAMPLE"][0]
+    if alleles:
+        dtype_dict = {'SNP': str,   'Z': float, 'N': float, 'A1': str, 'A2': str}
+        usecols = list(dtype_dict.keys())
 
-        if alleles:
-            dtype_dict = {'SNP': str,   'Z': float, 'N': float, 'A1': str, 'A2': str}
-
-            # Read in data
-            o = [[
-                pygwasvcf.VariantRecordGwasFuns.get_id(rec, trait, create_if_missing=True),  # rsid or chr-pos-ref-alt
-                pygwasvcf.VariantRecordGwasFuns.get_beta(rec, trait) / pygwasvcf.VariantRecordGwasFuns.get_se(rec, trait),
-                pygwasvcf.VariantRecordGwasFuns.get_ss(rec, trait, metadata),  # if per-snp sample size unavailable then take from header
-                rec.alts[0],
-                rec.ref
-            ] for rec in vcf_in.query()]
+        # Read in data
+        if 'SS' in availcols:
+            o = [[rec.id, rec.samples[sample]['ES'][0]/rec.samples[sample]['SE'][0], rec.samples[sample]['SS'][0], rec.alts[0], rec.ref] for rec in vcf_in.fetch()]
             N = pd.Series([x[2] for x in o], dtype='float')
-
-            p = pd.DataFrame(
-                {'SNP': pd.Series([x[0] for x in o], dtype='str'),
-                'Z': pd.Series([x[1] for x in o], dtype='float'),
-                'N': N,
-                'A1': pd.Series([x[3] for x in o], dtype='str'),
-                'A2': pd.Series([x[4] for x in o], dtype='str')}
-            )
         else:
-            dtype_dict = {'SNP': str,   'Z': float, 'N': float}
+            o = [[rec.id, rec.samples[sample]['ES'][0]/rec.samples[sample]['SE'][0], rec.alts[0], rec.ref] for rec in vcf_in.fetch()]
+            if 'TotalControls' in global_fields.keys() and 'TotalCases' in global_fields.keys():
+                N = pd.Series([float(global_fields['TotalControls']) + float(global_fields['TotalCases'])] * len(o), dtype='float')
+            elif 'TotalControls' in global_fields.keys():
+                N = pd.Series([float(global_fields['TotalControls'])] * len(o), dtype='float')
+            else:
+                N = pd.Series([np.NaN] * len(o), dtype='float')
 
-            o = [[
-                pygwasvcf.VariantRecordGwasFuns.get_id(rec, trait, create_if_missing=True),  # rsid or chr-pos-ref-alt
-                pygwasvcf.VariantRecordGwasFuns.get_beta(rec, trait) / pygwasvcf.VariantRecordGwasFuns.get_se(rec, trait),
-                pygwasvcf.VariantRecordGwasFuns.get_ss(rec, trait, metadata),  # if per-snp sample size unavailable then take from header
-            ] for rec in vcf_in.fetch()]
+        p = pd.DataFrame(
+            {'SNP': pd.Series([x[0] for x in o], dtype='str'),
+            'Z': pd.Series([x[1] for x in o], dtype='float'),
+            'N': N,
+            'A1': pd.Series([x[2 + int('SS' in availcols)] for x in o], dtype='str'),
+            'A2': pd.Series([x[3 + int('SS' in availcols)] for x in o], dtype='str')}
+        )
+    else:
+        dtype_dict = {'SNP': str,   'Z': float, 'N': float}
+        usecols = list(dtype_dict.keys())
+        if 'SS' in availcols:
+            o = [[rec.id, rec.samples[sample]['ES'][0]/rec.samples[sample]['SE'][0], rec.samples[sample]['SS'][0]] for rec in vcf_in.fetch()]
             N = pd.Series([x[2] for x in o], dtype='float')
+        else:
+            o = [[rec.id, rec.samples[sample]['ES'][0]/rec.samples[sample]['SE'][0]] for rec in vcf_in.fetch()]
+            if 'TotalControls' in global_fields.keys() and 'TotalCases' in global_fields.keys():
+                N = pd.Series([float(global_fields['TotalControls']) + float(global_fields['TotalCases'])] * len(o), dtype='float')
+            elif 'TotalControls' in global_fields.keys():
+                N = pd.Series([float(global_fields['TotalControls'])] * len(o), dtype='float')
+            else:
+                N = pd.Series([np.NaN] * len(o), dtype='float')
 
-            p = pd.DataFrame(
-                {'SNP': pd.Series([x[0] for x in o], dtype='str'),
-                'Z': pd.Series([x[1] for x in o], dtype='float'),
-                'N': N}
-         )
+        p = pd.DataFrame(
+            {'SNP': pd.Series([x[0] for x in o], dtype='str'),
+            'Z': pd.Series([x[1] for x in o], dtype='float'),
+            'N': N}
+        )
+
+    vcf_in.close()
 
     if slh is not None:
         compression = get_compression(slh)
