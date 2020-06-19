@@ -58,7 +58,9 @@ def which_compression(fh):
 
 def get_compression(fh):
     '''Which sort of compression should we use with read_csv?'''
-    if fh.endswith('vcf.gz'):
+    if fh.endswith('vcf'):
+        compression = 'bcf'
+    elif fh.endswith('vcf.gz'):
         compression = 'bcf'
     elif fh.endswith('bcf'):
         compression = 'bcf'
