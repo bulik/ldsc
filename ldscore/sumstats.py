@@ -50,10 +50,8 @@ FLIP_ALLELES = {''.join(x):
 
 def _splitp(fstr):
     flist = fstr.split(',')
-    paths = []
-    for x in [os.path.expanduser(os.path.expandvars(x)) for x in flist]:
-      paths.extend(glob.glob(x))
-    return paths
+    flist = [os.path.expanduser(os.path.expandvars(x)) for x in flist]
+    return flist
 
 
 def _select_and_log(x, ii, log, msg):
