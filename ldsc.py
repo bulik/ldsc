@@ -482,7 +482,7 @@ parser.add_argument('--pq-exp', default=None, type=float,
     'i.e., \ell_j := \sum_k (p_k(1-p_k))^a r^2_{jk}, where p_k denotes the MAF '
     'of SNP j and a is the argument to --pq-exp. ')
 parser.add_argument('--no-print-annot', default=False, action='store_true',
-    help='By default, seting --cts-bin or --cts-bin-add causes LDSC to print '
+    help='By default, setting --cts-bin or --cts-bin-add causes LDSC to print '
     'the resulting annot matrix. Setting --no-print-annot tells LDSC not '
     'to print the annot matrix. ')
 parser.add_argument('--maf', default=None, type=float,
