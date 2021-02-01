@@ -32,6 +32,7 @@ default_cnames = {
 
     # RS NUMBER
     'SNP': 'SNP',
+    'VARIANT_ID': 'SNP',
     'MARKERNAME': 'SNP',
     'SNPID': 'SNP',
     'RS': 'SNP',
