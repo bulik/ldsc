@@ -4,3 +4,4 @@ pybedtools>=0.7,<0.8
 scipy>=0.18,<0.19
 numpy>=1.16,<1.17
 pandas>=0.20,<0.21
+pysam
