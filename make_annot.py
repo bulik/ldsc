@@ -25,7 +25,7 @@ def make_annot_files(args, bed_for_annot):
     annotbed = bimbed.intersect(bed_for_annot)
     bp = [x.start + 1 for x in annotbed]
     df_int = pd.DataFrame({'BP': bp, 'ANNOT':1})
-    df_annot = pd.merge(df_bim, df_int, how='left', on='BP')
+    df_annot = pd.merge(df_bim, df_int.drop_duplicates(), how='left', on='BP')
     df_annot.fillna(0, inplace=True)
     df_annot = df_annot[['ANNOT']].astype(int)
     if args.annot_file.endswith('.gz'):
