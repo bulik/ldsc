@@ -237,12 +237,20 @@ def parse_dat(dat_gen, convert_colname, merge_alleles, log, args):
              'FRQ': 0, 'A': 0, 'SNP': 0, 'MERGE': 0}
     for block_num, dat in enumerate(dat_gen):
         sys.stdout.write('.')
+        dat.columns = map(lambda x: convert_colname[x], dat.columns)
+        if dat.P.dtype == "object":
+                numericP = pd.to_numeric(dat.P,errors='coerce')
+                checkvals = dat.P[numericP.isnull() & ~dat.P.isnull()]
+                if checkvals.str.contains("e-",case=False).all():
+                        dat.P = numericP
+                        msg = ' WARNING: {C} p-values too small to represent as floating-point have been set to NaN.'
+                        log.log(msg.format(C=checkvals.size))
+
         tot_snps += len(dat)
         old = len(dat)
         dat = dat.dropna(axis=0, how="any", subset=filter(
             lambda x: x != 'INFO', dat.columns)).reset_index(drop=True)
         drops['NA'] += old - len(dat)
-        dat.columns = map(lambda x: convert_colname[x], dat.columns)
 
         wrong_types = [c for c in dat.columns if c in numeric_cols and not np.issubdtype(dat[c].dtype, np.number)]
         if len(wrong_types) > 0:
