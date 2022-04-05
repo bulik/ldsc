@@ -147,7 +147,7 @@ def ldscore(fh, num=None):
         first_fh = sub_chr(fh, chrs[0]) + suffix
         s, compression = which_compression(first_fh)
         chr_ld = [l2_parser(sub_chr(fh, i) + suffix + s, compression) for i in chrs]
-        x = pd.concat(chr_ld)  # automatically sorted by chromosome
+        x = pd.concat(chr_ld)[chr_ld[0].columns]   # automatically sorted by chromosome
     else:  # just one file
         s, compression = which_compression(fh + suffix)
         x = l2_parser(fh + suffix + s, compression)
