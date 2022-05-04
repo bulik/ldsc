@@ -8,7 +8,7 @@ LDSC is a command line tool for estimating
     3. genetic covariance / correlation
 
 '''
-
+from __future__ import division
 import ldscore.ldscore as ld
 import ldscore.parse as ps
 import ldscore.sumstats as sumstats
@@ -18,7 +18,6 @@ import pandas as pd
 from subprocess import call
 from itertools import product
 import time, sys, traceback, argparse
-from functools import reduce
 
 
 try:
@@ -81,8 +80,8 @@ class Logger(object):
         Print to log file and stdout with a single command.
 
         '''
-        print(msg, file=self.log_fh)
-        print(msg)
+        print >>self.log_fh, msg
+        print msg
 
 
 def __filter__(fname, noun, verb, merge_obj):
@@ -91,12 +90,12 @@ def __filter__(fname, noun, verb, merge_obj):
         f = lambda x,n: x.format(noun=noun, verb=verb, fname=fname, num=n)
         x = ps.FilterFile(fname)
         c = 'Read list of {num} {noun} to {verb} from {fname}'
-        print(f(c, len(x.IDList)))
+        print f(c, len(x.IDList))
         merged_list = merge_obj.loj(x.IDList)
         len_merged_list = len(merged_list)
         if len_merged_list > 0:
             c = 'After merging, {num} {noun} remain'
-            print(f(c, len_merged_list))
+            print f(c, len_merged_list)
         else:
             error_msg = 'No {noun} retained for analysis'
             raise ValueError(f(error_msg, 0))
@@ -107,7 +106,7 @@ def annot_sort_key(s):
     '''For use with --cts-bin. Fixes weird pandas crosstab column order.'''
     if type(s) == tuple:
         s = [x.split('_')[0] for x in s]
-        s = [float(x) if x != 'min' else -float('inf') for x in s]
+        s = map(lambda x: float(x) if x != 'min' else -float('inf'), s)
     else:  # type(s) = str:
         s = s.split('_')[0]
         if s == 'min':
@@ -185,7 +184,7 @@ def ldscore(args, log):
                 raise ValueError(msg)
 
         else:
-            cts_colnames = ['ANNOT'+str(i) for i in range(len(cts_fnames))]
+            cts_colnames = ['ANNOT'+str(i) for i in xrange(len(cts_fnames))]
 
         log.log('Reading numbers with which to bin SNPs from {F}'.format(F=args.cts_bin))
 
@@ -216,7 +215,7 @@ def ldscore(args, log):
             name_breaks[0] = 'min'
             name_breaks[-1] = 'max'
             name_breaks = [str(x) for x in name_breaks]
-            labs = [name_breaks[i]+'_'+name_breaks[i+1] for i in range(n_breaks-1)]
+            labs = [name_breaks[i]+'_'+name_breaks[i+1] for i in xrange(n_breaks-1)]
             cut_vec = pd.Series(pd.cut(vec, bins=cut_breaks, labels=labs))
             cts_levs.append(cut_vec)
             full_labs.append(labs)
@@ -284,7 +283,7 @@ def ldscore(args, log):
 
     if args.ld_wind_snps:
         max_dist = args.ld_wind_snps
-        coords = np.array(range(geno_array.m))
+        coords = np.array(xrange(geno_array.m))
     elif args.ld_wind_kb:
         max_dist = args.ld_wind_kb*1000
         coords = np.array(array_snps.df['BP'])[geno_array.kept_snps]
@@ -362,12 +361,12 @@ def ldscore(args, log):
 
     # print .M
     fout_M = open(args.out + '.'+ file_suffix +'.M','wb')
-    print('\t'.join(map(str,M)), file=fout_M)
+    print >>fout_M, '\t'.join(map(str,M))
     fout_M.close()
 
     # print .M_5_50
     fout_M_5_50 = open(args.out + '.'+ file_suffix +'.M_5_50','wb')
-    print('\t'.join(map(str,M_5_50)), file=fout_M_5_50)
+    print >>fout_M_5_50, '\t'.join(map(str,M_5_50))
     fout_M_5_50.close()
 
     # print annot matrix
@@ -589,7 +588,7 @@ if __name__ == '__main__':
     try:
         defaults = vars(parser.parse_args(''))
         opts = vars(args)
-        non_defaults = [x for x in list(opts.keys()) if opts[x] != defaults[x]]
+        non_defaults = [x for x in opts.keys() if opts[x] != defaults[x]]
         header = MASTHEAD
         header += "Call: \n"
         header += './ldsc.py \\\n'
@@ -648,9 +647,9 @@ if __name__ == '__main__':
 
             # bad flags
         else:
-            print(header)
-            print('Error: no analysis selected.')
-            print('ldsc.py -h describes options.')
+            print header
+            print 'Error: no analysis selected.'
+            print 'ldsc.py -h describes options.'
     except Exception:
         ex_type, ex, tb = sys.exc_info()
         log.log( traceback.format_exc(ex) )

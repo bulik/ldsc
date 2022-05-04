@@ -1,0 +1,44 @@
+RefactoringTool: Skipping optional fixer: buffer
+RefactoringTool: Skipping optional fixer: idioms
+RefactoringTool: Skipping optional fixer: set_literal
+RefactoringTool: Skipping optional fixer: ws_comma
+RefactoringTool: Refactored ./ldsc.py
+RefactoringTool: Refactored ./make_annot.py
+RefactoringTool: Refactored ./munge_sumstats.py
+RefactoringTool: No changes to ./setup.py
+RefactoringTool: Refactored ./ldscore/irwls.py
+RefactoringTool: Refactored ./ldscore/jackknife.py
+RefactoringTool: Refactored ./ldscore/ldscore.py
+RefactoringTool: Refactored ./ldscore/parse.py
+RefactoringTool: Refactored ./ldscore/regressions.py
+RefactoringTool: Refactored ./ldscore/sumstats.py
+RefactoringTool: Refactored ./test/simulate.py
+RefactoringTool: Refactored ./test/test_irwls.py
+RefactoringTool: Refactored ./test/test_jackknife.py
+RefactoringTool: Refactored ./test/test_ldscore.py
+RefactoringTool: Refactored ./test/test_munge_sumstats.py
+RefactoringTool: Refactored ./test/test_parse.py
+RefactoringTool: Refactored ./test/test_regressions.py
+RefactoringTool: Refactored ./test/test_sumstats.py
+RefactoringTool: Files that were modified:
+RefactoringTool: ./ldsc.py
+RefactoringTool: ./make_annot.py
+RefactoringTool: ./munge_sumstats.py
+RefactoringTool: ./setup.py
+RefactoringTool: ./ldscore/irwls.py
+RefactoringTool: ./ldscore/jackknife.py
+RefactoringTool: ./ldscore/ldscore.py
+RefactoringTool: ./ldscore/parse.py
+RefactoringTool: ./ldscore/regressions.py
+RefactoringTool: ./ldscore/sumstats.py
+RefactoringTool: ./test/simulate.py
+RefactoringTool: ./test/test_irwls.py
+RefactoringTool: ./test/test_jackknife.py
+RefactoringTool: ./test/test_ldscore.py
+RefactoringTool: ./test/test_munge_sumstats.py
+RefactoringTool: ./test/test_parse.py
+RefactoringTool: ./test/test_regressions.py
+RefactoringTool: ./test/test_sumstats.py
+RefactoringTool: Warnings/messages while refactoring:
+RefactoringTool: ### In file ./ldscore/sumstats.py ###
+RefactoringTool: Line 387: You should use a for loop here
