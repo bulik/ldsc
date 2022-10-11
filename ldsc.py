@@ -38,7 +38,7 @@ MASTHEAD += "*******************************************************************
 pd.set_option('display.max_rows', 500)
 pd.set_option('display.max_columns', 500)
 pd.set_option('display.width', 1000)
-pd.set_option('precision', 4)
+pd.set_option('display.precision', 4)
 pd.set_option('max_colwidth',1000)
 np.set_printoptions(linewidth=1000)
 np.set_printoptions(precision=4)
@@ -74,7 +74,7 @@ class Logger(object):
 
     '''
     def __init__(self, fh):
-        self.log_fh = open(fh, 'wb')
+        self.log_fh = open(fh, 'w')
 
     def log(self, msg):
         '''

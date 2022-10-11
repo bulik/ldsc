@@ -194,7 +194,7 @@ class Test_Hsq_2D(unittest.TestCase):
     def test_summary(self):
         # not much to test; we can at least make sure no errors at runtime
         self.hsq.summary(['asdf', 'qwer'])
-	# change to random 7/30/2019 to avoid inconsistent singular matrix errors
+        # change to random 7/30/2019 to avoid inconsistent singular matrix errors
         self.ld += np.random.normal(scale=0.1, size=(17,2))
         self.chisq += np.arange(17).reshape((17, 1))
         hsq = reg.Hsq(

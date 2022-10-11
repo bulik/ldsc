@@ -294,7 +294,7 @@ class PlinkBEDFile(__GenotypeArrayInMemory__):
         nru_new = n_new + e
         nru = self.nru
         z = ba.bitarray(m*2*nru_new, endian="little")
-	z.setall(0)
+        z.setall(0)
         for e, i in enumerate(keep_indivs):
             z[2*e::2*nru_new] = geno[2*i::2*nru]
             z[2*e+1::2*nru_new] = geno[2*i+1::2*nru]
