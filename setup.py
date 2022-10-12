@@ -1,7 +1,7 @@
 from setuptools import setup
 
 setup(name='ldsc',
-      version='1.0',
+      version='2.0',
       description='LD Score Regression (LDSC)',
       url='http://github.com/bulik/ldsc',
       author='Brendan Bulik-Sullivan and Hilary Finucane',

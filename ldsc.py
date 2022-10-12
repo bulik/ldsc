@@ -27,7 +27,7 @@ try:
 except AttributeError:
     raise ImportError('LDSC requires pandas version >= 0.17.0')
 
-__version__ = '1.0.1'
+__version__ = '2.0.0'
 MASTHEAD = "*********************************************************************\n"
 MASTHEAD += "* LD Score Regression (LDSC)\n"
 MASTHEAD += "* Version {V}\n".format(V=__version__)
