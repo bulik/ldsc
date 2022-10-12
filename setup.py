@@ -8,13 +8,13 @@ setup(name='ldsc',
       author_email='',
       license='GPLv3',
       packages=['ldscore'],
-      scripts=['ldsc.py', 'munge_sumstats.py'],
+      scripts=['ldsc.py', 'munge_sumstats.py', 'make_annot.py'],
       install_requires = [
-            'bitarray>=0.8,<0.9',
-            'nose>=1.3,<1.4',
-            'pybedtools>=0.7,<0.8',
-            'scipy>=0.18,<0.19',
-            'numpy>=1.16,<1.17',
-            'pandas>=0.20,<0.21'
+            'bitarray==2.6.0',
+            'nose==1.3.7', # this is only a test dep
+            'pybedtools==0.9.0',
+            'scipy==1.9.2',
+            'numpy==1.23.3',
+            'pandas==1.5.0'
       ]
 )
