@@ -73,8 +73,8 @@ class Test_ldscore(unittest.TestCase):
         x = ps.ldscore_fromlist([fh, fh])
         assert_array_equal(x.shape, (22, 5))
         y = ps.ldscore(os.path.join(DIR, 'parse_test/test'))
-        assert_array_equal(x.ix[:, 0:3], y)
-        assert_array_equal(x.ix[:, [0, 3, 4]], y)
+        assert_array_equal(x.iloc[:, 0:3], y)
+        assert_array_equal(x.iloc[:, [0, 3, 4]], y)
         assert_raises(
             ValueError, ps.ldscore_fromlist, [fh, os.path.join(DIR, 'parse_test/test2')])
 

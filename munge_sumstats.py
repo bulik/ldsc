@@ -732,8 +732,7 @@ def munge_sumstats(args, p=True):
 
     except Exception:
         log.log('\nERROR converting summary statistics:\n')
-        ex_type, ex, tb = sys.exc_info()
-        log.log(traceback.format_exc(ex))
+        log.log(traceback.format_exc())
         raise
     finally:
         log.log('\nConversion finished at {T}'.format(T=time.ctime()))

@@ -218,7 +218,7 @@ class LstsqJackknifeSlow(Jackknife):
             func = lambda x, y: np.atleast_2d(nnls(x, np.array(y).T[0])[0])
         else:
             func = lambda x, y: np.atleast_2d(
-                np.linalg.lstsq(x, np.array(y).T[0])[0])
+                np.linalg.lstsq(x, np.array(y).T[0], rcond=None)[0])
 
         self.est = func(x, y)
         self.delete_values = self.delete_values(x, y, func, self.separators)

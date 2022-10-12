@@ -21,10 +21,11 @@ class Test_Jackknife(unittest.TestCase):
     def test_jknife_1d(self):
         pseudovalues = np.atleast_2d(np.arange(10)).T
         (est, var, se, cov) = jk.Jackknife.jknife(pseudovalues)
-        nose.tools.assert_almost_equal(var, 0.91666667)
-        nose.tools.assert_almost_equal(est, 4.5)
-        nose.tools.assert_almost_equal(cov, var)
-        nose.tools.assert_almost_equal(se ** 2, var)
+        print(jk.Jackknife.jknife(pseudovalues))
+        self.assertTrue(np.isclose(var.flat, 0.91666667))
+        self.assertTrue(np.isclose(est, 4.5))
+        self.assertTrue(np.isclose(cov, var))
+        self.assertTrue(np.isclose(se ** 2, var))
         self.assertTrue(not np.any(np.isnan(cov)))
         assert_array_equal(cov.shape, (1, 1))
         assert_array_equal(var.shape, (1, 1))

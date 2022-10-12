@@ -4,7 +4,7 @@ import ldscore.parse as ps
 import unittest
 import numpy as np
 import pandas as pd
-from pandas.util.testing import assert_series_equal, assert_frame_equal
+from pandas.testing import assert_series_equal, assert_frame_equal
 from nose.tools import *
 from numpy.testing import assert_array_equal, assert_array_almost_equal, assert_allclose
 from nose.plugins.attrib import attr
@@ -413,7 +413,7 @@ class Test_Estimate(unittest.TestCase):
         args.out = DIR + '/simulate_test/1'
         x = s.estimate_rg(args, log)[0]
         args.M = open(
-            DIR + '/simulate_test/ldscore/oneld_onefile.l2.M_5_50', 'rb').read().rstrip('\n')
+            DIR + '/simulate_test/ldscore/oneld_onefile.l2.M_5_50', 'r').read().rstrip('\n')
         y = s.estimate_rg(args, log)[0]
         assert_array_almost_equal(x.rg_ratio, y.rg_ratio)
         assert_array_almost_equal(x.rg_se, y.rg_se)

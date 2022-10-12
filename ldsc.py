@@ -340,7 +340,7 @@ def ldscore(args, log):
                         F=args.print_snps, N=len(print_snps)))
 
         print_snps.columns=['SNP']
-        df = df.ix[df.SNP.isin(print_snps.SNP),:]
+        df = df.iloc[df.SNP.isin(print_snps.SNP),:]
         if len(df) == 0:
             raise ValueError('After merging with --print-snps, no SNPs remain.')
         else:
@@ -384,19 +384,19 @@ def ldscore(args, log):
     # print LD Score summary
     pd.set_option('display.max_rows', 200)
     log.log('\nSummary of LD Scores in {F}'.format(F=out_fname+l2_suffix))
-    t = df.ix[:,4:].describe()
-    log.log( t.ix[1:,:] )
+    t = df.iloc[:,4:].describe()
+    log.log( t.iloc[1:,:] )
 
     np.seterr(divide='ignore', invalid='ignore')  # print NaN instead of weird errors
     # print correlation matrix including all LD Scores and sample MAF
     log.log('')
     log.log('MAF/LD Score Correlation Matrix')
-    log.log( df.ix[:,4:].corr() )
+    log.log( df.iloc[:,4:].corr() )
 
     # print condition number
     if n_annot > 1: # condition number of a column vector w/ nonzero var is trivially one
         log.log('\nLD Score Matrix Condition Number')
-        cond_num = np.linalg.cond(df.ix[:,5:])
+        cond_num = np.linalg.cond(df.iloc[:,5:])
         log.log( reg.remove_brackets(str(np.matrix(cond_num))) )
         if cond_num > 10000:
             log.log('WARNING: ill-conditioned LD Score Matrix!')

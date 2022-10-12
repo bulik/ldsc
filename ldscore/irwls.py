@@ -158,7 +158,7 @@ class IRWLS(object):
 
         x = cls._weight(x, w)
         y = cls._weight(y, w)
-        coef = np.linalg.lstsq(x, y)
+        coef = np.linalg.lstsq(x, y, rcond=None)
         return coef
 
     @classmethod
