@@ -1,5 +1,4 @@
 bitarray==2.6.0
-black==22.10.0
 click==8.1.3
 mypy-extensions==0.4.3
 nose==1.3.7
