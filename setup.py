@@ -6,7 +6,7 @@ this_directory = Path(__file__).parent
 long_description = (this_directory / "README.md").read_text()
 
 setup(name='ldsc',
-      version='2.0.0',
+      version='2.0.1',
       description='LD Score Regression (LDSC)',
       long_description=long_description,
       long_description_content_type='text/markdown',

@@ -1,3 +1,4 @@
+30.01.23 v2.0.1; update a bug introduced in "Fix globbing bug in splitp #221" that broke some flows
 11.10.22 v2.0.0; port to Python 3 and update to newer versions of pandas, numpy, and more
 02.01.20 Fix KeyError in allele_merge
 30.07.19 v1.0.1; update changelog and increment version for edits on this date (see #164)
