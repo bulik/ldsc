@@ -2,12 +2,12 @@ name: ldsc
 channels:
 - bioconda
 dependencies:
-- python=2.7
-- bitarray=0.8
-- nose=1.3
-- pybedtools=0.7
+- python=3.10
 - pip
 - pip:
-  - scipy==0.18
-  - pandas==0.20
-  - numpy==1.16
+  - bitarray==2.6.0
+  - nose==1.3.7
+  - pybedtools==0.9.0
+  - scipy==1.9.2
+  - pandas==1.5.0
+  - numpy==1.23.3

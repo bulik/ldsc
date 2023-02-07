@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-from __future__ import division
+
 import pandas as pd
 import numpy as np
 import os
@@ -144,7 +144,7 @@ def get_cname_map(flag, default, ignore):
     clean_ignore = [clean_header(x) for x in ignore]
     cname_map = {x: flag[x] for x in flag if x not in clean_ignore}
     cname_map.update(
-        {x: default[x] for x in default if x not in clean_ignore + flag.keys()})
+        {x: default[x] for x in default if x not in clean_ignore + list(flag.keys())})
     return cname_map
 
 
@@ -239,16 +239,15 @@ def parse_dat(dat_gen, convert_colname, merge_alleles, log, args):
         sys.stdout.write('.')
         tot_snps += len(dat)
         old = len(dat)
-        dat = dat.dropna(axis=0, how="any", subset=filter(
-            lambda x: x != 'INFO', dat.columns)).reset_index(drop=True)
+        dat = dat.dropna(axis=0, how="any", subset=[x for x in dat.columns if x != 'INFO']).reset_index(drop=True)
         drops['NA'] += old - len(dat)
-        dat.columns = map(lambda x: convert_colname[x], dat.columns)
+        dat.columns = [convert_colname[x] for x in dat.columns]
 
         wrong_types = [c for c in dat.columns if c in numeric_cols and not np.issubdtype(dat[c].dtype, np.number)]
         if len(wrong_types) > 0:
             raise ValueError('Columns {} are expected to be numeric'.format(wrong_types))
 
-        ii = np.array([True for i in xrange(len(dat))])
+        ii = np.array([True for i in range(len(dat))])
         if args.merge_alleles:
             old = ii.sum()
             ii = dat.SNP.isin(merge_alleles.SNP)
@@ -257,7 +256,7 @@ def parse_dat(dat_gen, convert_colname, merge_alleles, log, args):
                 continue
 
             dat = dat[ii].reset_index(drop=True)
-            ii = np.array([True for i in xrange(len(dat))])
+            ii = np.array([True for i in range(len(dat))])
 
         if 'INFO' in dat.columns:
             old = ii.sum()
@@ -471,7 +470,7 @@ parser.add_argument('--daner', default=False, action='store_true',
                     help="Use this flag to parse Stephan Ripke's daner* file format.")
 parser.add_argument('--daner-n', default=False, action='store_true',
                     help="Use this flag to parse more recent daner* formatted files, which "
-		    "include sample size column 'Nca' and 'Nco'.")
+                    "include sample size column 'Nca' and 'Nco'.")
 parser.add_argument('--no-alleles', default=False, action="store_true",
                     help="Don't require alleles. Useful if only unsigned summary statistics are available "
                     "and the goal is h2 / partitioned h2 estimation rather than rg estimation.")
@@ -533,13 +532,13 @@ def munge_sumstats(args, p=True):
             raise ValueError(
                 '--no-alleles and --merge-alleles are not compatible.')
         if args.daner and args.daner_n:
-            raise ValueError('--daner and --daner-n are not compatible. Use --daner for sample ' + 
-	        'size from FRQ_A/FRQ_U headers, use --daner-n for values from Nca/Nco columns')
+            raise ValueError('--daner and --daner-n are not compatible. Use --daner for sample ' +
+                'size from FRQ_A/FRQ_U headers, use --daner-n for values from Nca/Nco columns')
 
         if p:
             defaults = vars(parser.parse_args(''))
             opts = vars(args)
-            non_defaults = [x for x in opts.keys() if opts[x] != defaults[x]]
+            non_defaults = [x for x in list(opts.keys()) if opts[x] != defaults[x]]
             header = MASTHEAD
             header += "Call: \n"
             header += './munge_sumstats.py \\\n'
@@ -565,8 +564,8 @@ def munge_sumstats(args, p=True):
         cname_map = get_cname_map(
             flag_cnames, mod_default_cnames, ignore_cnames)
         if args.daner:
-            frq_u = filter(lambda x: x.startswith('FRQ_U_'), file_cnames)[0]
-            frq_a = filter(lambda x: x.startswith('FRQ_A_'), file_cnames)[0]
+            frq_u = [x for x in file_cnames if x.startswith('FRQ_U_')][0]
+            frq_a = [x for x in file_cnames if x.startswith('FRQ_A_')][0]
             N_cas = float(frq_a[6:])
             N_con = float(frq_u[6:])
             log.log(
@@ -580,21 +579,21 @@ def munge_sumstats(args, p=True):
 
             cname_map[frq_u] = 'FRQ'
 
-	if args.daner_n:
-	    frq_u = filter(lambda x: x.startswith('FRQ_U_'), file_cnames)[0]
-	    cname_map[frq_u] = 'FRQ'
-	    try:
-	        dan_cas = clean_header(file_cnames[file_cnames.index('Nca')])
-	    except ValueError:
-	        raise ValueError('Could not find Nca column expected for daner-n format')
-	
-	    try:
-	        dan_con = clean_header(file_cnames[file_cnames.index('Nco')])
-	    except ValueError:
-	        raise ValueError('Could not find Nco column expected for daner-n format')
+        if args.daner_n:
+            frq_u = [x for x in file_cnames if x.startswith('FRQ_U_')][0]
+            cname_map[frq_u] = 'FRQ'
+            try:
+                dan_cas = clean_header(file_cnames[file_cnames.index('Nca')])
+            except ValueError:
+                raise ValueError('Could not find Nca column expected for daner-n format')
+
+            try:
+                dan_con = clean_header(file_cnames[file_cnames.index('Nco')])
+            except ValueError:
+                raise ValueError('Could not find Nco column expected for daner-n format')
 
             cname_map[dan_cas] = 'N_CAS'
-	    cname_map[dan_con] = 'N_CON'
+            cname_map[dan_con] = 'N_CON'
 
         cname_translation = {x: cname_map[clean_header(x)] for x in file_cnames if
                              clean_header(x) in cname_map}  # note keys not cleaned
@@ -623,31 +622,31 @@ def munge_sumstats(args, p=True):
             req_cols = ['SNP', 'P']
 
         for c in req_cols:
-            if c not in cname_translation.values():
+            if c not in list(cname_translation.values()):
                 raise ValueError('Could not find {C} column.'.format(C=c))
 
         # check aren't any duplicated column names in mapping
-	for field in cname_translation:
-	    numk = file_cnames.count(field)
-	    if numk > 1:
-		raise ValueError('Found {num} columns named {C}'.format(C=field,num=str(numk)))
+        for field in cname_translation:
+            numk = file_cnames.count(field)
+            if numk > 1:
+                raise ValueError('Found {num} columns named {C}'.format(C=field,num=str(numk)))
 
         # check multiple different column names don't map to same data field
-        for head in cname_translation.values():
-            numc = cname_translation.values().count(head)
-	    if numc > 1:
+        for head in list(cname_translation.values()):
+            numc = list(cname_translation.values()).count(head)
+            if numc > 1:
                 raise ValueError('Found {num} different {C} columns'.format(C=head,num=str(numc)))
 
-        if (not args.N) and (not (args.N_cas and args.N_con)) and ('N' not in cname_translation.values()) and\
-                (any(x not in cname_translation.values() for x in ['N_CAS', 'N_CON'])):
+        if (not args.N) and (not (args.N_cas and args.N_con)) and ('N' not in list(cname_translation.values())) and\
+                (any(x not in list(cname_translation.values()) for x in ['N_CAS', 'N_CON'])):
             raise ValueError('Could not determine N.')
-        if ('N' in cname_translation.values() or all(x in cname_translation.values() for x in ['N_CAS', 'N_CON']))\
-                and 'NSTUDY' in cname_translation.values():
+        if ('N' in list(cname_translation.values()) or all(x in list(cname_translation.values()) for x in ['N_CAS', 'N_CON']))\
+                and 'NSTUDY' in list(cname_translation.values()):
             nstudy = [
                 x for x in cname_translation if cname_translation[x] == 'NSTUDY']
             for x in nstudy:
                 del cname_translation[x]
-        if not args.no_alleles and not all(x in cname_translation.values() for x in ['A1', 'A2']):
+        if not args.no_alleles and not all(x in list(cname_translation.values()) for x in ['A1', 'A2']):
             raise ValueError('Could not find A1/A2 columns.')
 
         log.log('Interpreting column names as follows:')
@@ -677,9 +676,9 @@ def munge_sumstats(args, p=True):
 
         # figure out which columns are going to involve sign information, so we can ensure
         # they're read as floats
-        signed_sumstat_cols = [k for k,v in cname_translation.items() if v=='SIGNED_SUMSTAT']
+        signed_sumstat_cols = [k for k,v in list(cname_translation.items()) if v=='SIGNED_SUMSTAT']
         dat_gen = pd.read_csv(args.sumstats, delim_whitespace=True, header=0,
-                compression=compression, usecols=cname_translation.keys(),
+                compression=compression, usecols=list(cname_translation.keys()),
                 na_values=['.', 'NA'], iterator=True, chunksize=args.chunksize,
                 dtype={c:np.float64 for c in signed_sumstat_cols})
 
@@ -733,8 +732,7 @@ def munge_sumstats(args, p=True):
 
     except Exception:
         log.log('\nERROR converting summary statistics:\n')
-        ex_type, ex, tb = sys.exc_info()
-        log.log(traceback.format_exc(ex))
+        log.log(traceback.format_exc())
         raise
     finally:
         log.log('\nConversion finished at {T}'.format(T=time.ctime()))

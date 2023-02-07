@@ -1,4 +1,4 @@
-from __future__ import division
+
 from ldscore import parse as ps
 import unittest
 import numpy as np
@@ -59,22 +59,22 @@ class Test_ldscore(unittest.TestCase):
     def test_ldscore(self):
         x = ps.ldscore(os.path.join(DIR, 'parse_test/test'))
         assert_equal(list(x['SNP']), ['rs' + str(i) for i in range(1, 23)])
-        assert_equal(list(x['AL2']), range(1, 23))
-        assert_equal(list(x['BL2']), range(2, 46, 2))
+        assert_equal(list(x['AL2']), list(range(1, 23)))
+        assert_equal(list(x['BL2']), list(range(2, 46, 2)))
 
     def test_ldscore_loop(self):
         x = ps.ldscore(os.path.join(DIR, 'parse_test/test'), 2)
         assert_equal(list(x['SNP']), ['rs' + str(i) for i in range(1, 3)])
-        assert_equal(list(x['AL2']), range(1, 3))
-        assert_equal(list(x['BL2']), range(2, 6, 2))
+        assert_equal(list(x['AL2']), list(range(1, 3)))
+        assert_equal(list(x['BL2']), list(range(2, 6, 2)))
 
     def test_ldscore_fromlist(self):
         fh = os.path.join(DIR, 'parse_test/test')
         x = ps.ldscore_fromlist([fh, fh])
         assert_array_equal(x.shape, (22, 5))
         y = ps.ldscore(os.path.join(DIR, 'parse_test/test'))
-        assert_array_equal(x.ix[:, 0:3], y)
-        assert_array_equal(x.ix[:, [0, 3, 4]], y)
+        assert_array_equal(x.iloc[:, 0:3], y)
+        assert_array_equal(x.iloc[:, [0, 3, 4]], y)
         assert_raises(
             ValueError, ps.ldscore_fromlist, [fh, os.path.join(DIR, 'parse_test/test2')])
 

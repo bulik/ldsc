@@ -1,11 +1,10 @@
-from __future__ import division
+
 import munge_sumstats as munge
 import unittest
 import numpy as np
 import pandas as pd
 import nose
-from pandas.util.testing import assert_series_equal
-from pandas.util.testing import assert_frame_equal
+from pandas.testing import assert_series_equal, assert_frame_equal
 from numpy.testing import assert_array_equal, assert_array_almost_equal, assert_allclose
 
 
@@ -72,8 +71,8 @@ class test_process_n(unittest.TestCase):
     def test_n_col(self):
         self.dat['N'] = self.N
         dat = munge.process_n(self.dat, self.args, log)
-        print dat
-        print self.dat_filtered
+        print(dat)
+        print(self.dat_filtered)
         assert_frame_equal(dat, self.dat_filtered)
 
     def test_nstudy(self):
@@ -204,7 +203,7 @@ class test_parse_dat(unittest.TestCase):
         merge_alleles['MA'] = ['AG', 'AG', 'AG']
         dat = munge.parse_dat(
             self.dat_gen, self.convert_colname, merge_alleles, log, self.args)
-        print self.dat.loc[0:2, ['SNP', 'A1', 'A2', 'P']]
+        print(self.dat.loc[0:2, ['SNP', 'A1', 'A2', 'P']])
         assert_frame_equal(dat, self.dat.loc[0:2, ['SNP', 'A1', 'A2', 'P']])
 
     def test_standard(self):

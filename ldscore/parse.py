@@ -5,7 +5,7 @@ This module contains functions for parsing various ldsc-defined file formats.
 
 '''
 
-from __future__ import division
+
 import numpy as np
 import pandas as pd
 import os
@@ -32,7 +32,7 @@ def sub_chr(s, chrom):
 def get_present_chrs(fh, num):
     '''Checks which chromosomes exist, assuming that the file base will be appended by a dot in any suffix.'''
     chrs = []
-    for chrom in xrange(1,num):
+    for chrom in range(1,num):
         if glob.glob(sub_chr(fh, chrom) + '.*'):
             chrs.append(chrom)
     return chrs
@@ -187,8 +187,8 @@ def annot(fh_list, num=None, frqfile=None):
     annot_suffix = ['.annot' for fh in fh_list]
     annot_compression = []
     if num is not None:  # 22 files, one for each chromosome
-        chrs = get_present_chrs(fh, num+1)
         for i, fh in enumerate(fh_list):
+            chrs = get_present_chrs(fh, num+1)
             first_fh = sub_chr(fh, chrs[0]) + annot_suffix[i]
             annot_s, annot_comp_single = which_compression(first_fh)
             annot_suffix[i] += annot_s
