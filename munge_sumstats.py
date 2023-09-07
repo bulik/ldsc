@@ -580,156 +580,156 @@ def munge_sumstats(args, p=True):
 
             cname_map[frq_u] = 'FRQ'
 
-	if args.daner_n:
-	    frq_u = filter(lambda x: x.startswith('FRQ_U_'), file_cnames)[0]
-	    cname_map[frq_u] = 'FRQ'
-	    try:
-	        dan_cas = clean_header(file_cnames[file_cnames.index('Nca')])
-	    except ValueError:
-	        raise ValueError('Could not find Nca column expected for daner-n format')
-	
-	    try:
-	        dan_con = clean_header(file_cnames[file_cnames.index('Nco')])
-	    except ValueError:
-	        raise ValueError('Could not find Nco column expected for daner-n format')
-
-            cname_map[dan_cas] = 'N_CAS'
-	    cname_map[dan_con] = 'N_CON'
-
-        cname_translation = {x: cname_map[clean_header(x)] for x in file_cnames if
-                             clean_header(x) in cname_map}  # note keys not cleaned
-        cname_description = {
-            x: describe_cname[cname_translation[x]] for x in cname_translation}
-        if args.signed_sumstats is None and not args.a1_inc:
-            sign_cnames = [
-                x for x in cname_translation if cname_translation[x] in null_values]
-            if len(sign_cnames) > 1:
-                raise ValueError(
-                    'Too many signed sumstat columns. Specify which to ignore with the --ignore flag.')
-            if len(sign_cnames) == 0:
-                raise ValueError(
-                    'Could not find a signed summary statistic column.')
-
-            sign_cname = sign_cnames[0]
-            signed_sumstat_null = null_values[cname_translation[sign_cname]]
-            cname_translation[sign_cname] = 'SIGNED_SUMSTAT'
-        else:
-            sign_cname = 'SIGNED_SUMSTATS'
-
-        # check that we have all the columns we need
-        if not args.a1_inc:
-            req_cols = ['SNP', 'P', 'SIGNED_SUMSTAT']
-        else:
-            req_cols = ['SNP', 'P']
-
-        for c in req_cols:
-            if c not in cname_translation.values():
-                raise ValueError('Could not find {C} column.'.format(C=c))
-
-        # check aren't any duplicated column names in mapping
-	for field in cname_translation:
-	    numk = file_cnames.count(field)
-	    if numk > 1:
-		raise ValueError('Found {num} columns named {C}'.format(C=field,num=str(numk)))
-
-        # check multiple different column names don't map to same data field
-        for head in cname_translation.values():
-            numc = cname_translation.values().count(head)
-	    if numc > 1:
-                raise ValueError('Found {num} different {C} columns'.format(C=head,num=str(numc)))
-
-        if (not args.N) and (not (args.N_cas and args.N_con)) and ('N' not in cname_translation.values()) and\
-                (any(x not in cname_translation.values() for x in ['N_CAS', 'N_CON'])):
-            raise ValueError('Could not determine N.')
-        if ('N' in cname_translation.values() or all(x in cname_translation.values() for x in ['N_CAS', 'N_CON']))\
-                and 'NSTUDY' in cname_translation.values():
-            nstudy = [
-                x for x in cname_translation if cname_translation[x] == 'NSTUDY']
-            for x in nstudy:
-                del cname_translation[x]
-        if not args.no_alleles and not all(x in cname_translation.values() for x in ['A1', 'A2']):
-            raise ValueError('Could not find A1/A2 columns.')
-
-        log.log('Interpreting column names as follows:')
-        log.log('\n'.join([x + ':\t' + cname_description[x]
-                           for x in cname_description]) + '\n')
-
-        if args.merge_alleles:
-            log.log(
-                'Reading list of SNPs for allele merge from {F}'.format(F=args.merge_alleles))
-            (openfunc, compression) = get_compression(args.merge_alleles)
-            merge_alleles = pd.read_csv(args.merge_alleles, compression=compression, header=0,
-                                        delim_whitespace=True, na_values='.')
-            if any(x not in merge_alleles.columns for x in ["SNP", "A1", "A2"]):
-                raise ValueError(
-                    '--merge-alleles must have columns SNP, A1, A2.')
-
-            log.log(
-                'Read {N} SNPs for allele merge.'.format(N=len(merge_alleles)))
-            merge_alleles['MA'] = (
-                merge_alleles.A1 + merge_alleles.A2).apply(lambda y: y.upper())
-            merge_alleles.drop(
-                [x for x in merge_alleles.columns if x not in ['SNP', 'MA']], axis=1, inplace=True)
-        else:
-            merge_alleles = None
-
-        (openfunc, compression) = get_compression(args.sumstats)
-
-        # figure out which columns are going to involve sign information, so we can ensure
-        # they're read as floats
-        signed_sumstat_cols = [k for k,v in cname_translation.items() if v=='SIGNED_SUMSTAT']
-        dat_gen = pd.read_csv(args.sumstats, delim_whitespace=True, header=0,
-                compression=compression, usecols=cname_translation.keys(),
-                na_values=['.', 'NA'], iterator=True, chunksize=args.chunksize,
-                dtype={c:np.float64 for c in signed_sumstat_cols})
-
-        dat = parse_dat(dat_gen, cname_translation, merge_alleles, log, args)
-        if len(dat) == 0:
-            raise ValueError('After applying filters, no SNPs remain.')
-
-        old = len(dat)
-        dat = dat.drop_duplicates(subset='SNP').reset_index(drop=True)
-        new = len(dat)
-        log.log('Removed {M} SNPs with duplicated rs numbers ({N} SNPs remain).'.format(
-            M=old - new, N=new))
-        # filtering on N cannot be done chunkwise
-        dat = process_n(dat, args, log)
-        dat.P = p_to_z(dat.P, dat.N)
-        dat.rename(columns={'P': 'Z'}, inplace=True)
-        if not args.a1_inc:
-            log.log(
-                check_median(dat.SIGNED_SUMSTAT, signed_sumstat_null, 0.1, sign_cname))
-            dat.Z *= (-1) ** (dat.SIGNED_SUMSTAT < signed_sumstat_null)
-            dat.drop('SIGNED_SUMSTAT', inplace=True, axis=1)
-        # do this last so we don't have to worry about NA values in the rest of
-        # the program
-        if args.merge_alleles:
-            dat = allele_merge(dat, merge_alleles, log)
-
-        out_fname = args.out + '.sumstats'
-        print_colnames = [
-            c for c in dat.columns if c in ['SNP', 'N', 'Z', 'A1', 'A2']]
-        if args.keep_maf and 'FRQ' in dat.columns:
-            print_colnames.append('FRQ')
-        msg = 'Writing summary statistics for {M} SNPs ({N} with nonmissing beta) to {F}.'
-        log.log(
-            msg.format(M=len(dat), F=out_fname + '.gz', N=dat.N.notnull().sum()))
-        if p:
-            dat.to_csv(out_fname + '.gz', sep="\t", index=False,
-                       columns=print_colnames, float_format='%.3f', compression = 'gzip')
-
-        log.log('\nMetadata:')
-        CHISQ = (dat.Z ** 2)
-        mean_chisq = CHISQ.mean()
-        log.log('Mean chi^2 = ' + str(round(mean_chisq, 3)))
-        if mean_chisq < 1.02:
-            log.log("WARNING: mean chi^2 may be too small.")
-
-        log.log('Lambda GC = ' + str(round(CHISQ.median() / 0.4549, 3)))
-        log.log('Max chi^2 = ' + str(round(CHISQ.max(), 3)))
-        log.log('{N} Genome-wide significant SNPs (some may have been removed by filtering).'.format(N=(CHISQ
-                                                                                                        > 29).sum()))
-        return dat
+        if args.daner_n:
+    	    frq_u = filter(lambda x: x.startswith('FRQ_U_'), file_cnames)[0]
+    	    cname_map[frq_u] = 'FRQ'
+    	    try:
+    	        dan_cas = clean_header(file_cnames[file_cnames.index('Nca')])
+    	    except ValueError:
+    	        raise ValueError('Could not find Nca column expected for daner-n format')
+    	
+    	    try:
+    	        dan_con = clean_header(file_cnames[file_cnames.index('Nco')])
+    	    except ValueError:
+    	        raise ValueError('Could not find Nco column expected for daner-n format')
+    
+    	        cname_map[dan_cas] = 'N_CAS'
+    	    cname_map[dan_con] = 'N_CON'
+    
+    	    cname_translation = {x: cname_map[clean_header(x)] for x in file_cnames if
+                                 clean_header(x) in cname_map}  # note keys not cleaned
+    	    cname_description = {
+                x: describe_cname[cname_translation[x]] for x in cname_translation}
+    	    if args.signed_sumstats is None and not args.a1_inc:
+                sign_cnames = [
+                    x for x in cname_translation if cname_translation[x] in null_values]
+                if len(sign_cnames) > 1:
+                    raise ValueError(
+                        'Too many signed sumstat columns. Specify which to ignore with the --ignore flag.')
+                if len(sign_cnames) == 0:
+                    raise ValueError(
+                        'Could not find a signed summary statistic column.')
+    
+                sign_cname = sign_cnames[0]
+                signed_sumstat_null = null_values[cname_translation[sign_cname]]
+                cname_translation[sign_cname] = 'SIGNED_SUMSTAT'
+    	    else:
+                sign_cname = 'SIGNED_SUMSTATS'
+    
+            # check that we have all the columns we need
+    	    if not args.a1_inc:
+                req_cols = ['SNP', 'P', 'SIGNED_SUMSTAT']
+    	    else:
+                req_cols = ['SNP', 'P']
+    
+    	    for c in req_cols:
+                if c not in cname_translation.values():
+                    raise ValueError('Could not find {C} column.'.format(C=c))
+    
+            # check aren't any duplicated column names in mapping
+        for field in cname_translation:
+    	    numk = file_cnames.count(field)
+    	    if numk > 1:
+                raise ValueError('Found {num} columns named {C}'.format(C=field,num=str(numk)))
+    
+            # check multiple different column names don't map to same data field
+    	    for head in cname_translation.values():
+                numc = cname_translation.values().count(head)
+    	    if numc > 1:
+                    raise ValueError('Found {num} different {C} columns'.format(C=head,num=str(numc)))
+    
+    	    if (not args.N) and (not (args.N_cas and args.N_con)) and ('N' not in cname_translation.values()) and\
+                    (any(x not in cname_translation.values() for x in ['N_CAS', 'N_CON'])):
+                raise ValueError('Could not determine N.')
+    	    if ('N' in cname_translation.values() or all(x in cname_translation.values() for x in ['N_CAS', 'N_CON']))\
+                    and 'NSTUDY' in cname_translation.values():
+                nstudy = [
+                    x for x in cname_translation if cname_translation[x] == 'NSTUDY']
+                for x in nstudy:
+                    del cname_translation[x]
+    	    if not args.no_alleles and not all(x in cname_translation.values() for x in ['A1', 'A2']):
+                raise ValueError('Could not find A1/A2 columns.')
+    
+    	    log.log('Interpreting column names as follows:')
+    	    log.log('\n'.join([x + ':\t' + cname_description[x]
+                               for x in cname_description]) + '\n')
+    
+    	    if args.merge_alleles:
+                log.log(
+                    'Reading list of SNPs for allele merge from {F}'.format(F=args.merge_alleles))
+                (openfunc, compression) = get_compression(args.merge_alleles)
+                merge_alleles = pd.read_csv(args.merge_alleles, compression=compression, header=0,
+                                            delim_whitespace=True, na_values='.')
+                if any(x not in merge_alleles.columns for x in ["SNP", "A1", "A2"]):
+                    raise ValueError(
+                        '--merge-alleles must have columns SNP, A1, A2.')
+    
+                log.log(
+                    'Read {N} SNPs for allele merge.'.format(N=len(merge_alleles)))
+                merge_alleles['MA'] = (
+                    merge_alleles.A1 + merge_alleles.A2).apply(lambda y: y.upper())
+                merge_alleles.drop(
+                    [x for x in merge_alleles.columns if x not in ['SNP', 'MA']], axis=1, inplace=True)
+    	    else:
+                merge_alleles = None
+    
+    	    (openfunc, compression) = get_compression(args.sumstats)
+    
+            # figure out which columns are going to involve sign information, so we can ensure
+            # they're read as floats
+    	    signed_sumstat_cols = [k for k,v in cname_translation.items() if v=='SIGNED_SUMSTAT']
+    	    dat_gen = pd.read_csv(args.sumstats, delim_whitespace=True, header=0,
+                    compression=compression, usecols=cname_translation.keys(),
+                    na_values=['.', 'NA'], iterator=True, chunksize=args.chunksize,
+                    dtype={c:np.float64 for c in signed_sumstat_cols})
+    
+    	    dat = parse_dat(dat_gen, cname_translation, merge_alleles, log, args)
+    	    if len(dat) == 0:
+                raise ValueError('After applying filters, no SNPs remain.')
+    
+    	    old = len(dat)
+    	    dat = dat.drop_duplicates(subset='SNP').reset_index(drop=True)
+    	    new = len(dat)
+    	    log.log('Removed {M} SNPs with duplicated rs numbers ({N} SNPs remain).'.format(
+                M=old - new, N=new))
+            # filtering on N cannot be done chunkwise
+    	    dat = process_n(dat, args, log)
+    	    dat.P = p_to_z(dat.P, dat.N)
+    	    dat.rename(columns={'P': 'Z'}, inplace=True)
+    	    if not args.a1_inc:
+                log.log(
+                    check_median(dat.SIGNED_SUMSTAT, signed_sumstat_null, 0.1, sign_cname))
+                dat.Z *= (-1) ** (dat.SIGNED_SUMSTAT < signed_sumstat_null)
+                dat.drop('SIGNED_SUMSTAT', inplace=True, axis=1)
+            # do this last so we don't have to worry about NA values in the rest of
+            # the program
+    	    if args.merge_alleles:
+                dat = allele_merge(dat, merge_alleles, log)
+    
+    	    out_fname = args.out + '.sumstats'
+    	    print_colnames = [
+                c for c in dat.columns if c in ['SNP', 'N', 'Z', 'A1', 'A2']]
+    	    if args.keep_maf and 'FRQ' in dat.columns:
+                print_colnames.append('FRQ')
+    	    msg = 'Writing summary statistics for {M} SNPs ({N} with nonmissing beta) to {F}.'
+    	    log.log(
+                msg.format(M=len(dat), F=out_fname + '.gz', N=dat.N.notnull().sum()))
+    	    if p:
+                dat.to_csv(out_fname + '.gz', sep="\t", index=False,
+                           columns=print_colnames, float_format='%.3f', compression = 'gzip')
+    
+    	    log.log('\nMetadata:')
+    	    CHISQ = (dat.Z ** 2)
+    	    mean_chisq = CHISQ.mean()
+    	    log.log('Mean chi^2 = ' + str(round(mean_chisq, 3)))
+    	    if mean_chisq < 1.02:
+                log.log("WARNING: mean chi^2 may be too small.")
+    
+    	    log.log('Lambda GC = ' + str(round(CHISQ.median() / 0.4549, 3)))
+    	    log.log('Max chi^2 = ' + str(round(CHISQ.max(), 3)))
+    	    log.log('{N} Genome-wide significant SNPs (some may have been removed by filtering).'.format(N=(CHISQ
+                                                                                                            > 29).sum()))
+    	    return dat
 
     except Exception:
         log.log('\nERROR converting summary statistics:\n')
