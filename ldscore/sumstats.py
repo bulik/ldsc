@@ -287,7 +287,7 @@ def cell_type_specific(args, log):
 
     s = lambda x: np.array(x).reshape((n_snp, 1))
     #results_columns = ['Name', 'Coefficient', 'Coefficient_std_error', 'Coefficient_P_value']
-    results_columns = ['Name', 'Coefficient', 'Coefficient_std_error', 'Coefficient_P_value',
+    results_columns = ['Name', 'Coefficient', 'Coefficient_std_error', 'Coefficient_P_value','Coefficient_z-score',
                        'Total_Heritability','TH_SE',
                        'Cell_Type_Heritability','Prop_h2','Enrichment',
                        'Prop._SNPs',"M","M_tot",'M_base','SNP_remain']
@@ -319,7 +319,7 @@ def cell_type_specific(args, log):
         M_total = np.sum(M_annot) # Total M
         M = M_cts[0][0]
         M_base = M_annot_all_regr[0][0]
-        results_data.append((name, coef, coef_se, stats.norm.sf(coef/coef_se),
+        results_data.append((name, coef, coef_se, stats.norm.sf(coef/coef_se),coef/coef_se,
                              tot, tot_se, 
                              cat, prop_h2, enrichment,
                              M_prop, M, M_total, M_base, len(keep_snps)))
@@ -348,7 +348,8 @@ def estimate_h2(args, log):
         args.intercept_h2 = 1
     M_annot, w_ld_cname, ref_ld_cnames, sumstats, novar_cols = _read_ld_sumstats(
         args, log, args.h2)
-    log.log('M_annot: {M}'.format(M_annot))
+    log.log('M_annot: {M}'.format(M=M_annot))
+
     #print("ref_ld_cnames", ref_ld_cnames)
     ref_ld = np.array(sumstats[ref_ld_cnames])
     _check_ld_condnum(args, log, ref_ld_cnames)
