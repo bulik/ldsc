@@ -19,7 +19,9 @@ cd ldsc
 In order to install the Python dependencies, you will need the [Anaconda](https://store.continuum.io/cshop/anaconda/) Python distribution and package manager. After installing Anaconda, run the following commands to create an environment with LDSC's dependencies:
 
 ```
-conda env create --file environment.yml
+conda create -n ldsc python=2.7
+python -m ensurepip
+conda env update --file environment.yml --name ldsc --prune
 source activate ldsc
 ```
 
