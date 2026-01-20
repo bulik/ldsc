@@ -332,13 +332,15 @@ def ldscore(args, log):
         elif args.print_snps.endswith('bz2'):
             print_snps = pd.read_csv(args.print_snps, header=None, compression='bz2')
         else:
-            print_snps = pd.read_csv(args.print_snps, header=None)
+            #print_snps = pd.read_csv(args.print_snps, header=None)
+            print_snps = pd.read_csv(args.print_snps, sep='\t')
+            print_snps = print_snps[['SNP']]
         if len(print_snps.columns) > 1:
             raise ValueError('--print-snps must refer to a file with a one column of SNP IDs.')
         log.log('Reading list of {N} SNPs for which to print LD Scores from {F}'.format(\
                         F=args.print_snps, N=len(print_snps)))
 
-        print_snps.columns=['SNP']
+        # print_snps.columns=['SNP']
         df = df.ix[df.SNP.isin(print_snps.SNP),:]
         if len(df) == 0:
             raise ValueError('After merging with --print-snps, no SNPs remain.')

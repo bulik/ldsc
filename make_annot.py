@@ -25,6 +25,13 @@ def make_annot_files(args, bed_for_annot):
     annotbed = bimbed.intersect(bed_for_annot)
     bp = [x.start + 1 for x in annotbed]
     df_int = pd.DataFrame({'BP': bp, 'ANNOT':1})
+    
+    print('Rows in df_int BEFORE dropping duplicates:', df_int.shape[0])
+    df_int = df_int.drop_duplicates(subset='BP')
+    print('Rows in df_int AFTER  dropping duplicates:', df_int.shape[0])
+    #dupes = df_bim[df_bim.duplicated('BP')]
+    #print('Duplicate BP in df_bim:', dupes.shape[0])
+    
     df_annot = pd.merge(df_bim, df_int, how='left', on='BP')
     df_annot.fillna(0, inplace=True)
     df_annot = df_annot[['ANNOT']].astype(int)

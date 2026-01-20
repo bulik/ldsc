@@ -242,6 +242,7 @@ def _read_ld_sumstats(args, log, fh, alleles=False, dropna=True):
     sumstats = _read_sumstats(args, log, fh, alleles=alleles, dropna=dropna)
     ref_ld = _read_ref_ld(args, log)
     n_annot = len(ref_ld.columns) - 1
+    #print("ref_ld.columns", ref_ld.columns)
     M_annot = _read_M(args, log, n_annot)
     M_annot, ref_ld, novar_cols = _check_variance(log, M_annot, ref_ld)
     w_ld = _read_w_ld(args, log)
@@ -249,6 +250,7 @@ def _read_ld_sumstats(args, log, fh, alleles=False, dropna=True):
     sumstats = _merge_and_log(sumstats, w_ld, 'regression SNP LD', log)
     w_ld_cname = sumstats.columns[-1]
     ref_ld_cnames = ref_ld.columns[1:len(ref_ld.columns)]
+    print("ref_ld_cnames", ref_ld_cnames)
     return M_annot, w_ld_cname, ref_ld_cnames, sumstats, novar_cols
 
 def cell_type_specific(args, log):
@@ -279,9 +281,16 @@ def cell_type_specific(args, log):
     ref_ld_all_regr = np.array(sumstats[ref_ld_cnames_all_regr]).reshape((len(sumstats),-1))
     chisq = np.array(sumstats.Z**2)
     keep_snps = sumstats[['SNP']]
+    print("SNPs remain",len(keep_snps))
+    log.log('Total SNPs remaining after filtering: {N_final}'.format(
+        N_final=len(keep_snps)))
 
     s = lambda x: np.array(x).reshape((n_snp, 1))
-    results_columns = ['Name', 'Coefficient', 'Coefficient_std_error', 'Coefficient_P_value']
+    #results_columns = ['Name', 'Coefficient', 'Coefficient_std_error', 'Coefficient_P_value']
+    results_columns = ['Name', 'Coefficient', 'Coefficient_std_error', 'Coefficient_P_value','Coefficient_z-score',
+                       'Total_Heritability','TH_SE',
+                       'Cell_Type_Heritability','Prop_h2','Enrichment',
+                       'Prop._SNPs',"M","M_tot",'M_base','SNP_remain']
     results_data = []
     for (name, ct_ld_chr) in [x.split() for x in open(args.ref_ld_chr_cts).readlines()]:
         ref_ld_cts_allsnps = _read_chr_split_files(ct_ld_chr, None, log,
@@ -299,7 +308,22 @@ def cell_type_specific(args, log):
                      M_annot, n_blocks=n_blocks, intercept=args.intercept_h2,
                      twostep=None, old_weights=True)
         coef, coef_se = hsqhat.coef[0], hsqhat.coef_se[0]
-        results_data.append((name, coef, coef_se, stats.norm.sf(coef/coef_se)))
+        # extract more output information from class Hsq
+        tot = hsqhat.tot # Total Heritability
+        tot_se = hsqhat.tot_se
+        cat = hsqhat.cat.flatten()[0]
+        prop_h2 = hsqhat.prop.flatten()[0]
+        M_prop = hsqhat.M_prop.flatten()[0]
+        enrichment = hsqhat.enrichment.flatten()[0]
+        #enrichment_se = hsqhat.enrichment.flatten()[0]
+        M_total = np.sum(M_annot) # Total M
+        M = M_cts[0][0]
+        M_base = M_annot_all_regr[0][0]
+        results_data.append((name, coef, coef_se, stats.norm.sf(coef/coef_se),coef/coef_se,
+                             tot, tot_se, 
+                             cat, prop_h2, enrichment,
+                             M_prop, M, M_total, M_base, len(keep_snps)))
+        #results_data.append((name, coef, coef_se, stats.norm.sf(coef/coef_se)))
         if args.print_all_cts:
             for i in range(1, len(ct_ld_chr.split(','))):
                 coef, coef_se = hsqhat.coef[i], hsqhat.coef_se[i]
@@ -324,6 +348,9 @@ def estimate_h2(args, log):
         args.intercept_h2 = 1
     M_annot, w_ld_cname, ref_ld_cnames, sumstats, novar_cols = _read_ld_sumstats(
         args, log, args.h2)
+    log.log('M_annot: {M}'.format(M=M_annot))
+
+    #print("ref_ld_cnames", ref_ld_cnames)
     ref_ld = np.array(sumstats[ref_ld_cnames])
     _check_ld_condnum(args, log, ref_ld_cnames)
     _warn_length(log, sumstats)

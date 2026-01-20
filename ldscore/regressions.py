@@ -418,6 +418,8 @@ class Hsq(LD_Score_Regression):
         diff_se = np.sqrt(np.diag(diff_cov))
         diff_p = ['NA' if diff_se[i]==0 else 2*tdist.sf(abs(diff_est[i]/diff_se[i]),self.n_blocks) \
             for i in range(self.n_annot)]
+        z_score = one_d_convert(self.coef) / one_d_convert(self.coef_se)
+        p_value = norm.sf(np.abs(z_score))
 
         df = pd.DataFrame({
             'Category': category_names,
@@ -429,12 +431,14 @@ class Hsq(LD_Score_Regression):
             'Enrichment_p':diff_p,
             'Coefficient': one_d_convert(self.coef),
             'Coefficient_std_error': self.coef_se,
-            'Coefficient_z-score': one_d_convert(self.coef) / one_d_convert(self.coef_se)
+            'Coefficient_z-score': z_score,
+            'Coefficient_P_value': p_value 
+
         })
         if print_coefficients:
             df = df[['Category', 'Prop._SNPs', 'Prop._h2', 'Prop._h2_std_error',
                     'Enrichment','Enrichment_std_error', 'Enrichment_p',
-                     'Coefficient', 'Coefficient_std_error','Coefficient_z-score']]
+                     'Coefficient', 'Coefficient_std_error','Coefficient_z-score', 'Coefficient_P_value']]
         else:
             df = df[['Category', 'Prop._SNPs', 'Prop._h2', 'Prop._h2_std_error',
                     'Enrichment','Enrichment_std_error', 'Enrichment_p']]
