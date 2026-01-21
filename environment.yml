@@ -9,5 +9,6 @@ dependencies:
 - pip
 - pip:
   - scipy==0.18
-  - pandas==0.20
+  - pandas==0.23.4
   - numpy==1.16
+- pysam

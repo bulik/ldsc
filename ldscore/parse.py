@@ -10,6 +10,8 @@ import numpy as np
 import pandas as pd
 import os
 import glob
+from pysam import VariantFile
+import gzip
 
 
 def series_eq(x, y):
@@ -51,13 +53,18 @@ def which_compression(fh):
         compression = None
     else:
         raise IOError('Could not open {F}[./gz/bz2]'.format(F=fh))
-
     return suffix, compression
 
 
 def get_compression(fh):
     '''Which sort of compression should we use with read_csv?'''
-    if fh.endswith('gz'):
+    if fh.endswith('vcf'):
+        compression = 'bcf'
+    elif fh.endswith('vcf.gz'):
+        compression = 'bcf'
+    elif fh.endswith('bcf'):
+        compression = 'bcf'
+    elif fh.endswith('gz'):
         compression = 'gzip'
     elif fh.endswith('bz2'):
         compression = 'bz2'
@@ -77,7 +84,7 @@ def read_cts(fh, match_snps):
     return cts.ANNOT.values
 
 
-def sumstats(fh, alleles=False, dropna=True):
+def sumstats(fh, alleles=False, dropna=True, slh=None):
     '''Parses .sumstats files. See docs/file_formats_sumstats.txt.'''
     dtype_dict = {'SNP': str,   'Z': float, 'N': float, 'A1': str, 'A2': str}
     compression = get_compression(fh)
@@ -85,15 +92,101 @@ def sumstats(fh, alleles=False, dropna=True):
     if alleles:
         usecols += ['A1', 'A2']
 
-    try:
-        x = read_csv(fh, usecols=usecols, dtype=dtype_dict, compression=compression)
-    except (AttributeError, ValueError) as e:
-        raise ValueError('Improperly formatted sumstats file: ' + str(e.args))
+    if compression == 'bcf':
+        try:
+            x = read_vcf(fh, alleles, slh)
+        except (AttributeError, ValueError) as e:
+            raise ValueError('Improperly formatted bcf/vcf file: ' + str(e.args))
+    else:
+        try:
+            x = read_csv(fh, usecols=usecols, dtype=dtype_dict, compression=compression)
+        except (AttributeError, ValueError) as e:
+            raise ValueError('Improperly formatted sumstats file: ' + str(e.args))
 
     if dropna:
         x = x.dropna(how='any')
 
     return x
+
+
+
+def read_vcf(fh, alleles, slh=None):
+    vcf_in = VariantFile(fh)
+    sample = list(vcf_in.header.samples)[0]
+    availcols = next(vcf_in.fetch()).format.keys()
+    vcf_in.seek(0)
+
+    # Check if sample size info is in header
+    global_fields = [x for x in vcf_in.header.records if x.key == "SAMPLE"][0]
+    if alleles:
+        dtype_dict = {'SNP': str,   'Z': float, 'N': float, 'A1': str, 'A2': str}
+        usecols = list(dtype_dict.keys())
+
+        # Read in data
+        if 'SS' in availcols:
+            o = [[rec.id, rec.samples[sample]['ES'][0]/rec.samples[sample]['SE'][0], rec.samples[sample]['SS'][0], rec.alts[0], rec.ref] for rec in vcf_in.fetch()]
+            N = pd.Series([x[2] for x in o], dtype='float')
+        else:
+            o = [[rec.id, rec.samples[sample]['ES'][0]/rec.samples[sample]['SE'][0], rec.alts[0], rec.ref] for rec in vcf_in.fetch()]
+            if 'TotalControls' in global_fields.keys() and 'TotalCases' in global_fields.keys():
+                N = pd.Series([float(global_fields['TotalControls']) + float(global_fields['TotalCases'])] * len(o), dtype='float')
+            elif 'TotalControls' in global_fields.keys():
+                N = pd.Series([float(global_fields['TotalControls'])] * len(o), dtype='float')
+            else:
+                N = pd.Series([np.NaN] * len(o), dtype='float')
+
+        p = pd.DataFrame(
+            {'SNP': pd.Series([x[0] for x in o], dtype='str'),
+            'Z': pd.Series([x[1] for x in o], dtype='float'),
+            'N': N,
+            'A1': pd.Series([x[2 + int('SS' in availcols)] for x in o], dtype='str'),
+            'A2': pd.Series([x[3 + int('SS' in availcols)] for x in o], dtype='str')}
+        )
+    else:
+        dtype_dict = {'SNP': str,   'Z': float, 'N': float}
+        usecols = list(dtype_dict.keys())
+        if 'SS' in availcols:
+            o = [[rec.id, rec.samples[sample]['ES'][0]/rec.samples[sample]['SE'][0], rec.samples[sample]['SS'][0]] for rec in vcf_in.fetch()]
+            N = pd.Series([x[2] for x in o], dtype='float')
+        else:
+            o = [[rec.id, rec.samples[sample]['ES'][0]/rec.samples[sample]['SE'][0]] for rec in vcf_in.fetch()]
+            if 'TotalControls' in global_fields.keys() and 'TotalCases' in global_fields.keys():
+                N = pd.Series([float(global_fields['TotalControls']) + float(global_fields['TotalCases'])] * len(o), dtype='float')
+            elif 'TotalControls' in global_fields.keys():
+                N = pd.Series([float(global_fields['TotalControls'])] * len(o), dtype='float')
+            else:
+                N = pd.Series([np.NaN] * len(o), dtype='float')
+
+        p = pd.DataFrame(
+            {'SNP': pd.Series([x[0] for x in o], dtype='str'),
+            'Z': pd.Series([x[1] for x in o], dtype='float'),
+            'N': N}
+        )
+
+    vcf_in.close()
+
+    if slh is not None:
+        compression = get_compression(slh)
+        sl = []
+        if compression == "gzip":
+            try:
+                with gzip.open(slh) as f:
+                    for line in f:
+                        sl.append(line.strip())
+            except (AttributeError, ValueError) as e:
+                raise ValueError('Improperly formatted snplist file: ' + str(e.args))
+        else:
+            try:
+                with open(slh) as f:
+                    for line in f:
+                        sl.append(line.strip())
+            except (AttributeError, ValueError) as e:
+                raise ValueError('Improperly formatted snplist file: ' + str(e.args))
+        f.close()
+        p = p.loc[p['SNP'].isin(sl)]
+
+    return(p)
+
 
 
 def ldscore_fromlist(flist, num=None):
