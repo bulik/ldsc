@@ -137,7 +137,7 @@ def get_cname_map(flag, default, ignore):
     (2) use everything in flags that is not in ignore
     (3) use everything in default that is not in ignore or in flags
 
-    The keys of flag are cleaned. The entries of ignore are not cleaned. The keys of defualt
+    The keys of flag are cleaned. The entries of ignore are not cleaned. The keys of default
     are cleaned. But all equality is modulo clean_header().
 
     '''
