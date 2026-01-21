@@ -8,7 +8,7 @@ LDSC is a command line tool for estimating
     3. genetic covariance / correlation
 
 '''
-from __future__ import division
+
 import ldscore.ldscore as ld
 import ldscore.parse as ps
 import ldscore.sumstats as sumstats
@@ -18,6 +18,7 @@ import pandas as pd
 from subprocess import call
 from itertools import product
 import time, sys, traceback, argparse
+from functools import reduce
 
 
 try:
@@ -26,7 +27,7 @@ try:
 except AttributeError:
     raise ImportError('LDSC requires pandas version >= 0.17.0')
 
-__version__ = '1.0.1'
+__version__ = '2.0.0'
 MASTHEAD = "*********************************************************************\n"
 MASTHEAD += "* LD Score Regression (LDSC)\n"
 MASTHEAD += "* Version {V}\n".format(V=__version__)
@@ -37,7 +38,7 @@ MASTHEAD += "*******************************************************************
 pd.set_option('display.max_rows', 500)
 pd.set_option('display.max_columns', 500)
 pd.set_option('display.width', 1000)
-pd.set_option('precision', 4)
+pd.set_option('display.precision', 4)
 pd.set_option('max_colwidth',1000)
 np.set_printoptions(linewidth=1000)
 np.set_printoptions(precision=4)
@@ -73,15 +74,15 @@ class Logger(object):
 
     '''
     def __init__(self, fh):
-        self.log_fh = open(fh, 'wb')
+        self.log_fh = open(fh, 'w')
 
     def log(self, msg):
         '''
         Print to log file and stdout with a single command.
 
         '''
-        print >>self.log_fh, msg
-        print msg
+        print(msg, file=self.log_fh)
+        print(msg)
 
 
 def __filter__(fname, noun, verb, merge_obj):
@@ -90,12 +91,12 @@ def __filter__(fname, noun, verb, merge_obj):
         f = lambda x,n: x.format(noun=noun, verb=verb, fname=fname, num=n)
         x = ps.FilterFile(fname)
         c = 'Read list of {num} {noun} to {verb} from {fname}'
-        print f(c, len(x.IDList))
+        print(f(c, len(x.IDList)))
         merged_list = merge_obj.loj(x.IDList)
         len_merged_list = len(merged_list)
         if len_merged_list > 0:
             c = 'After merging, {num} {noun} remain'
-            print f(c, len_merged_list)
+            print(f(c, len_merged_list))
         else:
             error_msg = 'No {noun} retained for analysis'
             raise ValueError(f(error_msg, 0))
@@ -106,7 +107,7 @@ def annot_sort_key(s):
     '''For use with --cts-bin. Fixes weird pandas crosstab column order.'''
     if type(s) == tuple:
         s = [x.split('_')[0] for x in s]
-        s = map(lambda x: float(x) if x != 'min' else -float('inf'), s)
+        s = [float(x) if x != 'min' else -float('inf') for x in s]
     else:  # type(s) = str:
         s = s.split('_')[0]
         if s == 'min':
@@ -184,7 +185,7 @@ def ldscore(args, log):
                 raise ValueError(msg)
 
         else:
-            cts_colnames = ['ANNOT'+str(i) for i in xrange(len(cts_fnames))]
+            cts_colnames = ['ANNOT'+str(i) for i in range(len(cts_fnames))]
 
         log.log('Reading numbers with which to bin SNPs from {F}'.format(F=args.cts_bin))
 
@@ -215,7 +216,7 @@ def ldscore(args, log):
             name_breaks[0] = 'min'
             name_breaks[-1] = 'max'
             name_breaks = [str(x) for x in name_breaks]
-            labs = [name_breaks[i]+'_'+name_breaks[i+1] for i in xrange(n_breaks-1)]
+            labs = [name_breaks[i]+'_'+name_breaks[i+1] for i in range(n_breaks-1)]
             cut_vec = pd.Series(pd.cut(vec, bins=cut_breaks, labels=labs))
             cts_levs.append(cut_vec)
             full_labs.append(labs)
@@ -283,7 +284,7 @@ def ldscore(args, log):
 
     if args.ld_wind_snps:
         max_dist = args.ld_wind_snps
-        coords = np.array(xrange(geno_array.m))
+        coords = np.array(range(geno_array.m))
     elif args.ld_wind_kb:
         max_dist = args.ld_wind_kb*1000
         coords = np.array(array_snps.df['BP'])[geno_array.kept_snps]
@@ -339,7 +340,7 @@ def ldscore(args, log):
                         F=args.print_snps, N=len(print_snps)))
 
         print_snps.columns=['SNP']
-        df = df.ix[df.SNP.isin(print_snps.SNP),:]
+        df = df.iloc[df.SNP.isin(print_snps.SNP),:]
         if len(df) == 0:
             raise ValueError('After merging with --print-snps, no SNPs remain.')
         else:
@@ -361,12 +362,12 @@ def ldscore(args, log):
 
     # print .M
     fout_M = open(args.out + '.'+ file_suffix +'.M','wb')
-    print >>fout_M, '\t'.join(map(str,M))
+    print('\t'.join(map(str,M)), file=fout_M)
     fout_M.close()
 
     # print .M_5_50
     fout_M_5_50 = open(args.out + '.'+ file_suffix +'.M_5_50','wb')
-    print >>fout_M_5_50, '\t'.join(map(str,M_5_50))
+    print('\t'.join(map(str,M_5_50)), file=fout_M_5_50)
     fout_M_5_50.close()
 
     # print annot matrix
@@ -383,19 +384,19 @@ def ldscore(args, log):
     # print LD Score summary
     pd.set_option('display.max_rows', 200)
     log.log('\nSummary of LD Scores in {F}'.format(F=out_fname+l2_suffix))
-    t = df.ix[:,4:].describe()
-    log.log( t.ix[1:,:] )
+    t = df.iloc[:,4:].describe()
+    log.log( t.iloc[1:,:] )
 
     np.seterr(divide='ignore', invalid='ignore')  # print NaN instead of weird errors
     # print correlation matrix including all LD Scores and sample MAF
     log.log('')
     log.log('MAF/LD Score Correlation Matrix')
-    log.log( df.ix[:,4:].corr() )
+    log.log( df.iloc[:,4:].corr() )
 
     # print condition number
     if n_annot > 1: # condition number of a column vector w/ nonzero var is trivially one
         log.log('\nLD Score Matrix Condition Number')
-        cond_num = np.linalg.cond(df.ix[:,5:])
+        cond_num = np.linalg.cond(df.iloc[:,5:])
         log.log( reg.remove_brackets(str(np.matrix(cond_num))) )
         if cond_num > 10000:
             log.log('WARNING: ill-conditioned LD Score Matrix!')
@@ -588,7 +589,7 @@ if __name__ == '__main__':
     try:
         defaults = vars(parser.parse_args(''))
         opts = vars(args)
-        non_defaults = [x for x in opts.keys() if opts[x] != defaults[x]]
+        non_defaults = [x for x in list(opts.keys()) if opts[x] != defaults[x]]
         header = MASTHEAD
         header += "Call: \n"
         header += './ldsc.py \\\n'
@@ -647,9 +648,9 @@ if __name__ == '__main__':
 
             # bad flags
         else:
-            print header
-            print 'Error: no analysis selected.'
-            print 'ldsc.py -h describes options.'
+            print(header)
+            print('Error: no analysis selected.')
+            print('ldsc.py -h describes options.')
     except Exception:
         ex_type, ex, tb = sys.exc_info()
         log.log( traceback.format_exc(ex) )

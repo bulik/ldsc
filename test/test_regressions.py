@@ -1,4 +1,4 @@
-from __future__ import division
+
 import ldscore.regressions as reg
 import unittest
 import numpy as np
@@ -14,7 +14,7 @@ def test_update_separators():
     ii3 = [False, True, False, True, True, False, False]
     ii4 = [False, True, False, True, True, False, True]
     ii5 = [True, True, True, True, True, True, True]
-    iis = map(np.array, [ii1, ii2, ii3, ii4, ii5])
+    iis = list(map(np.array, [ii1, ii2, ii3, ii4, ii5]))
     ids = np.arange(len(ii1))
     for ii in iis:
         s = np.arange(np.sum(ii) + 1)
@@ -144,8 +144,8 @@ class Test_Coef(unittest.TestCase):
         self.hsq_noint = reg.Hsq(
             chisq, ld, w_ld, N, self.M, n_blocks=3, intercept=1)
         self.hsq_int = reg.Hsq(chisq, ld, w_ld, N, self.M, n_blocks=3)
-        print self.hsq_noint.summary()
-        print self.hsq_int.summary()
+        print(self.hsq_noint.summary())
+        print(self.hsq_int.summary())
 
     def test_coef(self):
         a = [self.hsq1 / self.M[0, 0], self.hsq2 / self.M[0, 1]]
@@ -194,7 +194,7 @@ class Test_Hsq_2D(unittest.TestCase):
     def test_summary(self):
         # not much to test; we can at least make sure no errors at runtime
         self.hsq.summary(['asdf', 'qwer'])
-	# change to random 7/30/2019 to avoid inconsistent singular matrix errors
+        # change to random 7/30/2019 to avoid inconsistent singular matrix errors
         self.ld += np.random.normal(scale=0.1, size=(17,2))
         self.chisq += np.arange(17).reshape((17, 1))
         hsq = reg.Hsq(
@@ -289,9 +289,9 @@ class Test_Gencov_2D(unittest.TestCase):
                             self.M, 0, 0, 0, 0, n_blocks=3, intercept_gencov=1)
         hsq = reg.Hsq(np.square(self.z1), self.ld, self.w_ld,
                       self.N1, self.M, n_blocks=3, intercept=1)
-        print gencov.summary(['asdf', 'asdf'])
-        print
-        print hsq.summary(['asdf', 'asdf'])
+        print(gencov.summary(['asdf', 'asdf']))
+        print()
+        print(hsq.summary(['asdf', 'asdf']))
         assert_array_almost_equal(gencov.tot, hsq.tot)
         assert_array_almost_equal(gencov.tot_se, hsq.tot_se)
         assert_array_almost_equal(gencov.tot_cov, hsq.tot_cov)
@@ -313,8 +313,8 @@ class Test_RG_2D(unittest.TestCase):
 
     def test_summary(self):
         # just make sure it doesn't encounter any errors at runtime
-        print self.rg.summary()
-        print self.rg.summary(silly=True)
+        print(self.rg.summary())
+        print(self.rg.summary(silly=True))
 
     def test_rg(self):
         # won't be exactly 1 because the h2 values passed to Gencov aren't 0
@@ -333,8 +333,8 @@ class Test_RG_Bad(unittest.TestCase):
                     M, 1.0, 1.0, 0, n_blocks=20)
         assert rg._negative_hsq
         # check no runtime errors when _negative_hsq is True
-        print rg.summary()
-        print rg.summary(silly=True)
+        print(rg.summary())
+        print(rg.summary(silly=True))
         assert rg.rg_ratio == 'NA'
         assert rg.rg_se == 'NA'
         assert rg.rg == 'NA'

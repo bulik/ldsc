@@ -1,4 +1,4 @@
-from __future__ import division
+
 from ldscore.irwls import IRWLS
 import unittest
 import numpy as np
@@ -15,7 +15,7 @@ class Test_IRWLS_2D(unittest.TestCase):
         self.w = np.abs(np.random.normal(size=4).reshape((4, 1)))
         self.w = self.w / np.sum(self.w)
         self.update_func = lambda x: np.ones((4, 1))
-        print 'w=\n', self.w
+        print('w=\n', self.w)
 
     def test_weight_2d(self):
         x = np.ones((4, 2))
@@ -45,7 +45,7 @@ class Test_IRWLS_1D(unittest.TestCase):
         self.w = np.abs(np.random.normal(size=4).reshape((4, 1)))
         self.w = self.w / np.sum(self.w)
         self.update_func = lambda x: np.ones((4, 1))
-        print 'w=\n', self.w
+        print('w=\n', self.w)
 
     def test_weight_1d(self):
         assert_array_almost_equal(IRWLS._weight(self.x, self.w), self.w)

@@ -84,3 +84,6 @@ docs/_build/
 # sublime text
 *.idea*
 *sublime*
+
+# vscode
+.vscode/

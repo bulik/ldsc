@@ -1,4 +1,4 @@
-from __future__ import division
+
 import numpy as np
 import bitarray as ba
 
@@ -24,7 +24,7 @@ def getBlockLefts(coords, max_dist):
     M = len(coords)
     j = 0
     block_left = np.zeros(M)
-    for i in xrange(M):
+    for i in range(M):
         while j < M and abs(coords[j] - coords[i]) > max_dist:
             j += 1
 
@@ -51,7 +51,7 @@ def block_left_to_right(block_left):
     M = len(block_left)
     j = 0
     block_right = np.zeros(M)
-    for i in xrange(M):
+    for i in range(M):
         while j < M and block_left[j] <= i:
             j += 1
 
@@ -85,7 +85,7 @@ class __GenotypeArrayInMemory__(object):
                 self.n)
 
             if self.n > 0:
-                print 'After filtering, {n} individuals remain'.format(n=self.n)
+                print('After filtering, {n} individuals remain'.format(n=self.n))
             else:
                 raise ValueError('After filtering, no individuals remain')
 
@@ -99,7 +99,7 @@ class __GenotypeArrayInMemory__(object):
             self.geno, self.m, self.n, self.mafMin, keep_snps)
 
         if self.m > 0:
-            print 'After filtering, {m} SNPs remain'.format(m=self.m)
+            print('After filtering, {m} SNPs remain'.format(m=self.m))
         else:
             raise ValueError('After filtering, no SNPs remain')
 
@@ -190,7 +190,7 @@ class __GenotypeArrayInMemory__(object):
         rfuncAB = np.zeros((b, c))
         rfuncBB = np.zeros((c, c))
         # chunk inside of block
-        for l_B in xrange(0, b, c):  # l_B := index of leftmost SNP in matrix B
+        for l_B in range(0, b, c):  # l_B := index of leftmost SNP in matrix B
             B = A[:, l_B:l_B+c]
             np.dot(A.T, B / n, out=rfuncAB)
             rfuncAB = func(rfuncAB)
@@ -199,7 +199,7 @@ class __GenotypeArrayInMemory__(object):
         b0 = b
         md = int(c*np.floor(m/c))
         end = md + 1 if md != m else md
-        for l_B in xrange(b0, end, c):
+        for l_B in range(b0, end, c):
             # check if the annot matrix is all zeros for this block + chunk
             # this happens w/ sparse categories (i.e., pathways)
             # update the block
@@ -294,7 +294,7 @@ class PlinkBEDFile(__GenotypeArrayInMemory__):
         nru_new = n_new + e
         nru = self.nru
         z = ba.bitarray(m*2*nru_new, endian="little")
-	z.setall(0)
+        z.setall(0)
         for e, i in enumerate(keep_indivs):
             z[2*e::2*nru_new] = geno[2*i::2*nru]
             z[2*e+1::2*nru_new] = geno[2*i+1::2*nru]
@@ -335,7 +335,7 @@ class PlinkBEDFile(__GenotypeArrayInMemory__):
         m_poly = 0
         y = ba.bitarray()
         if keep_snps is None:
-            keep_snps = xrange(m)
+            keep_snps = range(m)
         kept_snps = []
         freq = []
         for e, j in enumerate(keep_snps):
@@ -397,7 +397,7 @@ class PlinkBEDFile(__GenotypeArrayInMemory__):
         X = np.array(slice.decode(self._bedcode), dtype="float64").reshape((b, nru)).T
         X = X[0:n, :]
         Y = np.zeros(X.shape)
-        for j in xrange(0, b):
+        for j in range(0, b):
             newsnp = X[:, j]
             ii = newsnp != 9
             avg = np.mean(newsnp[ii])

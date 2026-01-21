@@ -2,7 +2,7 @@
 
 ### A more recent implementation of LD score regression in python 3 can be found at https://github.com/CBIIT/ldsc. See also the accompanying [web browser](https://ldlink.nih.gov/ldscore) and [preprint](https://doi.org/10.64898/2025.12.19.695639).
 
-# LDSC (LD SCore) `v1.0.1`
+# LDSC (LD SCore) `v2.0.1`
 
 `ldsc` is a command line tool for estimating heritability and genetic correlation from GWAS summary statistics. `ldsc` also computes LD Scores.
 
