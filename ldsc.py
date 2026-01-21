@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python2
 '''
 (c) 2014 Brendan Bulik-Sullivan and Hilary Finucane
 
